@@ -1,0 +1,55 @@
+# Code assembly templates
+code_block:
+  language: "cs"
+  include_license: true
+  license_template: |
+    // Create an instance of the Metered class
+    Metered metered = new Metered();
+    
+    // Set the metered key
+    string publicKey = "YourPublicKey";
+    string privateKey = "YourPrivateKey";
+    metered.SetMeteredKey(publicKey, privateKey);
+
+# Segment labeling rules
+segment_labels:
+  patterns:
+    - regex: '\busing\s+\w+'
+      label: "Segment {n}: Imports and Setup"
+    - regex: '\bnamespace\s+\w+'
+      label: "Segment {n}: Namespace Declaration"
+    - regex: '\bclass\s+\w+'
+      label: "Segment {n}: Class Definition"
+    - regex: '\bpublic\s+static\s+void\s+Main'
+      label: "Segment {n}: Main Method"
+    - regex: '\bvoid\s+\w+\s*\('
+      label: "Segment {n}: Method Implementation"
+  
+  default_label: "Segment {n}: Code Block"
+
+# Gist README template
+gist_readme:
+  template: |
+    # {topic_title}
+    
+    {topic_description}
+    
+    ## Overview
+    
+    This code demonstrates {topic_summary}.
+    
+    ## Usage
+    
+    {usage_instructions}
+    
+    ## License
+    
+    {license_info}
+    
+    ## Related Resources
+    
+    {related_links}
+  
+  sections:
+    usage_instructions: "auto_generate"
+    related_links: "from_metadata"

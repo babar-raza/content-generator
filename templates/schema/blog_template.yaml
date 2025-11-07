@@ -1,0 +1,42 @@
+template_name: "blog"
+
+required_sections:
+  - name: "frontmatter"
+    agent: "add_frontmatter"
+    required: true
+  
+  - name: "introduction"
+    agent: "write_introduction"
+    required: true
+    min_words: 50
+  
+  - name: "body_sections"
+    agent: "write_sections"
+    required: true
+    min_words: 400
+  
+  - name: "conclusion"
+    agent: "write_conclusion"
+    required: true
+    min_words: 50
+  
+  - name: "seo_metadata"
+    agent: "generate_seo"
+    required: true
+  
+  - name: "keywords"
+    agent: "inject_keywords"
+    required: true
+  
+  - name: "code_examples"
+    agent: "generate_code"
+    required: false
+  
+  - name: "supplementary_content"
+    agent: "generate_supplementary"
+    required: false
+
+validation_rules:
+  min_word_count: 800
+  max_word_count: 5000
+  require_headings: true

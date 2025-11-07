@@ -1,0 +1,206 @@
+# KB Templates for Template Registry
+
+id: "kb_templates"
+type: "markdown"
+version: "1.0"
+schema:
+  format: "yaml"
+  template_list: true
+
+templates:
+  - id: "kb_howto"
+    name: kb_howto
+    type: "markdown"
+    version: "1.0"
+    category: kb
+    schema:
+      required_placeholders:
+        - title
+        - description
+        - problem
+        - solution
+        - prerequisites
+        - steps
+        - conclusion
+      optional_placeholders:
+        - keywords
+        - date
+        - use_cases
+        - challenges
+        - best_practices
+        - advanced_scenarios
+        - performance_tips
+      required_sections:
+        - "## Real-World Problem"
+        - "## Solution Overview"
+        - "## Prerequisites"
+        - "## Step-by-Step Implementation"
+        - "## Conclusion"
+    metadata:
+      category: kb
+      description: Knowledge base how-to article template
+      version: "1.0"
+    template: |
+      ---
+      title: "{{title}}"
+      description: "{{description}}"
+      date: {{date}}
+      weight: 20
+      draft: false
+      type: "topic"
+      keywords: {{keywords}}
+      {{steps_metadata}}
+      {{usecases_metadata}}
+      codesamples: true
+      ---
+      
+      {{introduction}}
+      
+      ## Real-World Problem
+      
+      {{problem}}
+      
+      ## Solution Overview
+      
+      {{solution}}
+      
+      ---
+      
+      ## Prerequisites
+      
+      {{prerequisites}}
+      
+      ---
+      
+      ## Step-by-Step Implementation
+      
+      {{steps}}
+      
+      ---
+      
+      ## Use Cases and Applications
+      
+      {{use_cases}}
+      
+      ---
+      
+      ## Common Challenges and Solutions
+      
+      {{challenges}}
+      
+      ---
+      
+      ## Performance Considerations
+      
+      {{performance_tips}}
+      
+      ---
+      
+      ## Best Practices
+      
+      {{best_practices}}
+      
+      ---
+      
+      ## Advanced Scenarios
+      
+      {{advanced_scenarios}}
+      
+      ---
+      
+      ## Conclusion
+      
+      {{conclusion}}
+  
+  - id: "kb_tutorial"
+    name: kb_tutorial
+    type: "markdown"
+    version: "1.0"
+    category: kb
+    schema:
+      required_placeholders:
+        - title
+        - description
+        - overview
+        - steps
+        - conclusion
+      optional_placeholders:
+        - prerequisites
+        - code_examples
+        - troubleshooting
+      required_sections:
+        - "## Overview"
+        - "## Tutorial"
+        - "## Conclusion"
+    metadata:
+      category: kb
+      description: KB tutorial template
+      version: "1.0"
+    template: |
+      ---
+      title: "{{title}}"
+      description: "{{description}}"
+      type: "tutorial"
+      ---
+      
+      ## Overview
+      
+      {{overview}}
+      
+      ## Prerequisites
+      
+      {{prerequisites}}
+      
+      ## Tutorial
+      
+      {{steps}}
+      
+      {{code_examples}}
+      
+      ## Troubleshooting
+      
+      {{troubleshooting}}
+      
+      ## Conclusion
+      
+      {{conclusion}}
+  
+  - id: "kb_quickstart"
+    name: kb_quickstart
+    type: "markdown"
+    version: "1.0"
+    category: kb
+    schema:
+      required_placeholders:
+        - title
+        - description
+        - quick_steps
+      optional_placeholders:
+        - prerequisites
+        - next_steps
+      required_sections:
+        - "## Quick Start"
+    metadata:
+      category: kb
+      description: KB quick start guide
+      version: "1.0"
+    template: |
+      ---
+      title: "{{title}}"
+      description: "{{description}}"
+      type: "quickstart"
+      ---
+      
+      {{description}}
+      
+      ## Prerequisites
+      
+      {{prerequisites}}
+      
+      ## Quick Start
+      
+      {{quick_steps}}
+      
+      ## Next Steps
+      
+      {{next_steps}}

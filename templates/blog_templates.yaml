@@ -1,0 +1,96 @@
+# Blog content assembly templates
+blog_structure:
+  default:
+    sections:
+      - introduction
+      - main_content
+      - code_implementation
+      - conclusion
+    
+  tutorial:
+    sections:
+      - introduction
+      - code_implementation    # ← Moved up
+      - code_explanation       # ← New section
+      - prerequisites          # ← After code
+      - main_content
+      - troubleshooting
+      - faq
+      - use_cases
+      - best_practices
+      - conclusion
+
+# Section templates with placeholders
+section_templates:
+  introduction:
+    heading: "## Introduction"
+    include_topic_title: true
+    max_paragraphs: 3
+    
+  prerequisites:
+    heading: "## Prerequisites"
+    items_format: "list"
+    required_items:
+      - "Visual Studio 2019 or later"
+      - ".NET 6.0+ or .NET Framework 4.6.2+"
+      - "NuGet package installation"
+    
+  main_content:
+    heading: "## {section_title}"
+    auto_generate_from_outline: true
+    
+  code_implementation:
+    heading: "## Code Implementation"
+    include_gist: true
+    include_inline_code: false
+    include_segments: true
+    segments_heading: "### Code Explanation"
+    
+  troubleshooting:
+    heading: "## Troubleshooting & Common Issues"
+    format: "bullet_list"
+    
+  faq:
+    heading: "## FAQs"
+    format: "qa_pairs"
+    
+  use_cases:
+    heading: "## Use Cases and Applications"
+    format: "bullet_list"
+    
+  best_practices:
+    heading: "## Best Practices: Quick Reference Table"
+    format: "table"
+    
+  conclusion:
+    heading: "## Conclusion"
+    include_summary: true
+    include_key_points: true
+    include_call_to_action: true
+
+# Content assembly rules
+assembly_rules:
+  paragraph_spacing: "\n\n"
+  section_spacing: "\n\n"
+  heading_style: "markdown"
+  max_section_length: 500
+  
+# Code section options
+code_section:
+  position: "after_main_content"
+  heading_level: 2
+  include_license: true
+  license_position: "top"
+  
+  segmentation:
+    enabled: true
+    min_segments: 3
+    max_segments: 5
+    min_lines_per_segment: 5
+    max_lines_per_segment: 15
+    segment_heading_level: 4
+    
+  gist:
+    enabled: true
+    position: "before_segments"
+    shortcode_format: '{{{{< gist {user} {gist_id} "{filename}" >}}}}'

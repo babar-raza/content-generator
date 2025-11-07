@@ -1,0 +1,184 @@
+# Documentation Templates for Template Registry
+
+id: "docs_templates"
+type: "markdown"
+version: "1.0"
+schema:
+  format: "yaml"
+  template_list: true
+
+templates:
+  - id: "docs_api"
+    name: docs_api
+    type: "markdown"
+    version: "1.0"
+    category: docs
+    schema:
+      required_placeholders:
+        - title
+        - description
+        - installation
+        - features
+        - usage_examples
+      optional_placeholders:
+        - tips
+        - common_issues
+        - api_reference
+        - best_practices
+      required_sections:
+        - "## Installation and Setup"
+        - "## Features and Functionalities"
+        - "## Usage Examples"
+    metadata:
+      category: docs
+      description: API documentation template
+      version: "1.0"
+    template: |
+      ---
+      description: {{description}}
+      title: {{title}}
+      type: docs
+      ---
+      
+      {{overview}}
+      
+      ## Installation and Setup
+      
+      {{installation}}
+      
+      ## Features and Functionalities
+      
+      {{features}}
+      
+      ---
+      
+      ## Usage Examples
+      
+      {{usage_examples}}
+      
+      ---
+      
+      ## Tips and Best Practices
+      
+      {{tips}}
+      
+      {{best_practices}}
+      
+      ---
+      
+      ## Common Issues and Resolutions
+      
+      {{common_issues}}
+      
+      ---
+      
+      ## API Reference Summary
+      
+      {{api_reference}}
+  
+  - id: "docs_guide"
+    name: docs_guide
+    type: "markdown"
+    version: "1.0"
+    category: docs
+    schema:
+      required_placeholders:
+        - title
+        - description
+        - overview
+        - getting_started
+        - main_content
+      optional_placeholders:
+        - prerequisites
+        - examples
+        - troubleshooting
+      required_sections:
+        - "## Getting Started"
+        - "## Guide"
+    metadata:
+      category: docs
+      description: Documentation guide template
+      version: "1.0"
+    template: |
+      ---
+      description: {{description}}
+      title: {{title}}
+      type: docs
+      ---
+      
+      {{overview}}
+      
+      ## Prerequisites
+      
+      {{prerequisites}}
+      
+      ## Getting Started
+      
+      {{getting_started}}
+      
+      ## Guide
+      
+      {{main_content}}
+      
+      ## Examples
+      
+      {{examples}}
+      
+      ## Troubleshooting
+      
+      {{troubleshooting}}
+  
+  - id: "docs_reference"
+    name: docs_reference
+    type: "markdown"
+    version: "1.0"
+    category: docs
+    schema:
+      required_placeholders:
+        - title
+        - description
+        - api_overview
+        - classes
+        - methods
+      optional_placeholders:
+        - properties
+        - events
+        - examples
+      required_sections:
+        - "## API Overview"
+        - "## Classes"
+        - "## Methods"
+    metadata:
+      category: docs
+      description: API reference documentation
+      version: "1.0"
+    template: |
+      ---
+      description: {{description}}
+      title: {{title}}
+      type: reference
+      ---
+      
+      ## API Overview
+      
+      {{api_overview}}
+      
+      ## Classes
+      
+      {{classes}}
+      
+      ## Methods
+      
+      {{methods}}
+      
+      ## Properties
+      
+      {{properties}}
+      
+      ## Events
+      
+      {{events}}
+      
+      ## Examples
+      
+      {{examples}}

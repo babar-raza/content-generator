@@ -1,0 +1,185 @@
+# Blog Templates for Template Registry
+
+id: "blog_templates"
+type: "markdown"
+version: "1.0"
+schema:
+  format: "yaml"
+  template_list: true
+  
+templates:
+  - id: "blog_default"
+    name: default_blog
+    type: "markdown"
+    version: "1.0"
+    category: blog
+    schema:
+      required_placeholders:
+        - topic
+        - introduction
+        - content
+        - conclusion
+      optional_placeholders:
+        - prerequisites
+        - code_examples
+        - faqs
+        - use_cases
+        - best_practices
+      required_sections:
+        - "## Introduction"
+        - "## Conclusion"
+    metadata:
+      category: blog
+      description: Standard blog post template with flexible sections
+      version: "1.0"
+    template: |
+      # {{topic}}
+      
+      ## Introduction
+      
+      {{introduction}}
+      
+      {{prerequisites}}
+      
+      {{content}}
+      
+      {{code_examples}}
+      
+      {{use_cases}}
+      
+      {{best_practices}}
+      
+      {{faqs}}
+      
+      ## Conclusion
+      
+      {{conclusion}}
+  
+  - id: "blog_tutorial"
+    name: tutorial_blog
+    type: "markdown"
+    version: "1.0"
+    category: tutorial
+    schema:
+      required_placeholders:
+        - topic
+        - overview
+        - steps
+        - conclusion
+      optional_placeholders:
+        - prerequisites
+        - troubleshooting
+        - next_steps
+      required_sections:
+        - "## Overview"
+        - "## Step-by-Step"
+        - "## Conclusion"
+    metadata:
+      category: tutorial
+      description: Step-by-step tutorial template
+      version: "1.0"
+    template: |
+      # {{topic}}
+      
+      ## Overview
+      
+      {{overview}}
+      
+      {{prerequisites}}
+      
+      ## Step-by-Step Guide
+      
+      {{steps}}
+      
+      {{troubleshooting}}
+      
+      {{next_steps}}
+      
+      ## Conclusion
+      
+      {{conclusion}}
+  
+  - id: "blog_quickstart"
+    name: quick_start
+    type: "markdown"
+    version: "1.0"
+    category: quickstart
+    schema:
+      required_placeholders:
+        - topic
+        - introduction
+        - quick_steps
+        - conclusion
+      optional_placeholders:
+        - prerequisites
+      required_sections:
+        - "## Quick Start"
+        - "## Conclusion"
+    metadata:
+      category: quickstart
+      description: Quick start guide template
+      version: "1.0"
+    template: |
+      # {{topic}}
+      
+      {{introduction}}
+      
+      {{prerequisites}}
+      
+      ## Quick Start
+      
+      {{quick_steps}}
+      
+      ## Conclusion
+      
+      {{conclusion}}
+  
+  - id: "blog_technical"
+    name: technical_deep_dive
+    type: "markdown"
+    version: "1.0"
+    category: technical
+    schema:
+      required_placeholders:
+        - topic
+        - introduction
+        - technical_details
+        - best_practices
+        - conclusion
+      optional_placeholders:
+        - use_cases
+        - performance
+        - security
+      required_sections:
+        - "## Introduction"
+        - "## Technical Details"
+        - "## Best Practices"
+        - "## Conclusion"
+    metadata:
+      category: technical
+      description: Deep technical article template
+      version: "1.0"
+    template: |
+      # {{topic}}
+      
+      ## Introduction
+      
+      {{introduction}}
+      
+      ## Technical Details
+      
+      {{technical_details}}
+      
+      {{use_cases}}
+      
+      {{performance}}
+      
+      {{security}}
+      
+      ## Best Practices
+      
+      {{best_practices}}
+      
+      ## Conclusion
+      
+      {{conclusion}}

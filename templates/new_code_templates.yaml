@@ -1,0 +1,134 @@
+# Code Templates for Template Registry
+
+id: "code_templates"
+type: "code"
+version: "1.0"
+schema:
+  format: "yaml"
+  template_list: true
+
+templates:
+  - id: "code_api"
+    name: api_documentation
+    type: "code"
+    version: "1.0"
+    category: api
+    schema:
+      required_placeholders:
+        - api_name
+        - description
+        - endpoints
+        - examples
+      optional_placeholders:
+        - authentication
+        - rate_limits
+        - error_codes
+      required_sections:
+        - "## API Reference"
+        - "## Examples"
+    metadata:
+      category: api
+      description: API documentation template
+      version: "1.0"
+    template: |
+      # {{api_name}} API Documentation
+      
+      {{description}}
+      
+      {{authentication}}
+      
+      ## API Reference
+      
+      {{endpoints}}
+      
+      {{rate_limits}}
+      
+      ## Examples
+      
+      {{examples}}
+      
+      {{error_codes}}
+  
+  - id: "code_example"
+    name: code_example
+    type: "code"
+    version: "1.0"
+    category: example
+    schema:
+      required_placeholders:
+        - title
+        - description
+        - code
+        - explanation
+      optional_placeholders:
+        - prerequisites
+        - output
+      required_sections:
+        - "## Code"
+        - "## Explanation"
+    metadata:
+      category: example
+      description: Code example template
+      version: "1.0"
+    template: |
+      # {{title}}
+      
+      {{description}}
+      
+      {{prerequisites}}
+      
+      ## Code
+      
+      ```
+      {{code}}
+      ```
+      
+      ## Explanation
+      
+      {{explanation}}
+      
+      {{output}}
+  
+  - id: "code_library"
+    name: library_guide
+    type: "code"
+    version: "1.0"
+    category: library
+    schema:
+      required_placeholders:
+        - library_name
+        - introduction
+        - installation
+        - usage
+        - examples
+      optional_placeholders:
+        - configuration
+        - troubleshooting
+      required_sections:
+        - "## Installation"
+        - "## Usage"
+        - "## Examples"
+    metadata:
+      category: library
+      description: Library usage guide template
+      version: "1.0"
+    template: |
+      # {{library_name}}
+      
+      {{introduction}}
+      
+      ## Installation
+      
+      {{installation}}
+      
+      {{configuration}}
+      
+      ## Usage
+      
+      {{usage}}
+      
+      ## Examples
+      
+      {{examples}}
+      
+      {{troubleshooting}}

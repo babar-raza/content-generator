@@ -1,0 +1,62 @@
+# Frontmatter templates
+default:
+  author: "Babar Raza"
+  draft: true
+  
+  # Dynamic fields with templating
+  categories:
+    - "Aspose.{family} Plugin Family"
+  
+  # Field generation rules
+  title:
+    source: "seo_metadata.title"
+    fallback: "topic.title"
+    max_length: 100
+    
+  seoTitle:
+    source: "seo_metadata.seoTitle"
+    fallback: "topic.title"
+    max_length: 60
+    truncate: "word_boundary"
+    
+  description:
+    source: "seo_metadata.description"
+    fallback: "content_first_paragraph"
+    max_length: 160
+    truncate: "word_boundary"
+    ensure_different_from: ["title", "seoTitle"]
+    
+  summary:
+    source: "seo_metadata.description"
+    fallback: "description"
+    
+  date:
+    format: "%Y-%m-%d"
+    source: "auto"  # or "metadata.date"
+    
+  slug:
+    source: "seo_metadata.slug"
+    fallback: "topic.slug"
+    transform: "lowercase"
+    
+  tags:
+    source: "seo_metadata.tags"
+    max_items: 10
+    
+  keywords:
+    source: "seo_metadata.keywords"
+    max_items: 8
+
+# Alternative templates
+tutorial:
+  author: "Babar Raza"
+  categories:
+    - "Aspose.{family} Plugin Family"
+    - "Tutorials"
+  draft: false
+  
+api_reference:
+  author: "Babar Raza"
+  categories:
+    - "Aspose.{family} Plugin Family"
+    - "API Reference"

@@ -1,0 +1,31 @@
+template_name: "code"
+
+required_sections:
+  - name: "code_generation"
+    agent: "generate_code"
+    required: true
+  
+  - name: "code_validation"
+    agent: "validate_code"
+    required: true
+  
+  - name: "license"
+    agent: "inject_license"
+    required: true
+  
+  - name: "code_splitting"
+    agent: "split_code"
+    required: true
+  
+  - name: "gist_readme"
+    agent: "create_gist_readme"
+    required: false
+  
+  - name: "documentation"
+    agent: "write_introduction"
+    required: false
+
+validation_rules:
+  min_word_count: 100
+  max_word_count: 10000
+  require_headings: false
