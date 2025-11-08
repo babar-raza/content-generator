@@ -52,82 +52,43 @@ class ModelSelectionAgent(SelfCorrectingAgent, Agent):
 
         capability = event.data.get("capability", "")
 
-        # Get available models
-
+        # Get available models using new detector
         try:
-
-            result = subprocess.run(
-
-                ["ollama", "list"],
-
-                capture_output=True,
-
-                text=True,
-
-                timeout=5
-
-            )
-
-            available_models = [
-
-                line.split()[0] for line in result.stdout.split('\n')[1:]
-
-                if line.strip()
-
-            ]
-
-        except:
-
-            available_models = [
-
-                self.config.ollama_topic_model,
-
-                self.config.ollama_content_model,
-
-                self.config.ollama_code_model
-
-            ]
-
-        # Select based on capability
-
-        try:
-            from config import MODEL_CAPABILITIES
-        except ImportError:
-            MODEL_CAPABILITIES = {
-                "code": ["coder", "code", "qwen", "codellama"],
-                "content": ["mistral", "llama", "qwen"],
-                "topic": ["mistral", "llama"]
-            }
-
-        model = None
-
-        for cap_type, model_keywords in MODEL_CAPABILITIES.items():
-
+            from src.utils.ollama_detector import get_ollama_detector
+            
+            detector = get_ollama_detector()
+            available, status = detector.is_ollama_available()
+            
+            if available:
+                # Use the best model for the capability
+                model = detector.get_best_model_for_capability(capability.lower())
+                
+                if not model:
+                    # Fallback to config defaults
+                    if any(kw in capability.lower() for kw in ["code", "validate", "split"]):
+                        model = self.config.ollama_code_model
+                    elif any(kw in capability.lower() for kw in ["content", "write", "generate"]):
+                        model = self.config.ollama_content_model
+                    else:
+                        model = self.config.ollama_topic_model
+            else:
+                # Fallback to config defaults
+                if any(kw in capability.lower() for kw in ["code", "validate", "split"]):
+                    model = self.config.ollama_code_model
+                elif any(kw in capability.lower() for kw in ["content", "write", "generate"]):
+                    model = self.config.ollama_content_model
+                else:
+                    model = self.config.ollama_topic_model
+        
+        except Exception as e:
+            logger.warning(f"Failed to use Ollama detector, falling back to config: {e}")
+            # Fallback to config defaults
             if any(kw in capability.lower() for kw in ["code", "validate", "split"]):
-
-                # Code tasks
-
-                for keyword in MODEL_CAPABILITIES["code"]:
-
-                    matching = [m for m in available_models if keyword in m.lower()]
-
-                    if matching:
-
-                        model = matching[0]
-
-                        break
-
-                break
-
+                model = self.config.ollama_code_model
             elif any(kw in capability.lower() for kw in ["content", "write", "generate"]):
-
                 model = self.config.ollama_content_model
-
-                break
-
-        if not model:
-
-            model = self.config.ollama_topic_model
+            else:
+                model = self.config.ollama_topic_model
 
         return AgentEvent(
 
@@ -140,4 +101,5 @@ class ModelSelectionAgent(SelfCorrectingAgent, Agent):
             correlation_id=event.correlation_id
 
         )
+
 

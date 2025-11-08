@@ -3,7 +3,6 @@
 from typing import Optional, Dict, List, Any
 from pathlib import Path
 import logging
-import json
 
 from ..base import (
     Agent, EventBus, AgentEvent, AgentContract, SelfCorrectingAgent,
@@ -51,49 +50,24 @@ class SectionWriterAgent(SelfCorrectingAgent, Agent):
     def execute(self, event: AgentEvent) -> Optional[AgentEvent]:
 
         outline = event.data.get("outline", {})
-        
-        # Try both 'intro' and 'introduction' keys
-        intro = event.data.get("intro") or event.data.get("introduction", "")
 
-        # Collect context from all available sources
+        intro = event.data.get("intro", "")
+
         context = event.data.get("context", [])
-        context_kb = event.data.get("context_kb", [])
-        context_blog = event.data.get("context_blog", [])
-        context_api = event.data.get("context_api", [])
-        
-        # Merge all context sources
-        all_context = []
-        if context:
-            all_context.extend(context)
-        if context_kb:
-            all_context.extend(context_kb)
-        if context_blog:
-            all_context.extend(context_blog)
-        if context_api:
-            all_context.extend(context_api)
-        
-        # More lenient validation - check if outline has sections
-        section_list = outline.get("sections", []) if isinstance(outline, dict) else []
-        
-        if not section_list:
-            logger.warning("No sections in outline, skipping section writing")
-            return AgentEvent(
-                event_type="sections_written",
-                data={"sections": []},
-                source_agent=self.agent_id,
-                correlation_id=event.correlation_id
-            )
-        
-        if not intro:
-            logger.warning("No introduction provided, proceeding with sections only")
+
+        if not outline or not intro:
+
+            raise ValueError("outline and intro are required but were missing or empty")
 
         sections = []
+
+        section_list = outline.get("sections", [])
 
         logger.info(
 
             f"SECTION_WRITER_START | section_count={len(section_list)} | "
 
-            f"intro_length={len(intro)} | context_chunks={len(all_context)} | "
+            f"intro_length={len(intro)} | context_chunks={len(context)} | "
 
             f"cid={event.correlation_id}"
 
@@ -119,7 +93,7 @@ class SectionWriterAgent(SelfCorrectingAgent, Agent):
 
                 section_outline=json.dumps(section, indent=2),
 
-                context="\n\n".join(all_context[:5]),  # Use more context chunks
+                context="\n\n".join(context[:3]),
 
                 intro=intro[:500]
 
@@ -212,7 +186,7 @@ class SectionWriterAgent(SelfCorrectingAgent, Agent):
             except Exception:
                 cleaned_content = section_content or ""
             sections.append({
-                "title": section.get("title", f"Section {i}"),
+                "title": section["title"],
                 "content": cleaned_content.strip()
             })
 

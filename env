@@ -1,0 +1,55 @@
+# ============================================================
+# UCOP Blog Generator Configuration
+# ============================================================
+
+# ------------------------------------------------------------
+# LLM Provider Configuration (Auto-Fallback)
+# ------------------------------------------------------------
+# Priority: ollama (free) → gemini (free tier) → openai (paid)
+# Leave LLM_PROVIDER empty for auto-detection
+# Or set explicitly: ollama, gemini, openai
+LLM_PROVIDER=
+
+# ------------------------------------------------------------
+# Ollama Configuration (Primary - Free)
+# ------------------------------------------------------------
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_TOPIC_MODEL=llama2
+OLLAMA_CONTENT_MODEL=qwen2.5
+OLLAMA_CODE_MODEL=qwen2.5-coder
+
+# ------------------------------------------------------------
+# Gemini Configuration (For SEO - Free Tier)
+# ------------------------------------------------------------
+# REQUIRED for SEO tasks - Always used for SEO metadata
+GEMINI_API_KEY=
+GEMINI_MODEL=models/gemini-2.0-flash-exp
+GEMINI_RPM_LIMIT=15
+
+# ------------------------------------------------------------
+# OpenAI Configuration (Fallback - Paid)
+# ------------------------------------------------------------
+# Used as final fallback if Ollama and Gemini unavailable
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+
+# ------------------------------------------------------------
+# Device Configuration (Auto-Detection)
+# ------------------------------------------------------------
+# Leave empty for auto-detection (will use CUDA if available)
+# Or set explicitly: cuda, cpu
+RUNTIME_DEVICE=
+
+# ------------------------------------------------------------
+# Performance Settings
+# ------------------------------------------------------------
+ENABLE_SMART_ROUTING=true
+ENABLE_CACHING=true
+LLM_TEMPERATURE=0.7
+CACHE_TTL=86400
+
+# ------------------------------------------------------------
+# Optional: GitHub Gist Upload
+# ------------------------------------------------------------
+GIST_UPLOAD_ENABLED=false
+GITHUB_GIST_TOKEN=

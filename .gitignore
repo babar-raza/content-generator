@@ -1,1 +1,6 @@
 *.pyc
+/data
+/chroma_db
+/cache
+.npmrc
+/output

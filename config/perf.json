@@ -1,0 +1,70 @@
+{
+  "timeouts": {
+    "agent_execution": 30,
+    "total_job": 600,
+    "rag_query": 10,
+    "template_render": 5
+  },
+  "limits": {
+    "max_tokens_per_agent": 4000,
+    "max_steps": 50,
+    "max_retries": 3,
+    "max_context_size": 16000
+  },
+  "batch": {
+    "enabled": true,
+    "batch_size": 5,
+    "max_parallel": 3,
+    "batch_window_ms": 150
+  },
+  "hot_paths": {
+    "create_outline": ["analyze_topics", "structure_sections", "validate_structure"],
+    "write_section": ["gather_examples", "format_content", "validate_section"],
+    "generate_code": ["analyze_requirements", "generate_classes", "optimize_code"],
+    "assemble_content": ["validate_sections", "format_document", "final_review"]
+  },
+  "prefetch_rules": {
+    "context_kb": ["analyze_topics", "gather_examples"],
+    "context_blog": ["analyze_topics", "format_content"], 
+    "context_api": ["analyze_requirements", "generate_classes"],
+    "outline_complete": ["gather_examples", "format_content"],
+    "sections_complete": ["validate_document", "final_review"]
+  },
+  "quorum_rules": {
+    "create_outline": {
+      "required_inputs": ["context_kb", "context_blog", "context_api"],
+      "quorum_size": 2,
+      "total_expected": 3,
+      "priority_order": ["context_kb", "context_blog", "context_api"]
+    },
+    "write_section": {
+      "required_inputs": ["outline", "context_kb"],
+      "quorum_size": 2,
+      "total_expected": 2
+    }
+  },
+  "batch_affinity": {
+    "api_calls": ["fetch_knowledge", "validate_api", "gather_examples"],
+    "rag_queries": ["analyze_topics", "gather_examples", "format_content"],
+    "template_rendering": ["format_content", "structure_sections", "final_review"]
+  },
+  "tuning": {
+    "max_inflight": 5,
+    "cache_ttl_s": 600,
+    "batch_window_ms": 150,
+    "soft_bid_threshold": 0.4,
+    "cross_batch_window_ms": 200,
+    "prefetch_confidence_threshold": 0.7,
+    "fairness_window_s": 5.0
+  },
+  "observability": {
+    "critical_paths": ["create_outline", "write_section", "assemble_content"],
+    "bottleneck_thresholds": {
+      "create_outline": 5.0,
+      "write_section": 8.0,
+      "generate_code": 6.0,
+      "assemble_content": 3.0
+    },
+    "flame_graph_capabilities": ["create_outline", "write_section", "generate_code"]
+  }
+}

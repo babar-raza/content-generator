@@ -4,13 +4,35 @@ import json
 import re
 import time
 import hashlib
+import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
 
-from src.engine.slug_service import slugify
+logger = logging.getLogger(__name__)
+
+
+def convert_paths_to_strings(data: Any) -> Any:
+    """Recursively convert Path objects to strings in nested data structures.
+    
+    Args:
+        data: Data to convert (dict, list, or any value)
+        
+    Returns:
+        Data with all Path objects converted to strings
+    """
+    if isinstance(data, Path):
+        return str(data)
+    elif isinstance(data, dict):
+        return {key: convert_paths_to_strings(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [convert_paths_to_strings(item) for item in data]
+    elif isinstance(data, tuple):
+        return tuple(convert_paths_to_strings(item) for item in data)
+    else:
+        return data
 
 
 class JobStatus(Enum):
@@ -68,15 +90,12 @@ class RunSpec:
                 self.tutorial_path
             )
             if not has_context:
-                errors.append("auto_topic=True requires at least one context source")
+                errors.append("auto_topic=True requires at least one context source path specified")
         elif not self.topic:
             errors.append("Must provide topic when auto_topic=False")
         
-        # Validate paths exist if provided
-        for path_attr in ['kb_path', 'docs_path', 'blog_path', 'api_path', 'tutorial_path']:
-            path_value = getattr(self, path_attr)
-            if path_value and not Path(path_value).exists():
-                errors.append(f"{path_attr} does not exist: {path_value}")
+        # Note: We don't validate path existence here - paths are validated and 
+        # handled gracefully during ingestion. Non-existent paths are just skipped.
         
         return errors
     
@@ -90,7 +109,7 @@ class RunSpec:
             Path to output file
         """
         if self.template_name and self.template_name.startswith("blog"):
-            slug = slugify(title)
+            slug = urlify(title)
             # Handle collisions
             base_path = self.output_dir / slug / "index.md"
             if base_path.exists():
@@ -108,9 +127,25 @@ class RunSpec:
             return self.output_dir / f"{safe_name}.md"
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return asdict(self)
+        """Convert to dictionary with Path objects converted to strings."""
+        data = asdict(self)
+        # Convert all Path objects to strings for JSON serialization
+        return convert_paths_to_strings(data)
 
+
+def urlify(text: str) -> str:
+    """Convert text to URL-safe slug.
+    
+    Args:
+        text: Text to convert
+        
+    Returns:
+        URL-safe slug
+    """
+    text = text.lower().strip()
+    text = re.sub(r'[^a-z0-9\s-]', '', text)
+    text = re.sub(r'[\s]+', '-', text)
+    return text
 
 
 @dataclass
@@ -126,14 +161,15 @@ class AgentStepLog:
     duration: float = 0.0
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary with secret redaction."""
+        """Convert to dictionary with secret redaction and Path conversion."""
         data = asdict(self)
         
         # Redact secrets from input/output
         data['input_data'] = self._redact_secrets(data['input_data'])
         data['output_data'] = self._redact_secrets(data['output_data'])
         
-        return data
+        # Convert any Path objects to strings
+        return convert_paths_to_strings(data)
     
     @staticmethod
     def _redact_secrets(data: Any) -> Any:
@@ -182,7 +218,7 @@ class JobResult:
     sources_used: List[str] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
+        """Convert to dictionary with Path objects converted to strings."""
         data = {
             'job_id': self.job_id,
             'status': self.status.value,
@@ -195,7 +231,7 @@ class JobResult:
             'end_time': self.end_time,
             'duration': self.duration,
             'error': self.error,
-            'partial_results': self.partial_results,
+            'partial_results': convert_paths_to_strings(self.partial_results),
             'sources_used': self.sources_used
         }
         return data
@@ -236,18 +272,50 @@ class UnifiedEngine:
         Returns:
             JobResult with execution details
         """
+        logger.info("="*80)
+        logger.info("Starting new job")
+        logger.info(f"  Template: {run_spec.template_name}")
+        logger.info(f"  Topic: {run_spec.topic or '(auto-generate)'}")
+        logger.info(f"  Auto-topic: {run_spec.auto_topic}")
+        
+        # Log context paths
+        context_paths = []
+        if run_spec.kb_path:
+            context_paths.append(f"KB: {run_spec.kb_path}")
+        if run_spec.docs_path:
+            context_paths.append(f"Docs: {run_spec.docs_path}")
+        if run_spec.blog_path:
+            context_paths.append(f"Blog: {run_spec.blog_path}")
+        if run_spec.api_path:
+            context_paths.append(f"API: {run_spec.api_path}")
+        if run_spec.tutorial_path:
+            context_paths.append(f"Tutorial: {run_spec.tutorial_path}")
+        
+        if context_paths:
+            logger.info(f"  Context sources: {', '.join(context_paths)}")
+        else:
+            logger.info("  Context sources: None")
+        
+        logger.info(f"  Output dir: {run_spec.output_dir}")
+        
         # Validate run_spec
+        logger.info("Validating run specification...")
         validation_errors = run_spec.validate()
         if validation_errors:
+            logger.error(f"Validation failed with {len(validation_errors)} error(s):")
+            for error in validation_errors:
+                logger.error(f"  - {error}")
             return JobResult(
                 job_id=self._generate_job_id(run_spec),
                 status=JobStatus.FAILED,
                 run_spec=run_spec,
                 error=f"Validation failed: {', '.join(validation_errors)}"
             )
+        logger.info("✓ Validation passed")
         
         # Generate job ID
         job_id = self._generate_job_id(run_spec)
+        logger.info(f"Job ID: {job_id}")
         
         # Create result
         result = JobResult(
@@ -259,33 +327,48 @@ class UnifiedEngine:
         
         try:
             # Execute pipeline
+            logger.info("Executing agent pipeline...")
             self._execute_pipeline(result)
+            logger.info("✓ Pipeline execution completed")
             
             # Write artifact (always, even on partial/failure)
+            logger.info("Writing output artifact...")
             self._write_artifact(result)
+            if result.output_path:
+                logger.info(f"✓ Artifact written to: {result.output_path}")
             
             # Write manifest for reproducibility
+            logger.info("Writing job manifest...")
             self._write_manifest(result)
+            if result.manifest_path:
+                logger.info(f"✓ Manifest written to: {result.manifest_path}")
             
             # Set final status
             if result.error:
                 result.status = JobStatus.PARTIAL if result.partial_results else JobStatus.FAILED
+                logger.warning(f"Job completed with errors: {result.error}")
             else:
                 result.status = JobStatus.COMPLETED
+                logger.info("✓ Job completed successfully")
             
         except Exception as e:
             result.error = str(e)
             result.status = JobStatus.FAILED
+            logger.error(f"Job failed with exception: {e}", exc_info=True)
             
             # Still try to write partial artifact
             try:
+                logger.info("Attempting to write partial artifact...")
                 self._write_artifact(result)
-            except:
-                pass
+            except Exception as e2:
+                logger.error(f"Failed to write partial artifact: {e2}")
         
         finally:
             result.end_time = time.time()
             result.duration = result.end_time - result.start_time
+            logger.info(f"Job duration: {result.duration:.2f}s")
+            logger.info(f"Final status: {result.status.value}")
+            logger.info("="*80)
         
         return result
     
@@ -302,6 +385,8 @@ class UnifiedEngine:
         """
         from src.core.template_registry import get_template
         
+        logger.info("Loading pipeline configuration...")
+        
         # Get pipeline order from config
         workflows = self.agent_config.get('workflows', {})
         agents_def = self.agent_config.get('agents', {})
@@ -313,8 +398,10 @@ class UnifiedEngine:
         if not pipeline:
             # Fallback: use all enabled agents
             pipeline = [name for name, cfg in agents_def.items() if cfg.get('enabled', True)]
+            logger.warning("No workflow found, using all enabled agents")
         
         result.pipeline_order = pipeline
+        logger.info(f"Pipeline agents ({len(pipeline)}): {', '.join(pipeline)}")
         
         # Execute each agent in order
         agent_context = {
@@ -325,34 +412,93 @@ class UnifiedEngine:
         }
         
         # Add context from paths (RAG ingestion would happen here)
+        logger.info("Ingesting context sources...")
+        successful_ingestions = 0
+        
         if result.run_spec.kb_path:
-            agent_context['kb_content'] = self._ingest_path(result.run_spec.kb_path)
-            result.sources_used.append(result.run_spec.kb_path)
+            logger.info(f"  Ingesting KB from: {result.run_spec.kb_path}")
+            kb_content = self._ingest_path(result.run_spec.kb_path)
+            if kb_content.get('ingested'):
+                agent_context['kb_content'] = kb_content
+                result.sources_used.append(result.run_spec.kb_path)
+                logger.info(f"    ✓ Ingested {kb_content.get('file_count', 0)} files, {kb_content.get('total_size', 0)} chars")
+                successful_ingestions += 1
+            else:
+                logger.warning(f"    ⚠ Failed to ingest KB: {kb_content.get('error', 'Unknown error')}")
+            
         if result.run_spec.docs_path:
-            agent_context['docs_content'] = self._ingest_path(result.run_spec.docs_path)
-            result.sources_used.append(result.run_spec.docs_path)
+            logger.info(f"  Ingesting Docs from: {result.run_spec.docs_path}")
+            docs_content = self._ingest_path(result.run_spec.docs_path)
+            if docs_content.get('ingested'):
+                agent_context['docs_content'] = docs_content
+                result.sources_used.append(result.run_spec.docs_path)
+                logger.info(f"    ✓ Ingested {docs_content.get('file_count', 0)} files, {docs_content.get('total_size', 0)} chars")
+                successful_ingestions += 1
+            else:
+                logger.warning(f"    ⚠ Failed to ingest Docs: {docs_content.get('error', 'Unknown error')}")
+            
         if result.run_spec.blog_path:
-            agent_context['blog_content'] = self._ingest_path(result.run_spec.blog_path)
-            result.sources_used.append(result.run_spec.blog_path)
+            logger.info(f"  Ingesting Blog from: {result.run_spec.blog_path}")
+            blog_content = self._ingest_path(result.run_spec.blog_path)
+            if blog_content.get('ingested'):
+                agent_context['blog_content'] = blog_content
+                result.sources_used.append(result.run_spec.blog_path)
+                logger.info(f"    ✓ Ingested {blog_content.get('file_count', 0)} files, {blog_content.get('total_size', 0)} chars")
+                successful_ingestions += 1
+            else:
+                logger.warning(f"    ⚠ Failed to ingest Blog: {blog_content.get('error', 'Unknown error')}")
+            
         if result.run_spec.api_path:
-            agent_context['api_content'] = self._ingest_path(result.run_spec.api_path)
-            result.sources_used.append(result.run_spec.api_path)
+            logger.info(f"  Ingesting API from: {result.run_spec.api_path}")
+            api_content = self._ingest_path(result.run_spec.api_path)
+            if api_content.get('ingested'):
+                agent_context['api_content'] = api_content
+                result.sources_used.append(result.run_spec.api_path)
+                logger.info(f"    ✓ Ingested {api_content.get('file_count', 0)} files, {api_content.get('total_size', 0)} chars")
+                successful_ingestions += 1
+            else:
+                logger.warning(f"    ⚠ Failed to ingest API: {api_content.get('error', 'Unknown error')}")
+            
         if result.run_spec.tutorial_path:
-            agent_context['tutorial_content'] = self._ingest_path(result.run_spec.tutorial_path)
-            result.sources_used.append(result.run_spec.tutorial_path)
+            logger.info(f"  Ingesting Tutorial from: {result.run_spec.tutorial_path}")
+            tutorial_content = self._ingest_path(result.run_spec.tutorial_path)
+            if tutorial_content.get('ingested'):
+                agent_context['tutorial_content'] = tutorial_content
+                result.sources_used.append(result.run_spec.tutorial_path)
+                logger.info(f"    ✓ Ingested {tutorial_content.get('file_count', 0)} files, {tutorial_content.get('total_size', 0)} chars")
+                successful_ingestions += 1
+            else:
+                logger.warning(f"    ⚠ Failed to ingest Tutorial: {tutorial_content.get('error', 'Unknown error')}")
+        
+        # Check if we have at least some valid content
+        if successful_ingestions == 0:
+            if result.run_spec.auto_topic:
+                error_msg = "auto_topic=True but no context sources could be ingested successfully"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            else:
+                logger.warning("No context sources were successfully ingested")
+        else:
+            logger.info(f"Successfully ingested {successful_ingestions} context source(s)")
         
         # Auto topic generation if needed
         if result.run_spec.auto_topic and not result.run_spec.topic:
+            logger.info("Auto-generating topic from context...")
             agent_context['topic'] = self._derive_topic_from_context(agent_context)
             result.run_spec.topic = agent_context['topic']
+            logger.info(f"  Generated topic: {agent_context['topic']}")
         
         # Execute pipeline
-        for agent_name in pipeline:
+        logger.info(f"Executing {len(pipeline)} agents in sequence...")
+        for i, agent_name in enumerate(pipeline, 1):
             agent_def = agents_def.get(agent_name, {})
             
             # Skip if disabled
             if not agent_def.get('enabled', True):
+                logger.info(f"  [{i}/{len(pipeline)}] Skipping disabled agent: {agent_name}")
                 continue
+            
+            logger.info(f"  [{i}/{len(pipeline)}] Executing agent: {agent_name}")
             
             # Create agent log
             step_log = AgentStepLog(
@@ -376,18 +522,26 @@ class UnifiedEngine:
             except Exception as e:
                 step_log.errors.append(str(e))
                 result.error = f"Agent '{agent_name}' failed: {e}"
+                logger.error(f"    ✗ Agent failed: {e}", exc_info=True)
                 # Continue with partial results
             
             finally:
                 step_log.end_time = time.time()
                 step_log.duration = step_log.end_time - step_log.start_time
                 result.agent_logs.append(step_log)
+                
+                # Log completion with actual duration
+                if step_log.errors:
+                    logger.info(f"    ⚠ Agent completed with errors in {step_log.duration:.2f}s")
+                else:
+                    logger.info(f"    ✓ Agent completed in {step_log.duration:.2f}s")
         
         # Store final context
         result.partial_results['final_context'] = agent_context
+        logger.info(f"Pipeline execution completed with {len(result.partial_results)} partial results")
     
     def _execute_agent(self, agent_name: str, context: Dict[str, Any], agent_def: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a single agent (stub - real implementation would call actual agent).
+        """Execute a single agent with mock validation and realistic outputs.
         
         Args:
             agent_name: Agent name
@@ -395,20 +549,164 @@ class UnifiedEngine:
             agent_def: Agent definition from config
             
         Returns:
-            Agent output
+            Agent output with validation status and agent-specific data
         """
-        # Placeholder implementation
-        # Real implementation would:
-        # 1. Import the actual agent class
-        # 2. Initialize with config
-        # 3. Call agent.execute(context)
-        # 4. Return agent output
+        import random
         
-        return {
+        # Simulate agent-specific processing time (0.1-0.5s)
+        time.sleep(random.uniform(0.1, 0.5))
+        
+        # Generate agent-specific mock output
+        output = {
             'agent': agent_name,
             'status': 'executed',
-            'mock_output': f"Output from {agent_name}"
+            'validation': self._validate_agent_output(agent_name, context)
         }
+        
+        # Add agent-specific outputs
+        if 'ingest_kb' in agent_name:
+            output['kb_ingested'] = context.get('kb_ingested', {})
+            output['files_count'] = context.get('kb_ingested', {}).get('file_count', 0)
+        
+        elif 'ingest_blog' in agent_name:
+            output['blog_ingested'] = context.get('blog_ingested', {})
+            output['files_count'] = context.get('blog_ingested', {}).get('file_count', 0)
+        
+        elif 'ingest_api' in agent_name:
+            output['api_ingested'] = context.get('api_ingested', {})
+            output['files_count'] = context.get('api_ingested', {}).get('file_count', 0)
+        
+        elif 'identify_topics' in agent_name:
+            output['topics'] = ['Topic 1', 'Topic 2', 'Topic 3']
+            output['recommended_topic'] = context.get('topic', 'Auto-derived Topic')
+        
+        elif 'check_duplication' in agent_name:
+            output['is_duplicate'] = False
+            output['similar_articles'] = []
+        
+        elif 'search' in agent_name or 'rag' in agent_name:
+            output['results_count'] = random.randint(5, 15)
+            output['top_results'] = [f'Result {i+1}' for i in range(3)]
+        
+        elif 'outline' in agent_name:
+            output['sections'] = ['Introduction', 'Section 1', 'Section 2', 'Conclusion']
+            output['section_count'] = 4
+        
+        elif 'write' in agent_name or 'writer' in agent_name:
+            section_type = 'introduction' if 'intro' in agent_name else 'section' if 'section' in agent_name else 'conclusion'
+            output['content'] = f'[Mock {section_type} content]'
+            output['word_count'] = random.randint(200, 500)
+        
+        elif 'assembly' in agent_name:
+            output['assembled'] = True
+            output['total_sections'] = 5
+            output['total_words'] = random.randint(1500, 3000)
+        
+        elif 'code' in agent_name:
+            if 'generation' in agent_name:
+                output['code_blocks'] = 3
+                output['languages'] = ['csharp', 'java', 'python']
+            elif 'extraction' in agent_name:
+                output['extracted_blocks'] = 3
+            elif 'validation' in agent_name:
+                output['valid'] = True
+                output['errors'] = []
+            elif 'splitting' in agent_name:
+                output['split_files'] = 3
+        
+        elif 'seo' in agent_name:
+            output['title'] = 'Optimized SEO Title'
+            output['description'] = 'Meta description'
+            output['keywords'] = ['keyword1', 'keyword2', 'keyword3']
+        
+        elif 'keyword' in agent_name:
+            if 'extraction' in agent_name:
+                output['keywords'] = ['kw1', 'kw2', 'kw3', 'kw4', 'kw5']
+            elif 'injection' in agent_name:
+                output['injected_count'] = 5
+        
+        elif 'gist' in agent_name:
+            if 'readme' in agent_name:
+                output['readme_created'] = True
+            elif 'upload' in agent_name:
+                output['gist_url'] = 'https://gist.github.com/mock/abc123'
+        
+        elif 'link' in agent_name and 'validation' in agent_name:
+            output['links_checked'] = random.randint(10, 20)
+            output['broken_links'] = []
+        
+        elif 'frontmatter' in agent_name:
+            output['frontmatter_added'] = True
+            output['metadata_fields'] = ['title', 'date', 'author', 'tags']
+        
+        elif 'write_file' in agent_name:
+            output['file_written'] = True
+            output['file_path'] = context.get('output_path', 'output/file.md')
+        
+        else:
+            output['mock_data'] = f"Generic output from {agent_name}"
+        
+        return output
+    
+    def _validate_agent_output(self, agent_name: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate agent output based on agent type.
+        
+        Args:
+            agent_name: Agent name
+            context: Execution context
+            
+        Returns:
+            Validation result with status and messages
+        """
+        validation = {
+            'validated': True,
+            'warnings': [],
+            'errors': []
+        }
+        
+        # Agent-specific validation rules
+        if 'ingest' in agent_name:
+            # Validate ingestion agents
+            has_kb = context.get('kb_ingested', {}).get('ingested', False)
+            has_blog = context.get('blog_ingested', {}).get('ingested', False)
+            has_api = context.get('api_ingested', {}).get('ingested', False)
+            
+            if not (has_kb or has_blog or has_api):
+                validation['warnings'].append('No content sources ingested yet')
+        
+        elif 'search' in agent_name or 'rag' in agent_name:
+            # Validate search/RAG agents
+            if not context.get('kb_ingested', {}).get('ingested', False):
+                validation['warnings'].append('KB not ingested before search')
+        
+        elif 'outline' in agent_name:
+            # Validate outline agent
+            if not context.get('topic'):
+                validation['errors'].append('No topic defined for outline')
+                validation['validated'] = False
+        
+        elif 'write' in agent_name or 'writer' in agent_name:
+            # Validate writer agents
+            if not context.get('create_outline_node', {}).get('status') == 'executed':
+                validation['warnings'].append('Writing without outline')
+        
+        elif 'code_generation' in agent_name or 'generate_code' in agent_name:
+            # Validate code generation
+            if not context.get('api_ingested', {}).get('ingested', False):
+                validation['warnings'].append('Code generation without API reference')
+        
+        elif 'seo' in agent_name or 'keyword' in agent_name:
+            # Validate SEO agents
+            if not context.get('content_assembly_node', {}).get('status') == 'executed':
+                validation['warnings'].append('SEO optimization before content assembly')
+        
+        elif 'file' in agent_name or 'write_file' in agent_name:
+            # Validate file writing
+            if not context.get('frontmatter_node', {}).get('status') == 'executed':
+                validation['errors'].append('Cannot write file without frontmatter')
+                validation['validated'] = False
+        
+        return validation
     
     def _ingest_path(self, path: str) -> Dict[str, Any]:
         """Ingest content from path for RAG.
@@ -417,17 +715,68 @@ class UnifiedEngine:
             path: Path to ingest
             
         Returns:
-            Ingested content
+            Ingested content with files and chunks
         """
-        # Placeholder - real implementation would:
-        # 1. Read files from path
-        # 2. Index for RAG
-        # 3. Return structured content
+        from pathlib import Path
+        
+        path_obj = Path(path)
+        
+        if not path_obj.exists():
+            logger.warning(f"Path does not exist: {path}")
+            return {
+                'path': path,
+                'ingested': False,
+                'error': 'Path not found',
+                'file_count': 0,
+                'files': [],
+                'content': ''
+            }
+        
+        # Collect files
+        files = []
+        if path_obj.is_file():
+            files = [path_obj]
+        elif path_obj.is_dir():
+            # Recursively find markdown files
+            files = list(path_obj.rglob("*.md"))
+            # Also include txt files
+            files.extend(list(path_obj.rglob("*.txt")))
+        
+        # Read file contents
+        contents = []
+        file_info = []
+        for file_path in files:
+            try:
+                # Try to read with UTF-8, fallback to other encodings
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                except UnicodeDecodeError:
+                    # Try latin-1 as fallback
+                    with open(file_path, 'r', encoding='latin-1') as f:
+                        content = f.read()
+                
+                if content.strip():
+                    contents.append(content)
+                    file_info.append({
+                        'path': str(file_path),
+                        'name': file_path.name,
+                        'size': len(content)
+                    })
+            except Exception as e:
+                logger.warning(f"Failed to read {file_path}: {e}")
+                continue
+        
+        # Combine all content
+        combined_content = "\n\n---\n\n".join(contents)
         
         return {
             'path': path,
             'ingested': True,
-            'file_count': 0
+            'file_count': len(file_info),
+            'files': file_info,
+            'content': combined_content,
+            'total_size': len(combined_content)
         }
     
     def _derive_topic_from_context(self, context: Dict[str, Any]) -> str:
@@ -450,33 +799,45 @@ class UnifiedEngine:
         """
         from src.core.template_registry import get_template
         
+        logger.info("Preparing to write artifact...")
+        
         # Get template
         template = get_template(result.run_spec.template_name)
         
         if not template:
-            result.error = f"Template '{result.run_spec.template_name}' not found"
+            error_msg = f"Template '{result.run_spec.template_name}' not found"
+            logger.error(error_msg)
+            result.error = error_msg
             return
+        
+        logger.info(f"  Using template: {template.name} (type: {template.type.value})")
         
         # Prepare output directory
         output_dir = result.run_spec.output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"  Output directory: {output_dir}")
         
         # Get title for output path
         title = result.partial_results.get('title', result.run_spec.topic or 'untitled')
+        logger.info(f"  Content title: {title}")
         
         # Use RunSpec.generate_output_path for proper slug handling and collision detection
         output_path = result.run_spec.generate_output_path(title)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         result.output_path = output_path
+        logger.info(f"  Output file: {output_path}")
         
         # Render template
         try:
+            logger.info("  Rendering template with context...")
             # Build context from partial results
             template_context = result.partial_results.get('final_context', {})
             
             # Render
-            content = template.render(template_context)
+            content = template.render(template_context, strict=False)
+            
+            logger.info(f"  Rendered content: {len(content)} characters")
             
             # Add run summary at top
             run_summary = self._generate_run_summary(result)
@@ -508,15 +869,22 @@ class UnifiedEngine:
         Args:
             result: JobResult
         """
-        if not result.output_path:
-            return
+        # Write manifest to reports directory, not output directory
+        reports_dir = Path('./reports')
+        reports_dir.mkdir(parents=True, exist_ok=True)
         
-        manifest_path = result.output_path.parent / f'{result.output_path.stem}_manifest.json'
+        manifest_path = reports_dir / f'{result.job_id}_manifest.json'
         
+        # Create lightweight manifest without large content
         manifest = {
             'job_id': result.job_id,
             'timestamp': datetime.now().isoformat(),
-            'run_spec': result.run_spec.to_dict(),
+            'run_spec': {
+                'topic': result.run_spec.topic,
+                'template_name': result.run_spec.template_name,
+                'auto_topic': result.run_spec.auto_topic,
+                'output_dir': str(result.run_spec.output_dir)
+            },
             'template_name': result.run_spec.template_name,
             'pipeline_order': result.pipeline_order,
             'sources_used': result.sources_used,
@@ -526,13 +894,24 @@ class UnifiedEngine:
                 'engine_version': self.config_snapshot.engine_version
             },
             'status': result.status.value,
-            'duration': result.duration
+            'duration': result.duration,
+            'output_path': str(result.output_path) if result.output_path else None,
+            # Summary of agent execution without full logs
+            'agent_summary': [
+                {
+                    'agent': log.agent_name,
+                    'duration': log.duration,
+                    'error_count': len(log.errors)
+                }
+                for log in result.agent_logs
+            ]
         }
         
         with open(manifest_path, 'w') as f:
             json.dump(manifest, f, indent=2)
         
         result.manifest_path = manifest_path
+        logger.info(f"✓ Manifest written to: {manifest_path}")
     
     def _generate_run_summary(self, result: JobResult) -> str:
         """Generate run summary for artifact header.

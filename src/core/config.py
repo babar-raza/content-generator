@@ -63,14 +63,6 @@ class OrchestrationConfig:
     checkpoint_dir: str = "./checkpoints"
     workflow_dir: str = "./templates"
     hot_reload: bool = True
-    default_pipeline: list = field(default_factory=lambda: [
-        "identify_topic", 
-        "generate_seo",
-        "dup_check",
-        "build_frontmatter",
-        "assemble_content",
-        "write_output"
-    ])
 
 
 @dataclass
@@ -84,15 +76,9 @@ class Config:
     cache_dir: Path = field(default_factory=lambda: Path("./cache"))
     chroma_db_path: Path = field(default_factory=lambda: Path("./chroma_db"))
     ingestion_state_file: Path = field(default_factory=lambda: Path("./ingestion_state.json"))
-    api_dir: Path = field(default_factory=lambda: Path("./data/docs"))
-    blog_dir: Path = field(default_factory=lambda: Path("./data/blog"))
-    
-    # NEW: Blog Switch Policy
-    blog_switch: bool = field(default=True)  # ON = ./output/{slug}/index.md, OFF = ./output/{slug}.md
     
     # Family detection (auto-detected from paths or set manually)
     family: str = "general"
-    company_name: str = "Company"
     
     # Family name mapping (for API products)
     FAMILY_NAME_MAP = {
@@ -109,19 +95,6 @@ class Config:
         'imaging': 'Aspose.Imaging',
         'zip': 'Aspose.ZIP',
     }
-    
-    # Content path patterns for family detection
-    # These patterns help detect family from various content source paths
-    CONTENT_PATH_PATTERNS = {
-        'docs': r'(?:content/)?docs\.aspose\.net/([^/]+)/(?:en/)?',
-        'kb': r'(?:content/)?kb\.aspose\.net/([^/]+)/(?:en/)?',
-        'tutorial': r'(?:content/)?tutorial\.aspose\.net/([^/]+)/(?:en/)?',
-        'reference': r'(?:content/)?reference\.aspose\.net/([^/]+)/(?:en/)?',
-        'blog': r'(?:content/)?blog\.aspose\.net/([^/]+)/?',
-    }
-    
-    # Fallback pattern: look for family names anywhere in path
-    FAMILY_IN_PATH_PATTERN = r'/({})(?:/|$)'.format('|'.join(FAMILY_NAME_MAP.keys()))
     
     # Device settings - CUDA auto-detection (overrideable by RUNTIME_DEVICE env var)
     device: str = field(default="auto")  # Will be resolved in post_init
@@ -140,7 +113,7 @@ class Config:
     gemini_rpm_limit: int = 15
     
     # Model Configuration
-    gemini_model: str = "models/gemini-2.5-flash"
+    gemini_model: str = "models/gemini-2.0-flash"
     openai_model: str = "gpt-4o-mini"
     
     # Ollama-specific settings
@@ -150,35 +123,8 @@ class Config:
     ollama_code_model: str = "qwen2.5-coder"
     
     llm_temperature: float = 0.7
-    llm_top_p: float = 0.95
     deterministic: bool = False
-    global_seed: Optional[int] = None
     cache_ttl: int = 86400  # 24 hours
-    
-    # Text chunking settings
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
-    
-    # Duplication detection settings
-    chroma_distance_threshold: float = 0.5
-    
-    # RAG settings
-    rag_top_k: int = 5
-    
-    # Template settings
-    active_blog_template: str = "blog"
-    PREREQUISITES_TEMPLATE = """## Prerequisites
-
-* Visual Studio 2019 or later
-* .NET 6.0+ or .NET Framework 4.6.2+
-* {family_name} for .NET installed (NuGet)
-
-```shell
-PM> Install-Package Aspose.{package_name}
-```"""
-    
-    # Workflow settings
-    warnings_as_errors: bool = False
     
     # Ollama Model Router settings
     enable_smart_routing: bool = True  # Enable intelligent model selection
@@ -206,79 +152,15 @@ PM> Install-Package Aspose.{package_name}
     _tone_config: Optional[Dict[str, Any]] = None
     _templates: Optional[Dict[str, Any]] = None
     _schemas: Optional[Dict[str, Any]] = None
-    
-    # Dynamic attributes (set at runtime)
-    resilience_manager: Optional[Any] = None
-    
-    @property
-    def tone_config(self) -> Dict[str, Any]:
-        """Lazy load tone config."""
-        if self._tone_config is None:
-            tone_file = self.config_dir / "tone.json"
-            if tone_file.exists():
-                import json
-                with open(tone_file, 'r') as f:
-                    self._tone_config = json.load(f)
-            else:
-                self._tone_config = {}
-        return self._tone_config
-    
-    @property
-    def templates(self) -> Dict[str, Any]:
-        """Lazy load templates."""
-        if self._templates is None:
-            self._templates = {}
-        return self._templates
-    
-    def get_output_path(self, slug: str) -> Path:
-        """Get the correct output path based on blog_switch policy."""
-        if self.blog_switch:
-            # Blog ON: ./output/{slug}/index.md
-            dir_path = Path(self.output_dir) / slug
-            dir_path.mkdir(parents=True, exist_ok=True)
-            return dir_path / "index.md"
-        else:
-            # Blog OFF: ./output/{slug}.md
-            return Path(self.output_dir) / f"{slug}.md"
 
     @staticmethod
     def detect_family_from_path(path: Path) -> str:
-        """Detect API family from file path using configured patterns.
-        
-        Tries multiple detection strategies:
-        1. Aspose.net path patterns (docs, kb, tutorial, reference, blog)
-        2. Direct family name in path parts
-        3. Pattern matching with regex
-        
-        Args:
-            path: Path to analyze for family detection
-            
-        Returns:
-            Family key (e.g., 'words', 'pdf') or 'general' if not detected
-        """
-        import re
-        
-        path_str = str(path).replace('\\', '/')
-        
-        # Strategy 1: Try content path patterns
-        for source_type, pattern in Config.CONTENT_PATH_PATTERNS.items():
-            match = re.search(pattern, path_str, re.IGNORECASE)
-            if match:
-                family = match.group(1).lower()
-                if family in Config.FAMILY_NAME_MAP:
-                    return family
-        
-        # Strategy 2: Check path parts directly
+        """Detect API family from file path."""
         path_parts = [part.lower() for part in path.parts]
+        
         for family_key in Config.FAMILY_NAME_MAP.keys():
             if family_key in path_parts:
                 return family_key
-        
-        # Strategy 3: Regex pattern match in full path
-        pattern = Config.FAMILY_IN_PATH_PATTERN
-        match = re.search(pattern, path_str, re.IGNORECASE)
-        if match:
-            return match.group(1).lower()
         
         return "general"
     
@@ -420,48 +302,6 @@ PM> Install-Package Aspose.{package_name}
         templates = self.load_templates()
         # naming convention: blog_templates, code_templates, frontmatter_templates, workflows
         return templates.get(f"{template_type}_templates", templates.get(template_type, {}))
-    
-    def get_frontmatter_template(self, name: Optional[str] = None) -> Dict[str, Any]:
-        """Load frontmatter template with placeholder replacement.
-        
-        Args:
-            name: Optional template name ('default', 'tutorial', 'api_reference').
-                  If None, uses 'default'.
-        
-        Returns:
-            Template dictionary with {family} and {company} placeholders replaced.
-        """
-        templates = self.load_templates()
-        frontmatter_templates = templates.get("frontmatter_templates", {})
-        
-        if not frontmatter_templates:
-            # Fallback if template file is missing
-            return {
-                'author': 'Babar Raza',
-                'draft': True,
-                'categories': [f'Aspose.{self.family} Plugin Family'],
-            }
-        
-        # Get the specified template or fall back to default
-        if name and name in frontmatter_templates:
-            template = frontmatter_templates[name]
-        elif 'default' in frontmatter_templates:
-            template = frontmatter_templates['default']
-        else:
-            # Use first available template
-            template = next(iter(frontmatter_templates.values()), {})
-        
-        # Replace placeholders
-        def replace_placeholders(value):
-            if isinstance(value, str):
-                return value.replace('{family}', self.family).replace('{company}', self.company_name)
-            elif isinstance(value, list):
-                return [replace_placeholders(item) for item in value]
-            elif isinstance(value, dict):
-                return {k: replace_placeholders(v) for k, v in value.items()}
-            return value
-        
-        return replace_placeholders(template)
 
 
 # Schemas registry (loaded from config/agents.yaml when available)
@@ -502,30 +342,6 @@ metered.SetMeteredKey(publicKey, privateKey);"""
 # PROMPTS dictionary - loaded from templates
 PROMPTS = {}
 
-def load_prompts():
-    """Load prompts from templates/prompts.yaml"""
-    import yaml
-    from pathlib import Path
-    
-    prompts_file = Path(__file__).parent.parent.parent / "templates" / "prompts.yaml"
-    if prompts_file.exists():
-        try:
-            with open(prompts_file, 'r', encoding='utf-8') as f:
-                loaded_prompts = yaml.safe_load(f)
-                if loaded_prompts:
-                    PROMPTS.update(loaded_prompts)
-                    import logging
-                    logging.getLogger(__name__).info(f"✓ Loaded {len(loaded_prompts)} prompt templates")
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"Could not load prompts: {e}")
-    else:
-        import logging
-        logging.getLogger(__name__).warning(f"Prompts file not found: {prompts_file}")
-
-# Load prompts on module import
-load_prompts()
-
 # FAILURE_STRATEGIES - error handling strategies
 FAILURE_STRATEGIES = {
     "TimeoutError": [
@@ -541,40 +357,7 @@ FAILURE_STRATEGIES = {
 }
 
 
-def load_config(config_path: Optional[Path] = None) -> Config:
-    """Load configuration from file or environment.
-    
-    Args:
-        config_path: Optional path to config file
-        
-    Returns:
-        Configured Config instance
-    """
-    config = Config()
-    
-    # Load from environment variables
-    if os.getenv('GEMINI_API_KEY'):
-        config.gemini_api_key = os.getenv('GEMINI_API_KEY')
-    if os.getenv('OPENAI_API_KEY'):
-        config.openai_api_key = os.getenv('OPENAI_API_KEY')
-    if os.getenv('OLLAMA_BASE_URL'):
-        config.ollama_base_url = os.getenv('OLLAMA_BASE_URL')
-    if os.getenv('OLLAMA_MODEL'):
-        config.ollama_topic_model = os.getenv('OLLAMA_MODEL')
-    
-    # Set provider based on available keys
-    if config.ollama_base_url:
-        config.llm_provider = "OLLAMA"
-    elif config.gemini_api_key:
-        config.llm_provider = "GEMINI"
-    elif config.openai_api_key:
-        config.llm_provider = "OPENAI"
-    
-    return config
-
-
 __all__ = [
     'Config', 'LLMConfig', 'DatabaseConfig', 'MeshConfig', 'OrchestrationConfig',
-    'SCHEMAS', 'load_schemas', 'PROMPTS', 'CSHARP_LICENSE_HEADER', 'FAILURE_STRATEGIES',
-    'load_config'
+    'SCHEMAS', 'load_schemas', 'PROMPTS', 'CSHARP_LICENSE_HEADER', 'FAILURE_STRATEGIES'
 ]

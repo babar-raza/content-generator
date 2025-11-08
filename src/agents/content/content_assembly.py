@@ -17,8 +17,6 @@ from ..base import (
     get_section_heading, is_section_enabled, logger
 )
 
-from src.utils.dedup_utils import deduplicate_headings
-
 
 class ContentAssemblyAgent(SelfCorrectingAgent, Agent):
 

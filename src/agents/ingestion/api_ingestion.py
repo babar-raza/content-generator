@@ -53,10 +53,6 @@ class APIIngestionAgent(SelfCorrectingAgent, Agent):
     def execute(self, event: AgentEvent) -> Optional[AgentEvent]:
 
         api_dir = self.config.api_dir
-        
-        # Detect family from path
-        detected_family = Config.detect_family_from_path(api_dir)
-        logger.info(f"Detected family from API path: {detected_family} (path: {api_dir})")
 
         logger.info(f"APIIngestionAgent: Checking API directory: {api_dir}")
         logger.info(f"APIIngestionAgent: Directory exists: {api_dir.exists()}")
@@ -143,7 +139,7 @@ class APIIngestionAgent(SelfCorrectingAgent, Agent):
 
                     ]
 
-                    self.database_service.add_documents("api", chunks, metadatas, family=detected_family)
+                    self.database_service.add_documents("api", chunks, metadatas)
 
                     self.state_manager.mark_ingested(api_file, "api", len(chunks))
 

@@ -514,18 +514,7 @@ def create_frontmatter(metadata: Dict[str, Any], config: Config = None) -> str:
     from datetime import datetime, timezone
 
     if config:
-        # Try get_frontmatter_template first, fallback to get_template if method doesn't exist
-        try:
-            template = config.get_frontmatter_template()
-        except AttributeError:
-            logger.warning("Config missing get_frontmatter_template, using fallback")
-            template = config.get_template('frontmatter')
-            if not template:
-                template = {
-                    'author': 'Babar Raza',
-                    'draft': True,
-                    'categories': ['Aspose.Total Plugin Family'],
-                }
+        template = config.get_frontmatter_template()
     else:
         # Fallback to default
         template = {

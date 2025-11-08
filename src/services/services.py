@@ -17,45 +17,15 @@ import logging
 from pathlib import Path
 import subprocess
 import requests
-
-# Early import attempts before logger is configured
-try:
-    from sentence_transformers import SentenceTransformer
-    HAS_SENTENCE_TRANSFORMERS = True
-except ImportError:
-    SentenceTransformer = None
-    HAS_SENTENCE_TRANSFORMERS = False
-    # Will log warning after logger is configured
-
-try:
-    import chromadb
-    from chromadb.config import Settings
-    HAS_CHROMADB = True
-except ImportError:
-    chromadb = None
-    Settings = None
-    HAS_CHROMADB = False
-
-try:
-    from pytrends.request import TrendReq
-    HAS_PYTRENDS = True
-except ImportError:
-    TrendReq = None
-    HAS_PYTRENDS = False
-    
+from sentence_transformers import SentenceTransformer
+import chromadb
+from chromadb.config import Settings
+from pytrends.request import TrendReq
 from src.core.config import Config
 import shutil
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
-
-# Log warnings about missing dependencies
-if not HAS_SENTENCE_TRANSFORMERS:
-    logger.warning("sentence_transformers not available - using fallback embeddings")
-if not HAS_CHROMADB:
-    logger.warning("chromadb not available - database features disabled")
-if not HAS_PYTRENDS:
-    logger.warning("pytrends not available - trends features disabled")
 
 # Import Ollama Model Router
 try:
@@ -277,8 +247,6 @@ class LLMService:
         timestamp = datetime.now(timezone.utc)
 
         self.cache[input_hash] = (output, timestamp)
-
-        logger.info(f"✓ Saved LLM response to cache (output_len: {len(output)})")
 
         try:
 
@@ -514,11 +482,11 @@ class LLMService:
 
             age = (datetime.now(timezone.utc) - cached_time).total_seconds()
 
-            logger.info(f"✓ LLM Cache HIT (age: {age:.0f}s, provider: {provider or 'default'}, prompt_len: {len(prompt)})")
+            logger.info(f"✓ Cache HIT (age: {age:.0f}s, provider: {provider or 'default'})")
 
             return cached_output
 
-        logger.info(f"✗ LLM Cache MISS (provider: {provider or 'default'}, prompt_len: {len(prompt)}), generating...")
+        logger.debug(f"Cache MISS, generating with {provider or 'default'}")
 
         # Determine providers to try
 
@@ -534,10 +502,7 @@ class LLMService:
 
         last_error = None
 
-        for idx, prov in enumerate(providers_to_try):
-
-            if idx > 0:
-                logger.info(f"Attempting fallback provider #{idx + 1}: {prov}")
+        for prov in providers_to_try:
 
             try:
 
@@ -595,11 +560,9 @@ class LLMService:
 
                             generation_config["response_mime_type"] = "application/json"
 
-                            # Only add schema if it has properties (Gemini requirement)
-                            if json_schema and isinstance(json_schema, dict):
-                                # Check if schema has properties or is just {"type": "object"}
-                                if json_schema.get("properties") or json_schema.get("type") != "object":
-                                    generation_config["response_schema"] = json_schema
+                            if json_schema:
+
+                                generation_config["response_schema"] = json_schema
 
                         # Build full prompt
 
@@ -609,7 +572,7 @@ class LLMService:
 
                         logger.info(f"Gemini prompt length: {len(full_prompt)} chars")
 
-                        # Try generation with retry only for non-rate-limit errors
+                        # Try generation with exponential backoff
 
                         max_attempts = 3
 
@@ -617,13 +580,13 @@ class LLMService:
 
                             try:
 
-                                gemini_model = genai.GenerativeModel(model_name=mapped_model,
+                                model = genai.GenerativeModel(model_name=mapped_model,
 
                                     generation_config=generation_config
 
                                 )
 
-                                response = gemini_model.generate_content(full_prompt)
+                                response = model.generate_content(full_prompt)
 
                                 # Validate response
 
@@ -675,30 +638,29 @@ class LLMService:
 
                                 logger.info(f"Gemini generated {len(text)} chars (attempt {attempt + 1})")
 
-                                output = text
-                                break
+                                return text
 
                             except Exception as e:
 
-                                error_str = str(e)
-
-                                # Check for rate limiting - immediately fail to trigger fallback
-
-                                if "429" in error_str or "quota" in error_str.lower() or "Resource exhausted" in error_str:
-
-                                    logger.warning(f"Gemini rate limit detected (attempt {attempt + 1}): {e}")
-
-                                    logger.info("Falling back to next provider (Ollama) due to rate limit")
-
-                                    # Don't retry, raise immediately to trigger fallback
-
-                                    raise RuntimeError(f"Gemini rate limit exceeded: {e}")
-
                                 logger.warning(f"Gemini generation error (attempt {attempt + 1}/{max_attempts}): {e}")
+
+                                # Check for rate limiting
+
+                                if "429" in str(e) or "quota" in str(e).lower():
+
+                                    logger.warning("Gemini rate limit detected, increasing backoff")
+
+                                    if attempt < max_attempts - 1:
+
+                                        import time
+
+                                        time.sleep(5 * (attempt + 1))  # Longer wait for rate limits
+
+                                        continue
 
                                 # Check for content filtering
 
-                                if "safety" in error_str.lower() or "blocked" in error_str.lower():
+                                if "safety" in str(e).lower() or "blocked" in str(e).lower():
 
                                     logger.error("Gemini content safety filter triggered")
 
@@ -712,8 +674,7 @@ class LLMService:
 
                                 time.sleep(2 ** attempt)
 
-                        if 'output' not in locals():
-                            raise ValueError("Gemini generation failed after all retries")
+                        raise ValueError("Gemini generation failed after all retries")
 
                     except Exception as e:
 
@@ -733,16 +694,6 @@ class LLMService:
 
                     continue
 
-                # Apply NO-MOCK validation before caching
-                from src.services.services_fixes import NoMockGate
-                no_mock_gate = NoMockGate()
-                is_valid, reason = no_mock_gate.validate_response(output)
-                
-                if not is_valid:
-                    logger.warning(f"Provider {prov} returned mock content: {reason}")
-                    # Try next provider
-                    continue
-                
                 # Cache and return
 
                 self._save_to_cache(cache_key, output)
@@ -783,7 +734,7 @@ class LLMService:
 
     ) -> str:
 
-        """Generate using Ollama with fallback to generate endpoint."""
+        """Generate using Ollama."""
 
         if not model:
 
@@ -791,89 +742,53 @@ class LLMService:
 
         temp = self._effective_sampling(temperature)
 
-        # Try chat endpoint first (preferred for newer Ollama)
-        try:
-            messages = []
+        messages = []
 
-            if system_prompt:
+        if system_prompt:
 
-                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "system", "content": system_prompt})
 
-            messages.append({"role": "user", "content": prompt})
+        messages.append({"role": "user", "content": prompt})
 
-            payload = {
+        payload = {
 
-                "model": model,
+            "model": model,
 
-                "messages": messages,
+            "messages": messages,
 
-                "stream": False,
+            "stream": False,
 
-                "options": {
+            "options": {
 
-                    "temperature": temp,
+                "temperature": temp,
 
-                    "top_p": self.config.llm_top_p if not self.config.deterministic else 1.0,
+                "top_p": self.config.llm_top_p if not self.config.deterministic else 1.0,
 
-                    "seed": self.config.global_seed
-
-                }
+                "seed": self.config.global_seed
 
             }
 
-            if json_mode:
+        }
 
-                payload["format"] = "json"
+        if json_mode:
 
-            response = requests.post(
+            payload["format"] = "json"
 
-                "http://localhost:11434/api/chat",
+        response = requests.post(
 
-                json=payload,
+            "http://localhost:11434/api/chat",
 
-                timeout=timeout
+            json=payload,
 
-            )
+            timeout=timeout
 
-            response.raise_for_status()
+        )
 
-            result = response.json()
+        response.raise_for_status()
 
-            return result["message"]["content"]
-            
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                # Fallback to generate endpoint for older Ollama versions
-                logger.info("Chat endpoint not available, falling back to generate endpoint")
-                
-                # Build full prompt with system message
-                full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
-                
-                payload = {
-                    "model": model,
-                    "prompt": full_prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": temp,
-                        "top_p": self.config.llm_top_p if not self.config.deterministic else 1.0,
-                        "seed": self.config.global_seed
-                    }
-                }
-                
-                if json_mode:
-                    payload["format"] = "json"
-                
-                response = requests.post(
-                    "http://localhost:11434/api/generate",
-                    json=payload,
-                    timeout=timeout
-                )
-                
-                response.raise_for_status()
-                result = response.json()
-                return result["response"]
-            else:
-                raise
+        result = response.json()
+
+        return result["message"]["content"]
 
     def _generate_gemini(
 
@@ -1047,12 +962,7 @@ class LLMService:
 
             messages.append({"role": "system", "content": system_prompt})
 
-        # OpenAI requires the word "json" in messages when using json_object format
-        user_content = prompt
-        if json_mode and "json" not in prompt.lower():
-            user_content = f"{prompt}\n\nPlease respond in JSON format."
-            
-        messages.append({"role": "user", "content": user_content})
+        messages.append({"role": "user", "content": prompt})
 
         kwargs = {
 
@@ -1189,26 +1099,22 @@ class EmbeddingService:
         self.config = config
 
         # Initialize model with device
-        if HAS_SENTENCE_TRANSFORMERS:
-            self.model = SentenceTransformer(
 
-                'sentence-transformers/all-MiniLM-L6-v2',
+        self.model = SentenceTransformer(
 
-                device=config.device
+            'sentence-transformers/all-MiniLM-L6-v2',
 
-            )
+            device=config.device
 
-            self.cache: Dict[str, List[float]] = {}
+        )
 
-            logger.info(f"Embedding model loaded on {config.device}")
+        self.cache: Dict[str, List[float]] = {}
 
-            if config.device == "cuda":
+        logger.info(f"Embedding model loaded on {config.device}")
 
-                logger.info(f"Batch size for GPU: {config.embedding_batch_size}")
-        else:
-            self.model = None
-            self.cache: Dict[str, List[float]] = {}
-            logger.warning("EmbeddingService initialized without sentence_transformers - using dummy embeddings")
+        if config.device == "cuda":
+
+            logger.info(f"Batch size for GPU: {config.embedding_batch_size}")
 
     def encode(self, texts: List[str], normalize: bool = True) -> List[List[float]]:
 
@@ -1219,8 +1125,6 @@ class EmbeddingService:
             return []
 
         """Encode texts to embeddings with GPU acceleration."""
-        
-        import hashlib
 
         uncached_texts = []
 
@@ -1245,36 +1149,24 @@ class EmbeddingService:
                 uncached_indices.append(i)
 
         if uncached_texts:
-            if self.model is None:
-                # Fallback: generate dummy embeddings (random but consistent per text)
-                import hashlib
-                embeddings = []
-                for text in uncached_texts:
-                    # Create a deterministic embedding based on text hash
-                    text_hash = hashlib.sha256(text.encode()).hexdigest()
-                    # Convert hash to 384-dim vector (same as all-MiniLM-L6-v2)
-                    embedding = [int(text_hash[i:i+2], 16) / 255.0 for i in range(0, min(len(text_hash), 192*2), 2)]
-                    # Pad to 384 dimensions
-                    embedding.extend([0.0] * (384 - len(embedding)))
-                    embeddings.append(embedding)
-            else:
-                # Use larger batch size for GPU
 
-                batch_size = self.config.embedding_batch_size if self.config.device == "cuda" else 8
+            # Use larger batch size for GPU
 
-                embeddings = self.model.encode(
+            batch_size = self.config.embedding_batch_size if self.config.device == "cuda" else 8
 
-                    uncached_texts,
+            embeddings = self.model.encode(
 
-                    normalize_embeddings=normalize,
+                uncached_texts,
 
-                    show_progress_bar=len(uncached_texts) > 100,
+                normalize_embeddings=normalize,
 
-                    batch_size=batch_size,
+                show_progress_bar=len(uncached_texts) > 100,
 
-                    device=self.config.device
+                batch_size=batch_size,
 
-                )
+                device=self.config.device
+
+            )
 
             # Cache results
 
@@ -1284,11 +1176,7 @@ class EmbeddingService:
 
                 text_hash = hashlib.sha256(text.encode()).hexdigest()
 
-                # Handle both numpy arrays and lists
-                if hasattr(embedding, 'tolist'):
-                    emb_list = embedding.tolist()
-                else:
-                    emb_list = embedding  # Already a list
+                emb_list = embedding.tolist()
 
                 self.cache[text_hash] = emb_list
 
@@ -1320,98 +1208,64 @@ class DatabaseService:
         
         self.config = config
         self.embedding_service = embedding_service
-        self.enabled = HAS_CHROMADB
         
-        if not HAS_CHROMADB:
-            logger.warning("DatabaseService initialized without chromadb - features disabled")
-            self.clients = {}
-            self.collections = {}
-            self.db_paths = {}
-            return
-        
-        # Get default family (defaults to 'general' if not set)
-        self.default_family = getattr(config, 'family', 'general')
+        # Get family (defaults to 'general' if not set)
+        family = getattr(config, 'family', 'general')
         
         db_base_path = Path(config.chroma_db_path)
         
         # Add batch method wrapper
         self.embedding_service.batch = lambda texts: self.embedding_service.encode(texts)
         
-        # Store base path for dynamic collection creation
-        self.db_base_path = db_base_path
+        # Create separate database directories for each section-family combination
+        self.db_paths = {
+            "kb": db_base_path / f"kb-{family}",
+            "blog": db_base_path / f"blog-{family}",
+            "api": db_base_path / f"api-{family}"
+        }
         
-        # Track created database paths and clients
-        self.db_paths = {}
+        # Create all directories
+        for path in self.db_paths.values():
+            path.mkdir(parents=True, exist_ok=True)
+        
+        # Create separate ChromaDB clients for each section
         self.clients = {}
         self.collections = {}
         
-        # Don't initialize default family collections at startup - make it lazy
-        # Collections will be created on-demand when actually needed
-        # self._ensure_family_collections(self.default_family)
+        for section, path in self.db_paths.items():
+            self.clients[section] = self._create_client(path)
+            collection_name = f"{section}-{family}"
+            self.collections[section] = self._get_or_create_collection(
+                section, collection_name
+            )
         
-        logger.info(f"ChromaDB initialized (lazy mode) - collections will be created on demand")
-    
-    def _ensure_family_collections(self, family: str):
-        """Ensure collections exist for a given family.
-        
-        Args:
-            family: Family identifier (e.g., 'words', 'pdf', 'general')
-        """
-        sources = ["kb", "blog", "api"]
-        
-        for source in sources:
-            collection_key = f"{source}-{family}"
-            
-            if collection_key not in self.collections:
-                # Create database directory path
-                db_path = self.db_base_path / collection_key
-                db_path.mkdir(parents=True, exist_ok=True)
-                
-                # Create client if needed
-                if collection_key not in self.clients:
-                    self.clients[collection_key] = self._create_client(db_path)
-                
-                # Store path
-                self.db_paths[collection_key] = db_path
-                
-                # Create/get collection
-                self.collections[collection_key] = self._get_or_create_collection(
-                    collection_key, collection_key, self.clients[collection_key]
-                )
-                
-                logger.info(f"  Initialized collection: {collection_key} at {db_path}")
+        logger.info(f"ChromaDB initialized for family: {family}")
+        for section, path in self.db_paths.items():
+            logger.info(f"  {section}: {path}")
             
     def _create_client(self, path: Path):
 
         """Create a ChromaDB client."""
-        
-        if not HAS_CHROMADB:
-            return None
-        
-        # Only use Settings if chromadb is available
-        if Settings is not None:
-            return chromadb.PersistentClient(
-                path=str(path),
-                settings=Settings(anonymized_telemetry=False)
-            )
-        else:
-            return chromadb.PersistentClient(path=str(path))
 
-    def _get_or_create_collection(self, section: str, name: str, client=None):
+        return chromadb.PersistentClient(
+
+            path=str(path),
+
+            settings=Settings(anonymized_telemetry=False)
+
+        )
+
+    def _get_or_create_collection(self, section: str, name: str):
 
         """Get or create a collection with semantic naming."""
 
-        if client is None:
-            client = self.clients.get(section)
-            
-        if client is None:
-            raise ValueError(f"No client available for section: {section}")
+        client = self.clients[section]
 
         try:
 
             collection = client.get_collection(name=name)
 
-            logger.debug(f"Loaded existing collection: {name}")
+            logger.info(f"Loaded existing collection: {name} in {section}")
 
             return collection
 
@@ -1421,7 +1275,7 @@ class DatabaseService:
 
             if "_type" in str(e):
 
-                db_path = self.db_paths.get(section, self.db_base_path / name)
+                db_path = self.db_paths[section]
 
                 logger.error(
 
@@ -1503,37 +1357,19 @@ class DatabaseService:
 
         metadatas: Optional[List[Dict]] = None,
 
-        ids: Optional[List[str]] = None,
-        
-        family: Optional[str] = None
+        ids: Optional[List[str]] = None
 
     ):
 
-        """Add documents to a collection.
-        
-        Args:
-            source: Source type ('kb', 'blog', 'api')
-            documents: List of document texts
-            metadatas: Optional metadata for each document
-            ids: Optional IDs for documents
-            family: Family identifier (e.g., 'words', 'pdf'). If None, uses default.
-        """
-        
-        # Use provided family or default
-        if family is None:
-            family = self.default_family
-        
-        # Ensure collections exist for this family
-        self._ensure_family_collections(family)
-        
-        # Get collection key
-        collection_key = f"{source}-{family}"
+        """Add documents to a collection."""
 
-        if collection_key not in self.collections:
+        if source not in self.collections:
 
-            raise ValueError(f"Collection not found: {collection_key}")
+            self._ensure_collection(source)  # allow known aliases lazily
 
-        collection = self.collections[collection_key]
+            # continue
+
+        collection = self.collections[source]
 
         embeddings = self.embedding_service.encode(documents)
 
@@ -1591,7 +1427,7 @@ class DatabaseService:
 
             if not new_docs:
 
-                logger.info(f"All {len(documents)} documents already exist in {collection_key} (skipped)")
+                logger.info(f"All {len(documents)} documents already exist in {source} (skipped)")
 
                 return
 
@@ -1627,11 +1463,11 @@ class DatabaseService:
 
             skipped = len(documents) - len(new_docs)
 
-            logger.info(f"Added {total_added} documents to {collection_key} at {self.db_paths[collection_key]} ({skipped} duplicates skipped)")
+            logger.info(f"Added {total_added} documents to {source} at {self.db_paths[source]} ({skipped} duplicates skipped)")
 
         except Exception as e:
 
-            logger.error(f"Error adding documents to {collection_key}: {e}")
+            logger.error(f"Error adding documents to {source}: {e}")
 
             raise
 
@@ -1645,40 +1481,19 @@ class DatabaseService:
 
         top_k: int = 8,
 
-        where: Optional[Dict] = None,
-        
-        family: Optional[str] = None
+        where: Optional[Dict] = None
 
     ) -> Dict[str, Any]:
 
-        """Query a collection.
-        
-        Args:
-            source: Source type ('kb', 'blog', 'api')
-            query_text: Text to query
-            top_k: Number of results to return
-            where: Optional filter conditions
-            family: Family identifier. If None, uses default.
-            
-        Returns:
-            Query results
-        """
-        
-        # Use provided family or default
-        if family is None:
-            family = self.default_family
-        
-        # Ensure collections exist for this family
-        self._ensure_family_collections(family)
-        
-        # Get collection key
-        collection_key = f"{source}-{family}"
+        """Query a collection."""
 
-        if collection_key not in self.collections:
+        if source not in self.collections:
 
-            raise ValueError(f"Collection not found: {collection_key}")
+            self._ensure_collection(source)  # allow known aliases lazily
 
-        collection = self.collections[collection_key]
+            # continue
+
+        collection = self.collections[source]
 
         query_embedding = self.embedding_service.encode([query_text])[0]
 
@@ -1702,25 +1517,13 @@ class DatabaseService:
 
         query_text: str,
 
-        threshold: float = 0.25,
-        
-        family: Optional[str] = None
+        threshold: float = 0.25
 
     ) -> Tuple[bool, float]:
 
-        """Check if query is duplicate of existing document.
-        
-        Args:
-            source: Source type
-            query_text: Text to check
-            threshold: Similarity threshold for duplicates
-            family: Family identifier. If None, uses default.
-            
-        Returns:
-            Tuple of (is_duplicate, similarity_score)
-        """
+        """Check if query is duplicate of existing document."""
 
-        results = self.query(source, query_text, top_k=1, family=family)
+        results = self.query(source, query_text, top_k=1)
 
         if not results['distances'] or not results['distances'][0]:
 
@@ -2137,16 +1940,8 @@ class TrendsService:
         self.config = config
 
         try:
-            # TrendReq internally creates Retry objects, so pass integers
-            # This avoids compatibility issues with different urllib3 versions
-            self.pytrends = TrendReq(
-                hl='en-US',
-                tz=360,
-                retries=2,
-                backoff_factor=0.4,
-                timeout=(10, 30),
-                requests_args={'verify': True}  # Explicit requests args
-            )
+
+            self.pytrends = TrendReq(hl='en-US', tz=360)
 
         except ImportError:
 
@@ -2258,8 +2053,6 @@ class TrendsService:
 
         self.cache[query_hash] = (data, timestamp)
 
-        logger.info(f"✓ Saved trends data to cache")
-
         try:
 
             # Ensure cache directory exists
@@ -2310,30 +2103,17 @@ class TrendsService:
 
         """Get interest over time for keywords."""
 
-        # Guard: filter empty/blank keywords
-        keywords = [k.strip() for k in keywords if k and k.strip()]
-        if not keywords:
-            logger.warning("No valid keywords provided for trends query, skipping")
-            return None
-        
         keywords = keywords[:5]
 
         cache_key = self._compute_query_hash(keywords, timeframe)
 
         if cache_key in self.cache:
 
-            cached_data, cached_time = self.cache[cache_key]
+            cached_data, _ = self.cache[cache_key]
 
-            age = (datetime.now(timezone.utc) - cached_time).total_seconds()
-
-            logger.info(f"✓ Trends Cache HIT (age: {age:.0f}s, keywords: {keywords})")
+            logger.debug("Cache hit for trends request")
 
             return cached_data
-
-        logger.info(f"✗ Trends Cache MISS (keywords: {keywords}), fetching from API...")
-
-        # Get geo from config if available, default to US
-        geo = getattr(self.config, 'trends_geo', 'US')
 
         try:
 
@@ -2343,27 +2123,15 @@ class TrendsService:
 
                 timeframe=timeframe,
 
-                geo=geo
+                geo='US'
 
             )
 
             interest_df = self.pytrends.interest_over_time()
 
             if interest_df.empty:
-                # Retry with fallback timeframe
-                if timeframe != 'now 7-d':
-                    logger.info(f"Empty results for '{timeframe}', retrying with 'now 7-d'")
-                    try:
-                        self.pytrends.build_payload(keywords, timeframe='now 7-d', geo=geo)
-                        interest_df = self.pytrends.interest_over_time()
-                        if not interest_df.empty:
-                            timeframe = 'now 7-d'  # Update for cache key
-                    except Exception as retry_error:
-                        logger.warning(f"Fallback timeframe also failed: {retry_error}")
-                
-                if interest_df.empty:
-                    logger.warning(f"No trends data available for keywords: {keywords}")
-                    return None
+
+                return None
 
             data = {
 
@@ -2381,7 +2149,7 @@ class TrendsService:
 
         except Exception as e:
 
-            logger.warning(f"Trends API error: {e}")
+            logger.error(f"Failed to fetch trends data: {e}")
 
             return None
 
@@ -2393,15 +2161,9 @@ class TrendsService:
 
         if cache_key in self.cache:
 
-            cached_data, cached_time = self.cache[cache_key]
-
-            age = (datetime.now(timezone.utc) - cached_time).total_seconds()
-
-            logger.info(f"✓ Trends Related Queries Cache HIT (age: {age:.0f}s, keyword: {keyword})")
+            cached_data, _ = self.cache[cache_key]
 
             return cached_data
-
-        logger.info(f"✗ Trends Related Queries Cache MISS (keyword: {keyword}), fetching from API...")
 
         try:
 

@@ -52,10 +52,6 @@ class BlogIngestionAgent(SelfCorrectingAgent, Agent):
 
     def execute(self, event: AgentEvent) -> Optional[AgentEvent]:
         blog_dir = self.config.blog_dir
-        
-        # Detect family from path
-        detected_family = Config.detect_family_from_path(blog_dir)
-        logger.info(f"Detected family from blog path: {detected_family} (path: {blog_dir})")
 
         logger.info(f"BlogIngestionAgent: Checking blog directory: {blog_dir}")
         logger.info(f"BlogIngestionAgent: Directory exists: {blog_dir.exists()}")
@@ -144,7 +140,7 @@ class BlogIngestionAgent(SelfCorrectingAgent, Agent):
 
                     ]
 
-                    self.database_service.add_documents("blog", chunks, metadatas, family=detected_family)
+                    self.database_service.add_documents("blog", chunks, metadatas)
 
                     self.state_manager.mark_ingested(blog_file, "blog", len(chunks))
 

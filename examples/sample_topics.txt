@@ -1,0 +1,10 @@
+Getting Started with Python
+Python Data Types and Variables
+Control Flow in Python
+Functions and Modules
+Object-Oriented Programming in Python
+File Handling in Python
+Exception Handling
+Working with APIs
+Python Decorators Explained
+List Comprehensions and Generators

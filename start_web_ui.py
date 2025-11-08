@@ -5,7 +5,6 @@ import asyncio
 import uvicorn
 import logging
 import threading
-import argparse
 from pathlib import Path
 
 # Add src to path
@@ -47,19 +46,6 @@ def initialize_execution_engine(config: Config, event_bus: EventBus):
             elif llm_provider == 'ollama':
                 ollama_url = getattr(config, 'ollama_base_url', 'http://localhost:11434')
                 logger.info(f"  Ollama URL: {ollama_url}")
-                # Check if Ollama is actually running
-                try:
-                    import requests
-                    response = requests.get(f"{ollama_url}/api/tags", timeout=2)
-                    if response.status_code == 200:
-                        logger.info("✓ Ollama service is running")
-                    else:
-                        logger.warning(f"⚠ Ollama returned status {response.status_code}")
-                except Exception as e:
-                    logger.error(f"✗ Ollama service not accessible at {ollama_url}")
-                    logger.error(f"  Error: {e}")
-                    logger.error("  Please start Ollama with: ollama serve")
-                    logger.error("  Jobs will fall back to Gemini/OpenAI if configured")
         
         from src.orchestration.checkpoint_manager import CheckpointManager
         from src.orchestration.workflow_compiler import WorkflowCompiler
@@ -74,30 +60,8 @@ def initialize_execution_engine(config: Config, event_bus: EventBus):
         # Create a simple registry for workflow compiler
         # The registry would normally be the full agent registry, but we'll create a minimal one
         from src.orchestration.enhanced_registry import EnhancedAgentRegistry
-        
-        # Create necessary services for agents
         try:
-            from src.services.services import DatabaseService, EmbeddingService, LLMService
-            
-            llm_service = LLMService(config)
-            embedding_service = EmbeddingService(config)
-            database_service = DatabaseService(config, embedding_service)
-            logger.info("✓ Created agent services")
-        except Exception as e:
-            logger.error(f"Could not create all services: {e}", exc_info=True)
-            logger.error("This will prevent agents from being instantiated")
-            database_service = None
-            embedding_service = None
-            llm_service = None
-        
-        try:
-            registry = EnhancedAgentRegistry(
-                config=config,
-                event_bus=event_bus,
-                database_service=database_service,
-                embedding_service=embedding_service,
-                llm_service=llm_service
-            )
+            registry = EnhancedAgentRegistry()
             logger.info("✓ Agent registry initialized")
         except Exception as e:
             logger.warning(f"Could not create full agent registry: {e}")
@@ -108,15 +72,9 @@ def initialize_execution_engine(config: Config, event_bus: EventBus):
             })()
         
         # Create workflow compiler
-        # Import websocket manager for real-time updates
-        from src.realtime.websocket import get_ws_manager
-        ws_manager = get_ws_manager()
-        
         workflow_compiler = WorkflowCompiler(
             registry=registry,
-            event_bus=event_bus,
-            checkpoint_dir=Path("./data/checkpoints"),
-            websocket_manager=ws_manager
+            event_bus=event_bus
         )
         logger.info("✓ Workflow compiler initialized")
         
@@ -220,19 +178,6 @@ def main():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="UCOP Web UI with Job Engine")
-    parser.add_argument('--test', action='store_true', help='Run comprehensive tests')
-    args = parser.parse_args()
-    
-    if args.test:
-        print("Running comprehensive test suite...")
-        import subprocess
-        import os
-        os.chdir(Path(__file__).parent)
-        # Run all tests
-        subprocess.run([sys.executable, "-m", "pytest", "tests/", "-v", "--tb=short"])
-        sys.exit(0)
-    
     try:
         main()
     except KeyboardInterrupt:

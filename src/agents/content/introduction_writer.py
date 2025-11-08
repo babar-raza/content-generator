@@ -3,7 +3,6 @@
 from typing import Optional, Dict, List, Any
 from pathlib import Path
 import logging
-import json
 
 from ..base import (
     Agent, EventBus, AgentEvent, AgentContract, SelfCorrectingAgent,

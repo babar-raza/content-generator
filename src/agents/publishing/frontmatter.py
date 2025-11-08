@@ -48,8 +48,7 @@ class FrontmatterAgent(SelfCorrectingAgent, Agent):
 
     def execute(self, event: AgentEvent) -> Optional[AgentEvent]:
 
-        # Try to get content from multiple possible keys
-        content = event.data.get("content") or event.data.get("assembled_content") or ""
+        content = event.data.get("content", "")
 
         seo_metadata = event.data.get("seo_metadata", {})
 
@@ -59,26 +58,13 @@ class FrontmatterAgent(SelfCorrectingAgent, Agent):
 
         validated_code = event.data.get("validated_code", "")
 
-        if not content or not content.strip():
-            # Generate minimal content if missing
-            logger.warning("Content missing for frontmatter, generating minimal placeholder")
-            topic = event.data.get("topic", {})
-            topic_title = topic.get("title", "Blog Post")
-            content = f"# {topic_title}\n\nContent is being generated..."
+        if not content:
 
-        if "seo_metadata" not in event.data or not seo_metadata:
-            logger.warning("SEO metadata missing, using defaults")
-            topic = event.data.get("topic", {})
-            from src.engine.slug_service import slugify
-            topic_title = topic.get("title", "Blog Post")
-            seo_metadata = {
-                "title": topic_title,
-                "seoTitle": topic_title[:60] if len(topic_title) <= 60 else topic_title[:60].rsplit(' ', 1)[0],
-                "description": "A comprehensive guide",
-                "tags": [],
-                "keywords": [],
-                "slug": topic.get("slug") or slugify(topic_title)
-            }
+            raise ValueError("content is required but was missing or empty")
+
+        if "seo_metadata" not in event.data:
+
+            raise ValueError("seo_metadata is required but was missing")
 
         # Get family from config
 
@@ -151,40 +137,12 @@ class FrontmatterAgent(SelfCorrectingAgent, Agent):
                 parts.append(create_code_block(segment['code'], "cs"))
 
         final_markdown = "\n".join(parts)
-        
-        # Extract slug for file_writer (try multiple sources with logging)
-        slug = None
-        
-        # Try from workflow state
-        if event.data.get("slug"):
-            slug = event.data.get("slug")
-            logger.debug(f"Got slug from workflow state: {slug}")
-        
-        # Try from SEO metadata
-        if not slug and seo_metadata and seo_metadata.get("slug"):
-            slug = seo_metadata.get("slug")
-            logger.debug(f"Got slug from SEO metadata: {slug}")
-        
-        # Final fallback - generate from topic or use default
-        if not slug:
-            topic = event.data.get("topic", {})
-            if topic.get("title"):
-                from src.engine.slug_service import slugify
-                slug = slugify(topic.get("title"))
-                logger.info(f"Generated slug from topic title: {slug}")
-            else:
-                slug = "blog-post"
-                logger.warning("Using fallback slug: blog-post")
 
         return AgentEvent(
 
             event_type="frontmatter_added",
 
-            data={
-                "markdown": final_markdown,
-                "slug": slug,
-                "seo_metadata": seo_metadata
-            },
+            data={"markdown": final_markdown},
 
             source_agent=self.agent_id,
 

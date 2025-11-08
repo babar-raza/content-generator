@@ -88,7 +88,7 @@ class KBSearchAgent(SelfCorrectingAgent, Agent):
 
             event_type="rag_complete",
 
-            data={"source": "kb", "context": context, "context_kb": context},
+            data={"source": "kb", "context": context},
 
             source_agent=self.agent_id,
 

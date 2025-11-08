@@ -4,11 +4,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPExcept
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel
 from pathlib import Path
 import logging
 import uuid
-import json
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 import sys
@@ -22,19 +20,6 @@ from src.realtime.websocket import get_ws_manager, EventType, CommandType
 from src.realtime.job_control import JobController
 
 logger = logging.getLogger(__name__)
-
-# Pydantic models for API requests
-class JobCreateRequest(BaseModel):
-    template_name: str
-    workflow: str
-    topic: Optional[str] = None
-    auto_topic: bool = False
-    output_dir: str = './output'
-    kb_path: Optional[str] = None
-    docs_path: Optional[str] = None
-    blog_path: Optional[str] = None
-    api_path: Optional[str] = None
-    tutorial_path: Optional[str] = None
 
 # Initialize FastAPI app
 app = FastAPI(title="UCOP Dashboard")
@@ -283,7 +268,7 @@ async def list_jobs():
 async def create_job(
     template_name: str = Form(...),
     workflow: str = Form(...),
-    topic: str = Form(""),
+    topic: str = Form(None),
     auto_topic: bool = Form(False),
     output_dir: str = Form('./output'),
     kb_path: Optional[str] = Form(None),
@@ -297,17 +282,19 @@ async def create_job(
     api_files: List[UploadFile] = File(default=[]),
     tutorial_files: List[UploadFile] = File(default=[])
 ):
-    """Create a new job from web UI with file upload support."""
-    
+    """Start a new job with file upload support."""
     if not execution_engine:
-        raise HTTPException(status_code=503, detail="Job execution engine not available")
+        raise HTTPException(status_code=503, detail="Job execution engine not initialized")
     
     try:
         # Generate job ID
         job_id = str(uuid.uuid4())
         
-        # Create uploads directory for this job if files are uploaded
+        # Create uploads directory for this job
         uploads_dir = Path(f"./data/jobs/{job_id}/uploads")
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Process uploaded files
         uploaded_paths = {
             'kb': [],
             'docs': [],
@@ -316,102 +303,57 @@ async def create_job(
             'tutorial': []
         }
         
-        # Process uploaded files
-        for file_list, key in [
-            (kb_files, 'kb'),
-            (docs_files, 'docs'),
-            (blog_files, 'blog'),
-            (api_files, 'api'),
-            (tutorial_files, 'tutorial')
-        ]:
-            for file in file_list:
-                if file.filename:
-                    file_path = uploads_dir / key / file.filename
-                    file_path.parent.mkdir(parents=True, exist_ok=True)
-                    with open(file_path, 'wb') as f:
-                        shutil.copyfileobj(file.file, f)
-                    uploaded_paths[key].append(str(file_path))
+        # Save KB files
+        for file in kb_files:
+            if file.filename:
+                file_path = uploads_dir / "kb" / file.filename
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(file_path, 'wb') as f:
+                    shutil.copyfileobj(file.file, f)
+                uploaded_paths['kb'].append(str(file_path))
         
-        # Build input parameters
-        input_params = {
-            "topic": topic or None,
-            "output_dir": output_dir,
-            "template": template_name
-        }
+        # Save docs files
+        for file in docs_files:
+            if file.filename:
+                file_path = uploads_dir / "docs" / file.filename
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(file_path, 'wb') as f:
+                    shutil.copyfileobj(file.file, f)
+                uploaded_paths['docs'].append(str(file_path))
         
-        # Add uploaded files if any - and map to path parameters
-        if any(uploaded_paths.values()):
-            input_params["uploaded_files"] = uploaded_paths
-            # Map uploaded file directories to path parameters
-            if uploaded_paths['kb']:
-                input_params["kb_path"] = str(uploads_dir / "kb")
-            if uploaded_paths['docs']:
-                input_params["docs_path"] = str(uploads_dir / "docs")
-            if uploaded_paths['blog']:
-                input_params["blog_path"] = str(uploads_dir / "blog")
-            if uploaded_paths['api']:
-                input_params["api_path"] = str(uploads_dir / "api")
-            if uploaded_paths['tutorial']:
-                input_params["tutorial_path"] = str(uploads_dir / "tutorial")
+        # Save blog files
+        for file in blog_files:
+            if file.filename:
+                file_path = uploads_dir / "blog" / file.filename
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(file_path, 'wb') as f:
+                    shutil.copyfileobj(file.file, f)
+                uploaded_paths['blog'].append(str(file_path))
         
-        # Add path-based context sources (these override uploaded paths if specified)
-        if kb_path:
-            input_params["kb_path"] = kb_path
-        if docs_path:
-            input_params["docs_path"] = docs_path
-        if blog_path:
-            input_params["blog_path"] = blog_path
-        if api_path:
-            input_params["api_path"] = api_path
-        if tutorial_path:
-            input_params["tutorial_path"] = tutorial_path
+        # Save API files
+        for file in api_files:
+            if file.filename:
+                file_path = uploads_dir / "api" / file.filename
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(file_path, 'wb') as f:
+                    shutil.copyfileobj(file.file, f)
+                uploaded_paths['api'].append(str(file_path))
         
-        # Submit job
-        execution_engine.submit_job(
-            workflow_name=workflow,
-            input_params=input_params,
-            job_id=job_id
-        )
-        
-        total_files = sum(len(v) for v in uploaded_paths.values())
-        logger.info(f"Created job {job_id} via web UI with {total_files} uploaded files")
-        
-        return {"status": "created", "job_id": job_id}
-    
-    except Exception as e:
-        logger.error(f"Failed to create job: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/jobs/create")
-async def create_job_alias(data: Dict[str, Any]):
-    """Create job from JSON data (CLI compatibility)."""
-    if not execution_engine:
-        raise HTTPException(status_code=503, detail="Job execution engine not initialized")
-    
-    try:
-        # Generate job ID
-        job_id = str(uuid.uuid4())
-        
-        # Extract parameters from JSON
-        workflow = data.get("workflow")
-        topic = data.get("topic")
-        output_dir = data.get("output_dir", "./output")
-        kb_path = data.get("kb_path")
-        docs_path = data.get("docs_path")
-        blog_path = data.get("blog_path")
-        api_path = data.get("api_path")
-        tutorial_path = data.get("tutorial_path")
-        template_name = data.get("template", "default")
-        
-        if not workflow:
-            raise HTTPException(status_code=400, detail="workflow is required")
+        # Save tutorial files
+        for file in tutorial_files:
+            if file.filename:
+                file_path = uploads_dir / "tutorial" / file.filename
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(file_path, 'wb') as f:
+                    shutil.copyfileobj(file.file, f)
+                uploaded_paths['tutorial'].append(str(file_path))
         
         # Build input parameters
         input_params = {
             "topic": topic,
             "output_dir": output_dir,
-            "template": template_name
+            "template": template_name,
+            "uploaded_files": uploaded_paths
         }
         
         # Add path-based context sources
@@ -433,13 +375,19 @@ async def create_job_alias(data: Dict[str, Any]):
             job_id=job_id
         )
         
-        logger.info(f"Created job {job_id} via API")
+        logger.info(f"Created job {job_id} via web UI with {sum(len(v) for v in uploaded_paths.values())} uploaded files")
         
         return {"status": "created", "job_id": job_id}
     
     except Exception as e:
         logger.error(f"Failed to create job: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/jobs/create")
+async def create_job_alias(data: Dict[str, Any]):
+    """Alias for create_job (CLI compatibility)."""
+    return await create_job(data)
 
 
 @app.get("/api/jobs/{job_id}")
@@ -891,6 +839,12 @@ async def health_check():
         "engine_connected": execution_engine is not None,
         "controller_connected": job_controller is not None
     }
+
+
+@app.get("/ping")
+async def ping():
+    """Simple ping endpoint for basic connectivity checks."""
+    return {"status": "ok", "message": "pong"}
 
 
 @app.get("/api/status")

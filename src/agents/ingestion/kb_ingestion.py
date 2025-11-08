@@ -42,7 +42,7 @@ class KBIngestionAgent(SelfCorrectingAgent, Agent):
 
             capabilities=["ingest_kb"],
 
-            input_schema={"type": "object", "properties": {"kb_path": {"type": "string"}}},
+            input_schema={"type": "object", "required": ["kb_path"]},
 
             output_schema={"type": "object", "required": ["kb_article_content", "kb_meta"]},
 
@@ -59,37 +59,14 @@ class KBIngestionAgent(SelfCorrectingAgent, Agent):
         kb_path_str = event.data.get("kb_path")
 
         if not kb_path_str:
-            # KB path is optional - skip ingestion if not provided
-            logger.info("No kb_path provided - skipping KB ingestion")
-            return AgentEvent(
-                event_type="kb_article_loaded",
-                data={
-                    "kb_article_content": "",
-                    "kb_meta": {"ingested_count": 0, "skipped": True},
-                    "status": "skipped"
-                },
-                source_agent=self.agent_id,
-                correlation_id=event.correlation_id
-            )
+
+            raise ValueError("kb_path is required but was None or empty")
 
         kb_path = Path(kb_path_str)
 
         if not kb_path.exists():
-            logger.warning(f"KB path not found: {kb_path} - skipping ingestion")
-            return AgentEvent(
-                event_type="kb_article_loaded",
-                data={
-                    "kb_article_content": "",
-                    "kb_meta": {"ingested_count": 0, "skipped": True, "error": "path_not_found"},
-                    "status": "skipped"
-                },
-                source_agent=self.agent_id,
-                correlation_id=event.correlation_id
-            )
-        
-        # Detect family from path
-        detected_family = Config.detect_family_from_path(kb_path)
-        logger.info(f"Detected family from path: {detected_family} (path: {kb_path})")
+
+            raise FileNotFoundError(f"KB path not found: {kb_path}")
 
         # Determine files to process
 
@@ -241,7 +218,7 @@ class KBIngestionAgent(SelfCorrectingAgent, Agent):
 
                 # Add to database
 
-                self.database_service.add_documents("kb", chunks, metadatas, family=detected_family)
+                self.database_service.add_documents("kb", chunks, metadatas)
 
                 # NEW: Mark as ingested
 

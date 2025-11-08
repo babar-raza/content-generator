@@ -1,0 +1,1189 @@
+{
+  "timestamp": "2025-11-07T19:33:51+0500",
+  "root": "D:\\work\\blog-generator\\v10",
+  "tests_dir": "D:\\work\\blog-generator\\v10\\tests",
+  "backup_zip": "reports\\test-dedupe-backup-20251107-193351.zip",
+  "threshold": 0.95,
+  "files_created": [
+    "tests\\fixtures\\conftest.py",
+    "tests\\integration\\test_cli_and_api.py",
+    "tests\\unit\\test_core_and_utils.py",
+    "tests\\e2e\\test_full_job_happy_path.py",
+    "tests\\unit\\test_engine_and_orchestrator.py"
+  ],
+  "files_deleted": [
+    "D:\\work\\blog-generator\\v10\\tests\\cli\\test_cli_integration.py",
+    "D:\\work\\blog-generator\\v10\\tests\\core\\test_event_bus.py",
+    "D:\\work\\blog-generator\\v10\\tests\\engine\\test_aggregator.py",
+    "D:\\work\\blog-generator\\v10\\tests\\engine\\test_completeness_gate.py",
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_cli.py",
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_fastapi.py",
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py",
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_unified_executor.py",
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py",
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\conftest.py",
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_cli.py",
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_core_ollama.py",
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py",
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_web.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_artifact_persistence.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_config_behavior.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_config_validation.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_engine_parity.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_imports_smoke.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_installation.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_parity.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_template_golden.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_template_registry.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py",
+    "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_agents.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_aggregator.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_completeness_gate.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_config.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_engine.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_event_bus.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_gpu_manager.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_mesh.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_ollama.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_output_path_resolver.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_services.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_slug_service.py",
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_uploaded_files.py",
+    "D:\\work\\blog-generator\\v10\\tests\\web\\test_app_integration.py"
+  ],
+  "files_moved": [],
+  "functions_parametrized": [],
+  "fixtures_merged": [],
+  "clusters": [
+    {
+      "dest": "tests\\integration\\test_cli_and_api.py",
+      "count": 10,
+      "clusters": [
+        {
+          "id": 0,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\cli\\test_cli_integration.py::test_cli_help_exits_zero",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\cli\\test_cli_integration.py::test_cli_help_exits_zero"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 1,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\cli\\test_cli_integration.py::test_cli_dry_run_exits_zero_if_available",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\cli\\test_cli_integration.py::test_cli_dry_run_exits_zero_if_available"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 2,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::ops_console",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::ops_console"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 3,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::test_client",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::test_client"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 4,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_cli.py::_cli_path",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_cli.py::_cli_path"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 5,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_cli.py::test_cli_help_latency",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_cli.py::test_cli_help_latency"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 6,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_web.py::_load_app",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_web.py::_load_app"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 7,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_cli_examples",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_cli_examples"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 8,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::main",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::main"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 9,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\web\\test_app_integration.py::_load_app",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\web\\test_app_integration.py::_load_app"
+          ],
+          "parametrized": false
+        }
+      ]
+    },
+    {
+      "dest": "tests\\unit\\test_core_and_utils.py",
+      "count": 45,
+      "clusters": [
+        {
+          "id": 0,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\core\\test_event_bus.py::_get",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\core\\test_event_bus.py::_get"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 1,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\core\\test_event_bus.py::test_event_bus_basic",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\core\\test_event_bus.py::test_event_bus_basic"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 2,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\engine\\test_aggregator.py::test_aggregator_merges_dicts",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\engine\\test_aggregator.py::test_aggregator_merges_dicts"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 3,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\engine\\test_completeness_gate.py::test_completeness_gate_minimal",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\engine\\test_completeness_gate.py::test_completeness_gate_minimal"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 4,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::mock_agent_registry",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::mock_agent_registry"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 5,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\conftest.py::pytest_configure",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\conftest.py::pytest_configure"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 6,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\conftest.py::_no_network",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\conftest.py::_no_network"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 7,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_core_ollama.py::_load_selector",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_core_ollama.py::_load_selector"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 8,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_core_ollama.py::test_ollama_selection_speed",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_core_ollama.py::test_ollama_selection_speed"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 9,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_load_merge",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_load_merge"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 10,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_load_gate",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_load_gate"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 11,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_sample_docs",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_sample_docs"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 12,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::test_aggregator_throughput",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::test_aggregator_throughput"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 13,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::test_completeness_gate_speed",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::test_completeness_gate_speed"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 14,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_web.py::test_fastapi_latency_smoke",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_web.py::test_fastapi_latency_smoke"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 15,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::generate_slug",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::generate_slug"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 16,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::get_output_path",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::get_output_path"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 17,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::setup_device",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::setup_device"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 18,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_cuda_detection",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_cuda_detection"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 19,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_blog_switch",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_blog_switch"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 20,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_imports_smoke.py::test_modules_import",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_imports_smoke.py::test_modules_import"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 21,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::print_header",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::print_header"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 22,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::check_file_exists",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::check_file_exists"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 23,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::check_import",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::check_import"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 24,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::main",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::main"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 25,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_router_import",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_router_import"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 26,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_router_initialization",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_router_initialization"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 27,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_model_recommendation",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_model_recommendation"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 28,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_config_integration",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_config_integration"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 29,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_llm_service_integration",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_llm_service_integration"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 30,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_model_helper",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_model_helper"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 31,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::run_all_tests",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::run_all_tests"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 32,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_template_dropdown",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_template_dropdown"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 33,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_context_pickers",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_context_pickers"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 34,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_auto_topic_checkbox",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_auto_topic_checkbox"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 35,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_job_detail_has_log_modal_functions",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_job_detail_has_log_modal_functions"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 36,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_log_modal_shows_json_io",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_log_modal_shows_json_io"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 37,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_js_sends_all_fields",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_js_sends_all_fields"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 38,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_web_app_has_agent_logs_endpoint",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_web_app_has_agent_logs_endpoint"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 39,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_template_files_have_metadata",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_template_files_have_metadata"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 40,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_pipeline_order_matches_config",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_pipeline_order_matches_config"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 41,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\unit\\test_agents.py::test_agents_module_loads",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\unit\\test_agents.py::test_agents_module_loads"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 42,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\unit\\test_mesh.py::test_placeholder_mesh_components_exist",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\unit\\test_mesh.py::test_placeholder_mesh_components_exist"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 43,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\unit\\test_services.py::test_services_module_loads",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\unit\\test_services.py::test_services_module_loads"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 44,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\web\\test_app_integration.py::test_health_endpoint",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\web\\test_app_integration.py::test_health_endpoint"
+          ],
+          "parametrized": false
+        }
+      ]
+    },
+    {
+      "dest": "tests\\e2e\\test_full_job_happy_path.py",
+      "count": 5,
+      "clusters": [
+        {
+          "id": 0,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::sample_workflow",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::sample_workflow"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 1,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::run_tests",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::run_tests"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 2,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::sample_workflow_yaml",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::sample_workflow_yaml"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 3,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::invalid_workflow_yaml",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::invalid_workflow_yaml"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 4,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::run_all_tests",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::run_all_tests"
+          ],
+          "parametrized": false
+        }
+      ]
+    },
+    {
+      "dest": "tests\\unit\\test_engine_and_orchestrator.py",
+      "count": 25,
+      "clusters": [
+        {
+          "id": 0,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_failure_writes_partial_artifact",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_failure_writes_partial_artifact"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 1,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_partial_completion_writes_artifact",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_partial_completion_writes_artifact"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 2,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_minimal_artifact_on_template_failure",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_minimal_artifact_on_template_failure"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 3,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_artifact_contains_error_section_on_failure",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_artifact_contains_error_section_on_failure"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 4,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_checkpointed_write_after_agent",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_checkpointed_write_after_agent"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 5,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_manifest_includes_partial_status",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_manifest_includes_partial_status"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 6,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_cuda_detection",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_cuda_detection"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 7,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_blog_switch",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_blog_switch"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 8,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_integration",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_integration"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 9,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::main",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::main"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 10,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_basic",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_basic"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 11,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_special_chars",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_special_chars"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 12,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_empty",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_empty"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 13,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_blog_template_path",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_blog_template_path",
+            "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_non_blog_template_path"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 15,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_slug_collision_handling",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_slug_collision_handling"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 16,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_multiple_collisions",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_multiple_collisions"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 17,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_auto_topic_requires_context",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_auto_topic_requires_context"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 18,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_auto_topic_with_context_valid",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_auto_topic_with_context_valid"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 19,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_no_topic_without_auto_topic",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_no_topic_without_auto_topic"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 20,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_template_required",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_template_required"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 21,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_template_none",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_template_none"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 22,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_valid_spec_with_topic",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_valid_spec_with_topic"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 23,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_multiple_context_sources",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_multiple_context_sources"
+          ],
+          "parametrized": false
+        },
+        {
+          "id": 24,
+          "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_invalid_path_validation",
+          "members": [
+            "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_invalid_path_validation"
+          ],
+          "parametrized": false
+        }
+      ]
+    }
+  ],
+  "lineage": {
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_cli.py::_cli_path": {
+      "final": "tests\\integration\\test_cli_and_api.py::_cli_path",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_cli.py::_cli_path",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_web.py::_load_app": {
+      "final": "tests\\integration\\test_cli_and_api.py::_load_app",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_web.py::_load_app",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\web\\test_app_integration.py::_load_app": {
+      "final": "tests\\integration\\test_cli_and_api.py::_load_app",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\web\\test_app_integration.py::_load_app",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::main": {
+      "final": "tests\\integration\\test_cli_and_api.py::main",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::main",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::ops_console": {
+      "final": "tests\\integration\\test_cli_and_api.py::ops_console",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::ops_console",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\cli\\test_cli_integration.py::test_cli_dry_run_exits_zero_if_available": {
+      "final": "tests\\integration\\test_cli_and_api.py::test_cli_dry_run_exits_zero_if_available",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\cli\\test_cli_integration.py::test_cli_dry_run_exits_zero_if_available",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_cli_examples": {
+      "final": "tests\\integration\\test_cli_and_api.py::test_cli_examples",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_cli_examples",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\cli\\test_cli_integration.py::test_cli_help_exits_zero": {
+      "final": "tests\\integration\\test_cli_and_api.py::test_cli_help_exits_zero",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\cli\\test_cli_integration.py::test_cli_help_exits_zero",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_cli.py::test_cli_help_latency": {
+      "final": "tests\\integration\\test_cli_and_api.py::test_cli_help_latency",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_cli.py::test_cli_help_latency",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::test_client": {
+      "final": "tests\\integration\\test_cli_and_api.py::test_client",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::test_client",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\core\\test_event_bus.py::_get": {
+      "final": "tests\\unit\\test_core_and_utils.py::_get",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\core\\test_event_bus.py::_get",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_load_gate": {
+      "final": "tests\\unit\\test_core_and_utils.py::_load_gate",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_load_gate",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_load_merge": {
+      "final": "tests\\unit\\test_core_and_utils.py::_load_merge",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_load_merge",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_core_ollama.py::_load_selector": {
+      "final": "tests\\unit\\test_core_and_utils.py::_load_selector",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_core_ollama.py::_load_selector",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\conftest.py::_no_network": {
+      "final": "tests\\unit\\test_core_and_utils.py::_no_network",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\conftest.py::_no_network",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_sample_docs": {
+      "final": "tests\\unit\\test_core_and_utils.py::_sample_docs",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::_sample_docs",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::check_file_exists": {
+      "final": "tests\\unit\\test_core_and_utils.py::check_file_exists",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::check_file_exists",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::check_import": {
+      "final": "tests\\unit\\test_core_and_utils.py::check_import",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::check_import",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::generate_slug": {
+      "final": "tests\\unit\\test_core_and_utils.py::generate_slug",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::generate_slug",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::get_output_path": {
+      "final": "tests\\unit\\test_core_and_utils.py::get_output_path",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::get_output_path",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::main": {
+      "final": "tests\\unit\\test_core_and_utils.py::main",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::main",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::mock_agent_registry": {
+      "final": "tests\\unit\\test_core_and_utils.py::mock_agent_registry",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::mock_agent_registry",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::print_header": {
+      "final": "tests\\unit\\test_core_and_utils.py::print_header",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_installation.py::print_header",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\conftest.py::pytest_configure": {
+      "final": "tests\\unit\\test_core_and_utils.py::pytest_configure",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\conftest.py::pytest_configure",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::run_all_tests": {
+      "final": "tests\\unit\\test_core_and_utils.py::run_all_tests",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::run_all_tests",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::setup_device": {
+      "final": "tests\\unit\\test_core_and_utils.py::setup_device",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::setup_device",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_agents.py::test_agents_module_loads": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_agents_module_loads",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\unit\\test_agents.py::test_agents_module_loads",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\engine\\test_aggregator.py::test_aggregator_merges_dicts": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_aggregator_merges_dicts",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\engine\\test_aggregator.py::test_aggregator_merges_dicts",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::test_aggregator_throughput": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_aggregator_throughput",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::test_aggregator_throughput",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_blog_switch": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_blog_switch",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_blog_switch",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\engine\\test_completeness_gate.py::test_completeness_gate_minimal": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_completeness_gate_minimal",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\engine\\test_completeness_gate.py::test_completeness_gate_minimal",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::test_completeness_gate_speed": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_completeness_gate_speed",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_engine.py::test_completeness_gate_speed",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_config_integration": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_config_integration",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_config_integration",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_cuda_detection": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_cuda_detection",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_core_logic.py::test_cuda_detection",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_auto_topic_checkbox": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_dashboard_has_auto_topic_checkbox",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_auto_topic_checkbox",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_context_pickers": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_dashboard_has_context_pickers",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_context_pickers",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_template_dropdown": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_dashboard_has_template_dropdown",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_has_template_dropdown",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_js_sends_all_fields": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_dashboard_js_sends_all_fields",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_dashboard_js_sends_all_fields",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\core\\test_event_bus.py::test_event_bus_basic": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_event_bus_basic",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\core\\test_event_bus.py::test_event_bus_basic",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_web.py::test_fastapi_latency_smoke": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_fastapi_latency_smoke",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_web.py::test_fastapi_latency_smoke",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\web\\test_app_integration.py::test_health_endpoint": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_health_endpoint",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\web\\test_app_integration.py::test_health_endpoint",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_job_detail_has_log_modal_functions": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_job_detail_has_log_modal_functions",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_job_detail_has_log_modal_functions",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_llm_service_integration": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_llm_service_integration",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_llm_service_integration",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_log_modal_shows_json_io": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_log_modal_shows_json_io",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_log_modal_shows_json_io",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_model_helper": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_model_helper",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_model_helper",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_model_recommendation": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_model_recommendation",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_model_recommendation",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_imports_smoke.py::test_modules_import": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_modules_import",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_imports_smoke.py::test_modules_import",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_core_ollama.py::test_ollama_selection_speed": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_ollama_selection_speed",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\performance\\test_perf_core_ollama.py::test_ollama_selection_speed",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_pipeline_order_matches_config": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_pipeline_order_matches_config",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_pipeline_order_matches_config",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_mesh.py::test_placeholder_mesh_components_exist": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_placeholder_mesh_components_exist",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\unit\\test_mesh.py::test_placeholder_mesh_components_exist",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_router_import": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_router_import",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_router_import",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_router_initialization": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_router_initialization",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_router_integration.py::test_router_initialization",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\unit\\test_services.py::test_services_module_loads": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_services_module_loads",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\unit\\test_services.py::test_services_module_loads",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_template_files_have_metadata": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_template_files_have_metadata",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_template_files_have_metadata",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_web_app_has_agent_logs_endpoint": {
+      "final": "tests\\unit\\test_core_and_utils.py::test_web_app_has_agent_logs_endpoint",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_ui_contracts.py::test_web_app_has_agent_logs_endpoint",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::invalid_workflow_yaml": {
+      "final": "tests\\e2e\\test_full_job_happy_path.py::invalid_workflow_yaml",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::invalid_workflow_yaml",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::run_all_tests": {
+      "final": "tests\\e2e\\test_full_job_happy_path.py::run_all_tests",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::run_all_tests",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::run_tests": {
+      "final": "tests\\e2e\\test_full_job_happy_path.py::run_tests",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::run_tests",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::sample_workflow": {
+      "final": "tests\\e2e\\test_full_job_happy_path.py::sample_workflow",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_ops_console.py::sample_workflow",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::sample_workflow_yaml": {
+      "final": "tests\\e2e\\test_full_job_happy_path.py::sample_workflow_yaml",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\integration\\test_workflow_engine.py::sample_workflow_yaml",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::main": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::main",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::main",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_artifact_contains_error_section_on_failure": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_artifact_contains_error_section_on_failure",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_artifact_contains_error_section_on_failure",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_auto_topic_requires_context": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_auto_topic_requires_context",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_auto_topic_requires_context",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_auto_topic_with_context_valid": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_auto_topic_with_context_valid",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_auto_topic_with_context_valid",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_blog_switch": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_blog_switch",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_blog_switch",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_blog_template_path": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_blog_template_path",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_blog_template_path",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_non_blog_template_path": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_blog_template_path",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_blog_template_path",
+      "merged": true
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_checkpointed_write_after_agent": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_checkpointed_write_after_agent",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_checkpointed_write_after_agent",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_cuda_detection": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_cuda_detection",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_cuda_detection",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_failure_writes_partial_artifact": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_failure_writes_partial_artifact",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_failure_writes_partial_artifact",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_integration": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_integration",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_requirements.py::test_integration",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_invalid_path_validation": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_invalid_path_validation",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_invalid_path_validation",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_manifest_includes_partial_status": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_manifest_includes_partial_status",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_manifest_includes_partial_status",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_minimal_artifact_on_template_failure": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_minimal_artifact_on_template_failure",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_minimal_artifact_on_template_failure",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_multiple_collisions": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_multiple_collisions",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_multiple_collisions",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_multiple_context_sources": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_multiple_context_sources",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_multiple_context_sources",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_no_topic_without_auto_topic": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_no_topic_without_auto_topic",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_no_topic_without_auto_topic",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_partial_completion_writes_artifact": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_partial_completion_writes_artifact",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_artifact_write_failure.py::test_partial_completion_writes_artifact",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_slug_collision_handling": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_slug_collision_handling",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_slug_collision_handling",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_template_none": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_template_none",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_template_none",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_template_required": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_template_required",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_template_required",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_basic": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_urlify_basic",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_basic",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_empty": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_urlify_empty",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_empty",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_special_chars": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_urlify_special_chars",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_slug_generation.py::test_urlify_special_chars",
+      "merged": false
+    },
+    "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_valid_spec_with_topic": {
+      "final": "tests\\unit\\test_engine_and_orchestrator.py::test_valid_spec_with_topic",
+      "canonical": "D:\\work\\blog-generator\\v10\\tests\\test_validation_edge_cases.py::test_valid_spec_with_topic",
+      "merged": false
+    }
+  }
+}

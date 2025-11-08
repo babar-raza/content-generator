@@ -136,18 +136,9 @@ class AgentDiscovery:
 class EnhancedAgentRegistry:
     """Enhanced registry with MCP compliance and auto-discovery."""
     
-    def __init__(self, config_dir: Path = Path("./config"), 
-                 config=None, event_bus=None, 
-                 database_service=None, embedding_service=None, llm_service=None):
+    def __init__(self, config_dir: Path = Path("./config")):
         self.config_dir = config_dir
         self.config_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Store services for agent instantiation
-        self.config = config
-        self.event_bus = event_bus
-        self.database_service = database_service
-        self.embedding_service = embedding_service
-        self.llm_service = llm_service
         
         # Enhanced components
         self.mcp_adapter = MCPComplianceAdapter(config_dir)
@@ -165,36 +156,6 @@ class EnhancedAgentRegistry:
         self._discovery_cache: Dict[str, Dict[str, Any]] = {}
         self._last_discovery: Optional[datetime] = None
         
-        # Agent ID mapping: workflow capability -> agent class name
-        self._agent_id_map = {
-            'ingest_kb': 'KBIngestionAgent',
-            'identify_blog_topics': 'TopicIdentificationAgent',
-            'check_duplication': 'DuplicationCheckAgent',
-            'gather_rag_kb': 'KBSearchAgent',
-            'gather_rag_blog': 'BlogSearchAgent',
-            'gather_rag_api': 'APISearchAgent',
-            'create_outline': 'OutlineCreationAgent',
-            'write_introduction': 'IntroductionWriterAgent',
-            'write_sections': 'SectionWriterAgent',
-            'write_conclusion': 'ConclusionWriterAgent',
-            'generate_supplementary': 'SupplementaryContentAgent',
-            'assemble_content': 'ContentAssemblyAgent',
-            'inject_api_links': 'APIIngestionAgent',
-            'generate_code': 'CodeGenerationAgent',
-            'extract_code': 'CodeExtractionAgent',
-            'inject_license': 'LicenseInjectionAgent',
-            'validate_code': 'CodeValidationAgent',
-            'split_code': 'CodeSplittingAgent',
-            'generate_seo': 'SEOMetadataAgent',
-            'extract_keywords': 'KeywordExtractionAgent',
-            'inject_keywords': 'KeywordInjectionAgent',
-            'create_gist_readme': 'GistREADMEAgent',
-            'upload_gist': 'GistUploadAgent',
-            'validate_links': 'LinkValidationAgent',
-            'add_frontmatter': 'FrontmatterAgent',
-            'write_file': 'FileWriterAgent',
-        }
-        
         # Configuration
         self._auto_discovery_enabled = True
         self._auto_reload_enabled = True
@@ -203,12 +164,6 @@ class EnhancedAgentRegistry:
         
         # Auto-discover agents on initialization
         self._discover_agents()
-        
-        # Perform deep discovery using AST to populate discovery cache
-        try:
-            self.discover_and_register_agents()
-        except Exception as e:
-            logger.warning(f"Deep agent discovery failed: {e}")
     
     def _discover_agents(self):
         """Auto-discover agents from src/agents directory."""
@@ -330,126 +285,6 @@ class EnhancedAgentRegistry:
         """Get MCP contract for an agent."""
         with self._lock:
             return self._mcp_contracts.get(agent_id)
-    
-    def get_agent(self, agent_id: str) -> Optional[Agent]:
-        """Get agent instance by ID, instantiating if needed."""
-        with self._lock:
-            # Map capability name to class name
-            class_name = self._agent_id_map.get(agent_id, agent_id)
-            
-            # Return cached instance if exists
-            if class_name in self._agent_instances:
-                return self._agent_instances[class_name]
-            
-            # Try to instantiate from discovery cache
-            if class_name in self._discovery_cache:
-                agent_info = self._discovery_cache[class_name]
-                try:
-                    agent_class = self._import_agent_class(agent_info)
-                    if agent_class:
-                        # Instantiate agent with appropriate dependencies
-                        agent = self._instantiate_agent(agent_class, class_name)
-                        if agent:
-                            # Store instance under class name
-                            self._agent_instances[class_name] = agent
-                            logger.info(f"✓ Instantiated: {class_name} (as {agent_id})")
-                            return agent
-                except Exception as e:
-                    logger.error(f"Failed to instantiate {class_name}: {e}", exc_info=True)
-                    return None
-            
-            logger.error(f"Agent not found - capability: {agent_id}, class: {class_name}")
-            logger.error(f"Available: {list(self._discovery_cache.keys())[:10]}")
-            return None
-    
-    def _instantiate_agent(self, agent_class, class_name: str) -> Optional[Agent]:
-        """Instantiate agent with appropriate dependencies."""
-        import inspect
-        
-        try:
-            # Get __init__ signature
-            sig = inspect.signature(agent_class.__init__)
-            params = list(sig.parameters.keys())[1:]  # Skip 'self'
-            
-            # Check if all required parameters can be satisfied
-            required_params = []
-            for param_name in params:
-                param = sig.parameters[param_name]
-                if param.default == inspect.Parameter.empty:
-                    required_params.append(param_name)
-            
-            # Check if we have all required services
-            missing_required = []
-            for req_param in required_params:
-                if req_param == 'database_service' and not self.database_service:
-                    missing_required.append(req_param)
-                elif req_param == 'embedding_service' and not self.embedding_service:
-                    missing_required.append(req_param)
-                elif req_param == 'llm_service' and not self.llm_service:
-                    missing_required.append(req_param)
-                elif req_param == 'config' and not self.config:
-                    missing_required.append(req_param)
-                elif req_param == 'event_bus' and not self.event_bus:
-                    missing_required.append(req_param)
-            
-            if missing_required:
-                logger.warning(f"Cannot instantiate {class_name}: missing required services: {missing_required}")
-                return None
-            
-            # Prepare kwargs based on what agent needs
-            kwargs = {}
-            
-            if 'config' in params and self.config:
-                kwargs['config'] = self.config
-            if 'event_bus' in params and self.event_bus:
-                kwargs['event_bus'] = self.event_bus
-            if 'database_service' in params and self.database_service:
-                kwargs['database_service'] = self.database_service
-            if 'embedding_service' in params and self.embedding_service:
-                kwargs['embedding_service'] = self.embedding_service
-            if 'llm_service' in params and self.llm_service:
-                kwargs['llm_service'] = self.llm_service
-            
-            # Handle special cases
-            if 'gist_service' in params:
-                # Create GistService if needed
-                try:
-                    from src.services.services import GistService
-                    kwargs['gist_service'] = GistService(self.config)
-                except:
-                    pass
-            
-            if 'trends_service' in params:
-                # Create TrendsService if needed
-                try:
-                    from src.services.services import TrendsService
-                    kwargs['trends_service'] = TrendsService(self.config)
-                except:
-                    pass
-            
-            if 'link_checker' in params:
-                # Create LinkChecker if needed
-                try:
-                    from src.services.services import LinkChecker
-                    kwargs['link_checker'] = LinkChecker()
-                except:
-                    pass
-            
-            if 'performance_tracker' in params:
-                kwargs['performance_tracker'] = None
-            
-            if 'registry' in params:
-                kwargs['registry'] = self
-            
-            if 'api_ref_path' in params:
-                kwargs['api_ref_path'] = None
-            
-            # Instantiate
-            return agent_class(**kwargs)
-            
-        except Exception as e:
-            logger.error(f"Failed to instantiate {class_name}: {e}", exc_info=True)
-            return None
     
     def list_mcp_contracts(self) -> List[MCPContract]:
         """List all MCP contracts."""

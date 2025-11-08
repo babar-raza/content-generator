@@ -1,0 +1,1471 @@
+version: 1.0.0
+generated_at: '2025-10-18T08:11:16.849398'
+source: blog-generator auto-discovery
+agents:
+  ingest_kb_node:
+    id: ingest_kb_node
+    version: 1.0.0
+    description: Ingest KB article and create embeddings.
+    entrypoint:
+      type: python
+      module: agents
+      function: ingest_kb_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - kb_article_path
+        - config
+        properties:
+          kb_article_path:
+            type: string
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - kb_content
+        - ingestion_success
+        - db_collection
+        properties:
+          kb_content:
+            type: string
+          ingestion_success:
+            type: boolean
+          db_collection:
+            type: object
+      checkpoints:
+      - name: before_execution
+        description: Before ingest_kb_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After ingest_kb_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: read
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  ingest_blog_node:
+    id: ingest_blog_node
+    version: 1.0.0
+    description: Ingest existing blog posts for context and duplication checking.
+    entrypoint:
+      type: python
+      module: agents
+      function: ingest_blog_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - config
+        properties:
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - blog_ingestion_status
+        properties:
+          blog_ingestion_status:
+            type: string
+          blog_files_ingested:
+            type: integer
+      checkpoints:
+      - name: before_execution
+        description: Before ingest_blog_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After ingest_blog_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: read
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  ingest_api_node:
+    id: ingest_api_node
+    version: 1.0.0
+    description: Ingest API documentation for code generation context.
+    entrypoint:
+      type: python
+      module: agents
+      function: ingest_api_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - config
+        properties:
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - api_ingestion_status
+        properties:
+          api_ingestion_status:
+            type: string
+          api_files_ingested:
+            type: integer
+      checkpoints:
+      - name: before_execution
+        description: Before ingest_api_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After ingest_api_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: network
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  identify_topics_node:
+    id: identify_topics_node
+    version: 1.0.0
+    description: Identify blog post topics from KB article.
+    entrypoint:
+      type: python
+      module: agents
+      function: identify_topics_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - kb_content
+        - config
+        properties:
+          kb_content:
+            type: string
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - topics
+        properties:
+          topics:
+            type: array
+            minItems: 5
+            items:
+              type: object
+              required:
+              - title
+              - slug
+              properties:
+                title:
+                  type: string
+                slug:
+                  type: string
+                abstract:
+                  type: string
+      checkpoints:
+      - name: before_execution
+        description: Before identify_topics_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After identify_topics_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: true
+      side_effects: read
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+    prompt_template: TOPIC_IDENTIFICATION
+  check_duplication_node:
+    id: check_duplication_node
+    version: 1.0.0
+    description: Check if current topic is duplicate of existing content.
+    entrypoint:
+      type: python
+      module: agents
+      function: check_duplication_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - current_topic
+        - config
+        properties:
+          current_topic:
+            type: object
+            required:
+            - title
+            - slug
+            properties:
+              title:
+                type: string
+              slug:
+                type: string
+              rationale:
+                type: string
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - duplication_check_passed
+        properties:
+          duplication_check_passed:
+            type: boolean
+          duplication_similarity:
+            type: number
+          duplication_reason:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before check_duplication_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After check_duplication_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  kb_search_node:
+    id: kb_search_node
+    version: 1.0.0
+    description: Search KB for relevant context.
+    entrypoint:
+      type: python
+      module: agents
+      function: kb_search_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - current_topic
+        - db_collection
+        - config
+        properties:
+          current_topic:
+            type: object
+          db_collection:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - context_kb
+        properties:
+          context_kb:
+            type: array
+            items:
+              type: string
+      checkpoints:
+      - name: before_execution
+        description: Before kb_search_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After kb_search_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  blog_search_node:
+    id: blog_search_node
+    version: 1.0.0
+    description: Search blog posts for relevant context.
+    entrypoint:
+      type: python
+      module: agents
+      function: blog_search_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - current_topic
+        - config
+        properties:
+          current_topic:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - context_blog
+        properties:
+          context_blog:
+            type: array
+            items:
+              type: string
+      checkpoints:
+      - name: before_execution
+        description: Before blog_search_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After blog_search_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  api_search_node:
+    id: api_search_node
+    version: 1.0.0
+    description: Search API docs for code generation context.
+    entrypoint:
+      type: python
+      module: agents
+      function: api_search_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - current_topic
+        - config
+        properties:
+          current_topic:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - context_api
+        properties:
+          context_api:
+            type: array
+            items:
+              type: string
+      checkpoints:
+      - name: before_execution
+        description: Before api_search_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After api_search_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: network
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  topic_prep_node:
+    id: topic_prep_node
+    version: 1.0.0
+    description: Prepare current topic for processing.
+    entrypoint:
+      type: python
+      module: agents
+      function: topic_prep_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - topics
+        - topic_index
+        properties:
+          topics:
+            type: array
+          topic_index:
+            type: integer
+      outputs:
+        type: object
+        required:
+        - current_topic
+        - topic_index
+        properties:
+          current_topic:
+            type: object
+          topic_index:
+            type: integer
+          current_outline:
+            type: 'null'
+          final_markdown:
+            type: 'null'
+      checkpoints:
+      - name: before_execution
+        description: Before topic_prep_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After topic_prep_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  create_outline_node:
+    id: create_outline_node
+    version: 1.0.0
+    description: Create structured outline for blog post.
+    entrypoint:
+      type: python
+      module: agents
+      function: create_outline_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - current_topic
+        - db_collection
+        - config
+        properties:
+          current_topic:
+            type: object
+          db_collection:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - sections
+        properties:
+          sections:
+            type: array
+            items:
+              type: object
+              required:
+              - title
+              - key_points
+              properties:
+                title:
+                  type: string
+                key_points:
+                  type: array
+                  items:
+                    type: string
+      checkpoints:
+      - name: before_execution
+        description: Before create_outline_node starts
+        mutable_params: []
+      - name: outline_ready
+        description: Outline created and ready for review
+        mutable_params: []
+      - name: after_execution
+        description: After create_outline_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: true
+      side_effects: read
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+    prompt_template: OUTLINE_CREATION
+  introduction_writer_node:
+    id: introduction_writer_node
+    version: 1.0.0
+    description: Write engaging blog post introduction.
+    entrypoint:
+      type: python
+      module: agents
+      function: introduction_writer_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - current_topic
+        - db_collection
+        - config
+        properties:
+          current_topic:
+            type: object
+          db_collection:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - introduction
+        properties:
+          introduction:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before introduction_writer_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After introduction_writer_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: true
+      side_effects: write
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+    prompt_template: INTRODUCTION_WRITER
+  section_writer_node:
+    id: section_writer_node
+    version: 1.0.0
+    description: Write detailed blog post sections.
+    entrypoint:
+      type: python
+      module: agents
+      function: section_writer_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - current_topic
+        - current_outline
+        - db_collection
+        - config
+        properties:
+          current_topic:
+            type: object
+          current_outline:
+            type: object
+          introduction:
+            type: string
+          db_collection:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - sections
+        properties:
+          sections:
+            type: array
+            items:
+              type: object
+              required:
+              - title
+              - content
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+      checkpoints:
+      - name: before_execution
+        description: Before section_writer_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After section_writer_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: true
+      side_effects: write
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+    prompt_template: SECTION_WRITER
+  content_assembly_node:
+    id: content_assembly_node
+    version: 1.0.0
+    description: Assemble final blog post content from parts.
+    entrypoint:
+      type: python
+      module: agents
+      function: content_assembly_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - introduction
+        - sections
+        - current_topic
+        - config
+        properties:
+          introduction:
+            type: string
+          sections:
+            type: array
+          current_topic:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - final_markdown
+        properties:
+          final_markdown:
+            type: string
+            minLength: 100
+      checkpoints:
+      - name: before_execution
+        description: Before content_assembly_node starts
+        mutable_params: []
+      - name: content_assembled
+        description: Content assembled and ready for review
+        mutable_params: []
+      - name: after_execution
+        description: After content_assembly_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  code_generation_node:
+    id: code_generation_node
+    version: 1.0.0
+    description: Generate complete C# code examples.
+    entrypoint:
+      type: python
+      module: agents
+      function: code_generation_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - current_topic
+        - context_api
+        - config
+        properties:
+          current_topic:
+            type: object
+          context_api:
+            type: array
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - generated_code
+        properties:
+          generated_code:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before code_generation_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After code_generation_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: network
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  code_extraction_node:
+    id: code_extraction_node
+    version: 1.0.0
+    description: Extract code blocks from content.
+    entrypoint:
+      type: python
+      module: agents
+      function: code_extraction_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - final_markdown
+        properties:
+          final_markdown:
+            type: string
+      outputs:
+        type: object
+        required:
+        - extracted_code_blocks
+        properties:
+          extracted_code_blocks:
+            type: array
+      checkpoints:
+      - name: before_execution
+        description: Before code_extraction_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After code_extraction_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  license_injection_node:
+    id: license_injection_node
+    version: 1.0.0
+    description: Inject license header into code.
+    entrypoint:
+      type: python
+      module: agents
+      function: license_injection_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - generated_code
+        - config
+        properties:
+          generated_code:
+            type: string
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - licensed_code
+        properties:
+          licensed_code:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before license_injection_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After license_injection_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  code_validation_node:
+    id: code_validation_node
+    version: 1.0.0
+    description: Validate C# code quality.
+    entrypoint:
+      type: python
+      module: agents
+      function: code_validation_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - licensed_code
+        - config
+        properties:
+          licensed_code:
+            type: string
+          context_api:
+            type: array
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - code_valid
+        - validation_issues
+        properties:
+          code_valid:
+            type: boolean
+          validation_issues:
+            type: array
+          validated_code:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before code_validation_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After code_validation_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: network
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  code_splitting_node:
+    id: code_splitting_node
+    version: 1.0.0
+    description: Split code into segments for explanation.
+    entrypoint:
+      type: python
+      module: agents
+      function: code_splitting_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - validated_code
+        - config
+        properties:
+          validated_code:
+            type: string
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - code_segments
+        properties:
+          code_segments:
+            type: array
+            items:
+              type: object
+              properties:
+                label:
+                  type: string
+                code:
+                  type: string
+      checkpoints:
+      - name: before_execution
+        description: Before code_splitting_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After code_splitting_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  seo_metadata_node:
+    id: seo_metadata_node
+    version: 1.0.0
+    description: Generate SEO metadata.
+    entrypoint:
+      type: python
+      module: agents
+      function: seo_metadata_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - final_markdown
+        - current_topic
+        - config
+        properties:
+          final_markdown:
+            type: string
+          current_topic:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - title
+        - description
+        - tags
+        - slug
+        - keywords
+        properties:
+          title:
+            type: string
+            maxLength: 60
+          description:
+            type: string
+            maxLength: 160
+          tags:
+            type: array
+            items:
+              type: string
+          slug:
+            type: string
+          keywords:
+            type: array
+            items:
+              type: string
+      checkpoints:
+      - name: before_execution
+        description: Before seo_metadata_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After seo_metadata_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: true
+      side_effects: read
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+    prompt_template: SEO_METADATA
+  keyword_extraction_node:
+    id: keyword_extraction_node
+    version: 1.0.0
+    description: Extract keywords from content.
+    entrypoint:
+      type: python
+      module: agents
+      function: keyword_extraction_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - final_markdown
+        - config
+        properties:
+          final_markdown:
+            type: string
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - extracted_keywords
+        properties:
+          extracted_keywords:
+            type: array
+            items:
+              type: string
+      checkpoints:
+      - name: before_execution
+        description: Before keyword_extraction_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After keyword_extraction_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  keyword_injection_node:
+    id: keyword_injection_node
+    version: 1.0.0
+    description: Inject keywords naturally into content.
+    entrypoint:
+      type: python
+      module: agents
+      function: keyword_injection_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - final_markdown
+        - extracted_keywords
+        - config
+        properties:
+          final_markdown:
+            type: string
+          extracted_keywords:
+            type: array
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - final_markdown
+        properties:
+          final_markdown:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before keyword_injection_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After keyword_injection_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  gist_readme_node:
+    id: gist_readme_node
+    version: 1.0.0
+    description: Create README for Gist.
+    entrypoint:
+      type: python
+      module: agents
+      function: gist_readme_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - validated_code
+        - current_topic
+        - config
+        properties:
+          validated_code:
+            type: string
+          current_topic:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - gist_readme
+        properties:
+          gist_readme:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before gist_readme_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After gist_readme_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: read
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  link_validation_node:
+    id: link_validation_node
+    version: 1.0.0
+    description: Validate gist URLs.
+    entrypoint:
+      type: python
+      module: agents
+      function: link_validation_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - gist_data
+        - config
+        properties:
+          gist_data:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - link_validation_results
+        properties:
+          link_validation_results:
+            type: object
+      checkpoints:
+      - name: before_execution
+        description: Before link_validation_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After link_validation_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  gist_upload_node:
+    id: gist_upload_node
+    version: 1.0.0
+    description: Upload code to GitHub Gist.
+    entrypoint:
+      type: python
+      module: agents
+      function: gist_upload_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - gist_readme
+        - validated_code
+        - current_topic
+        - config
+        properties:
+          gist_readme:
+            type: string
+          validated_code:
+            type: string
+          current_topic:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - gist_data
+        properties:
+          gist_data:
+            type: object
+            properties:
+              gist_id:
+                type: string
+              urls:
+                type: object
+              filename:
+                type: string
+      checkpoints:
+      - name: before_execution
+        description: Before gist_upload_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After gist_upload_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: read
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  frontmatter_node:
+    id: frontmatter_node
+    version: 1.0.0
+    description: Add frontmatter to blog post.
+    entrypoint:
+      type: python
+      module: agents
+      function: frontmatter_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - final_markdown
+        - seo_metadata
+        - config
+        properties:
+          final_markdown:
+            type: string
+          seo_metadata:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - final_markdown
+        properties:
+          final_markdown:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before frontmatter_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After frontmatter_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  write_file_node:
+    id: write_file_node
+    version: 1.0.0
+    description: Write final blog post to file.
+    entrypoint:
+      type: python
+      module: agents
+      function: write_file_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - current_topic
+        - final_markdown
+        - config
+        properties:
+          current_topic:
+            type: object
+          final_markdown:
+            type: string
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - file_path
+        properties:
+          file_path:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before write_file_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After write_file_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: fs
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  model_selection_node:
+    id: model_selection_node
+    version: 1.0.0
+    description: Select best Ollama model for capability.
+    entrypoint:
+      type: python
+      module: agents
+      function: model_selection_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - required_capability
+        - config
+        properties:
+          required_capability:
+            type: string
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - selected_model
+        properties:
+          selected_model:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before model_selection_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After model_selection_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  conclusion_writer_node:
+    id: conclusion_writer_node
+    version: 1.0.0
+    description: Write blog post conclusion.
+    entrypoint:
+      type: python
+      module: agents
+      function: conclusion_writer_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - sections
+        - current_topic
+        - config
+        properties:
+          sections:
+            type: array
+          current_topic:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - conclusion
+        properties:
+          conclusion:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before conclusion_writer_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After conclusion_writer_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: write
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  supplementary_content_node:
+    id: supplementary_content_node
+    version: 1.0.0
+    description: Generate supplementary sections (FAQ, troubleshooting, etc.).
+    entrypoint:
+      type: python
+      module: agents
+      function: supplementary_content_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - final_markdown
+        - current_topic
+        - config
+        properties:
+          final_markdown:
+            type: string
+          current_topic:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - supplementary
+        properties:
+          supplementary:
+            type: object
+            properties:
+              faq:
+                type: string
+              troubleshooting:
+                type: string
+              use_cases:
+                type: string
+              best_practices:
+                type: string
+      checkpoints:
+      - name: before_execution
+        description: Before supplementary_content_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After supplementary_content_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  content_reviewer_node:
+    id: content_reviewer_node
+    version: 1.0.0
+    description: Review content quality and relevance (non-blocking).
+    entrypoint:
+      type: python
+      module: agents
+      function: content_reviewer_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - final_markdown
+        properties:
+          final_markdown:
+            type: string
+      outputs:
+        type: object
+        required:
+        - review_passed
+        properties:
+          review_passed:
+            type: boolean
+          review_reason:
+            type: string
+      checkpoints:
+      - name: before_execution
+        description: Before content_reviewer_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After content_reviewer_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024

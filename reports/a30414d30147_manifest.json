@@ -1,0 +1,209 @@
+{
+  "job_id": "a30414d30147",
+  "timestamp": "2025-11-07T20:03:01.324726",
+  "run_spec": {
+    "topic": "Aspose.BarCode 2D Barcode Generator",
+    "template_name": "docs_api",
+    "auto_topic": true,
+    "output_dir": "output"
+  },
+  "template_name": "docs_api",
+  "pipeline_order": [
+    "ingest_kb_node",
+    "ingest_blog_node",
+    "ingest_api_node",
+    "identify_topics_node",
+    "check_duplication_node",
+    "kb_search_node",
+    "blog_search_node",
+    "api_search_node",
+    "topic_prep_node",
+    "create_outline_node",
+    "introduction_writer_node",
+    "section_writer_node",
+    "content_assembly_node",
+    "code_generation_node",
+    "code_extraction_node",
+    "license_injection_node",
+    "code_validation_node",
+    "code_splitting_node",
+    "seo_metadata_node",
+    "keyword_extraction_node",
+    "keyword_injection_node",
+    "gist_readme_node",
+    "link_validation_node",
+    "gist_upload_node",
+    "frontmatter_node",
+    "write_file_node",
+    "model_selection_node",
+    "conclusion_writer_node",
+    "supplementary_content_node",
+    "content_reviewer_node"
+  ],
+  "sources_used": [
+    "D:\\onedrive\\Documents\\GitHub\\aspose.net\\content\\kb.aspose.net\\barcode\\en\\2d-barcode-writer",
+    "D:\\onedrive\\Documents\\GitHub\\aspose.net\\content\\docs.aspose.net\\barcode\\en\\",
+    "D:\\onedrive\\Documents\\GitHub\\aspose.net\\content\\blog.aspose.net\\barcode\\",
+    "D:\\onedrive\\Documents\\GitHub\\aspose.net\\content\\reference.aspose.net\\barcode\\en\\"
+  ],
+  "config_snapshot": {
+    "hash": "70e4d523cf1e9617",
+    "timestamp": "2025-11-07T20:02:51.192170",
+    "engine_version": "1.0.0"
+  },
+  "status": "running",
+  "duration": 0.0,
+  "output_path": "output\\AsposeBarCode_2D_Barcode_Generator.md",
+  "agent_summary": [
+    {
+      "agent": "ingest_kb_node",
+      "duration": 0.46135377883911133,
+      "error_count": 0
+    },
+    {
+      "agent": "ingest_blog_node",
+      "duration": 0.3701181411743164,
+      "error_count": 0
+    },
+    {
+      "agent": "ingest_api_node",
+      "duration": 0.11891484260559082,
+      "error_count": 0
+    },
+    {
+      "agent": "identify_topics_node",
+      "duration": 0.30854058265686035,
+      "error_count": 0
+    },
+    {
+      "agent": "check_duplication_node",
+      "duration": 0.4246978759765625,
+      "error_count": 0
+    },
+    {
+      "agent": "kb_search_node",
+      "duration": 0.4886651039123535,
+      "error_count": 0
+    },
+    {
+      "agent": "blog_search_node",
+      "duration": 0.45618677139282227,
+      "error_count": 0
+    },
+    {
+      "agent": "api_search_node",
+      "duration": 0.19526004791259766,
+      "error_count": 0
+    },
+    {
+      "agent": "topic_prep_node",
+      "duration": 0.15249919891357422,
+      "error_count": 0
+    },
+    {
+      "agent": "create_outline_node",
+      "duration": 0.4910244941711426,
+      "error_count": 0
+    },
+    {
+      "agent": "introduction_writer_node",
+      "duration": 0.24649357795715332,
+      "error_count": 0
+    },
+    {
+      "agent": "section_writer_node",
+      "duration": 0.34168434143066406,
+      "error_count": 0
+    },
+    {
+      "agent": "content_assembly_node",
+      "duration": 0.19031500816345215,
+      "error_count": 0
+    },
+    {
+      "agent": "code_generation_node",
+      "duration": 0.4871504306793213,
+      "error_count": 0
+    },
+    {
+      "agent": "code_extraction_node",
+      "duration": 0.1672208309173584,
+      "error_count": 0
+    },
+    {
+      "agent": "license_injection_node",
+      "duration": 0.11084127426147461,
+      "error_count": 0
+    },
+    {
+      "agent": "code_validation_node",
+      "duration": 0.36024999618530273,
+      "error_count": 0
+    },
+    {
+      "agent": "code_splitting_node",
+      "duration": 0.12128114700317383,
+      "error_count": 0
+    },
+    {
+      "agent": "seo_metadata_node",
+      "duration": 0.43518781661987305,
+      "error_count": 0
+    },
+    {
+      "agent": "keyword_extraction_node",
+      "duration": 0.27385926246643066,
+      "error_count": 0
+    },
+    {
+      "agent": "keyword_injection_node",
+      "duration": 0.35738706588745117,
+      "error_count": 0
+    },
+    {
+      "agent": "gist_readme_node",
+      "duration": 0.3270456790924072,
+      "error_count": 0
+    },
+    {
+      "agent": "link_validation_node",
+      "duration": 0.14176034927368164,
+      "error_count": 0
+    },
+    {
+      "agent": "gist_upload_node",
+      "duration": 0.44107770919799805,
+      "error_count": 0
+    },
+    {
+      "agent": "frontmatter_node",
+      "duration": 0.13622450828552246,
+      "error_count": 0
+    },
+    {
+      "agent": "write_file_node",
+      "duration": 0.3018927574157715,
+      "error_count": 0
+    },
+    {
+      "agent": "model_selection_node",
+      "duration": 0.27252721786499023,
+      "error_count": 0
+    },
+    {
+      "agent": "conclusion_writer_node",
+      "duration": 0.4724392890930176,
+      "error_count": 0
+    },
+    {
+      "agent": "supplementary_content_node",
+      "duration": 0.19785070419311523,
+      "error_count": 0
+    },
+    {
+      "agent": "content_reviewer_node",
+      "duration": 0.397371768951416,
+      "error_count": 0
+    }
+  ]
+}

@@ -1,0 +1,299 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Blog Post Tone and Structure Configuration",
+  "description": "Centralized editorial controls for blog post generation - voice, tone, structure, and wording preferences",
+  
+  "global_voice": {
+    "pov": "second_person",
+    "pov_options": ["first_person", "second_person", "third_person"],
+    "formality": "professional_conversational",
+    "formality_options": ["casual", "professional_conversational", "formal", "academic"],
+    "technical_depth": "intermediate",
+    "technical_depth_options": ["beginner", "intermediate", "advanced", "expert"],
+    "personality": "helpful_expert",
+    "personality_options": ["neutral", "helpful_expert", "enthusiastic", "authoritative"],
+    "active_passive_preference": "active",
+    "active_passive_options": ["active", "passive", "mixed"]
+  },
+  
+  "sentence_structure": {
+    "avg_sentence_length": "medium",
+    "length_options": ["short", "medium", "long", "varied"],
+    "short_range": "8-15 words",
+    "medium_range": "15-25 words",
+    "long_range": "25-40 words",
+    "complexity": "moderate",
+    "complexity_options": ["simple", "moderate", "complex"],
+    "use_transitions": true,
+    "transition_frequency": "natural"
+  },
+  
+  "content_preferences": {
+    "use_analogies": true,
+    "analogy_frequency": "moderate",
+    "use_examples": true,
+    "examples_per_section": "1-2",
+    "use_rhetorical_questions": false,
+    "use_numbered_steps": true,
+    "use_bullet_points": true,
+    "prefer_tables_for": ["comparisons", "parameters", "best_practices"],
+    "code_explanation_style": "inline_comments_and_prose"
+  },
+  
+  "terminology": {
+    "company_reference": "we",
+    "company_reference_options": ["we", "Aspose", "the company", "avoid"],
+    "product_naming": "formal",
+    "product_naming_options": ["formal", "shortened", "mixed"],
+    "api_reference_style": "inline_link",
+    "api_reference_style_options": ["inline_link", "footnote", "appendix"],
+    "technical_jargon": "explain_first_use",
+    "jargon_options": ["avoid", "explain_first_use", "assume_knowledge"]
+  },
+  
+  "section_controls": {
+    "introduction": {
+      "enabled": true,
+      "heading": "## Introduction",
+      "tone": "engaging_hook",
+      "structure": "prose",
+      "structure_options": ["prose", "bullets", "mixed"],
+      "max_paragraphs": 3,
+      "min_paragraphs": 2,
+      "required_elements": [
+        "problem_statement",
+        "solution_preview",
+        "value_proposition"
+      ],
+      "optional_elements": [
+        "real_world_scenario",
+        "statistics",
+        "pain_point"
+      ],
+      "word_count_target": "150-250",
+      "voice_override": null,
+      "avoid_phrases": [
+        "In this article, we will",
+        "This tutorial will show",
+        "In this post"
+      ],
+      "preferred_openings": [
+        "direct_problem_statement",
+        "scenario_based",
+        "question_based"
+      ]
+    },
+    
+    "prerequisites": {
+      "enabled": true,
+      "heading": "## Prerequisites",
+      "tone": "clear_concise",
+      "structure": "bullets",
+      "structure_options": ["bullets", "numbered", "checklist"],
+      "required_items": [
+        "Visual Studio 2019 or later",
+        ".NET 6.0+ or .NET Framework 4.6.2+",
+        "NuGet package installation"
+      ],
+      "show_installation_code": true,
+      "group_by_category": true,
+      "categories": ["software", "packages", "environment", "knowledge"],
+      "word_count_target": "80-150"
+    },
+    
+    "main_content": {
+      "enabled": true,
+      "heading_template": "## {dynamic_title}",
+      "tone": "informative_clear",
+      "structure": "prose_with_subheadings",
+      "structure_options": ["prose", "prose_with_subheadings", "step_by_step"],
+      "subsection_heading_level": 3,
+      "max_subsections": 5,
+      "min_subsections": 2,
+      "paragraph_length": "medium",
+      "use_code_callouts": true,
+      "include_diagrams": false,
+      "word_count_target": "400-800"
+    },
+    
+    "code_implementation": {
+      "enabled": true,
+      "heading": "## Code Implementation",
+      "tone": "technical_precise",
+      "structure": "code_with_explanation",
+      "show_complete_code_first": true,
+      "show_gist": true,
+      "gist_position": "before_segments",
+      "segment_explanation_style": "detailed",
+      "segment_explanation_options": ["brief", "detailed", "line_by_line"],
+      "include_license_header": true,
+      "license_position": "top",
+      "highlight_important_lines": true,
+      "show_output_example": true,
+      "code_comments_style": "essential",
+      "code_comments_options": ["none", "essential", "verbose"],
+      "word_count_target": "300-600"
+    },
+    
+    "code_explanation": {
+      "enabled": true,
+      "heading": "## Understanding the Code",
+      "tone": "educational_clear",
+      "structure": "segmented_walkthrough",
+      "structure_options": ["segmented_walkthrough", "line_by_line", "concept_based"],
+      "explain_each_segment": true,
+      "segment_heading_level": 3,
+      "include_why_not_just_what": true,
+      "relate_to_api_docs": true,
+      "word_count_target": "250-500"
+    },
+    
+    "troubleshooting": {
+      "enabled": true,
+      "heading": "## Troubleshooting & Common Issues",
+      "tone": "helpful_solution_focused",
+      "structure": "problem_solution_pairs",
+      "structure_options": ["bullets", "problem_solution_pairs", "qa_format"],
+      "min_items": 3,
+      "max_items": 5,
+      "include_error_messages": true,
+      "include_solutions": true,
+      "include_prevention_tips": true,
+      "word_count_target": "200-400"
+    },
+    
+    "faq": {
+      "enabled": true,
+      "heading": "## FAQs",
+      "tone": "conversational_informative",
+      "structure": "qa_pairs",
+      "qa_format": "bold_question",
+      "qa_format_options": ["bold_question", "heading_question", "inline"],
+      "min_questions": 3,
+      "max_questions": 6,
+      "question_types": [
+        "how_to",
+        "why",
+        "when",
+        "what_if",
+        "comparison"
+      ],
+      "answer_length": "concise",
+      "answer_length_options": ["brief", "concise", "detailed"],
+      "word_count_target": "150-350"
+    },
+    
+    "use_cases": {
+      "enabled": true,
+      "heading": "## Use Cases and Applications",
+      "tone": "practical_inspiring",
+      "structure": "bullets_with_description",
+      "structure_options": ["bullets", "bullets_with_description", "scenarios"],
+      "min_items": 3,
+      "max_items": 5,
+      "include_industry": true,
+      "include_benefit": true,
+      "real_world_examples": true,
+      "word_count_target": "150-300"
+    },
+    
+    "best_practices": {
+      "enabled": true,
+      "heading": "## Best Practices",
+      "tone": "authoritative_concise",
+      "structure": "table",
+      "structure_options": ["bullets", "table", "checklist", "do_dont"],
+      "table_columns": ["Practice", "Reason", "Impact"],
+      "include_dos_and_donts": false,
+      "min_items": 4,
+      "max_items": 8,
+      "categorize": true,
+      "categories": ["performance", "security", "maintainability", "scalability"],
+      "word_count_target": "200-400"
+    },
+    
+    "conclusion": {
+      "enabled": true,
+      "heading": "## Conclusion",
+      "tone": "summarizing_encouraging",
+      "structure": "prose",
+      "max_paragraphs": 3,
+      "min_paragraphs": 2,
+      "required_elements": [
+        "summary_of_key_points",
+        "reinforcement_of_value",
+        "call_to_action"
+      ],
+      "optional_elements": [
+        "next_steps",
+        "related_topics",
+        "invitation_to_explore"
+      ],
+      "cta_style": "soft",
+      "cta_style_options": ["soft", "direct", "exploratory"],
+      "avoid_phrases": [
+        "In conclusion",
+        "To sum up",
+        "In summary"
+      ],
+      "word_count_target": "120-200"
+    }
+  },
+  
+  "heading_style": {
+    "markdown_format": "##",
+    "capitalization": "title_case",
+    "capitalization_options": ["title_case", "sentence_case", "all_caps"],
+    "include_emoji": false,
+    "number_headings": false,
+    "use_action_verbs": true
+  },
+  
+  "code_template_overrides": {
+    "language_tag": "csharp",
+    "show_filename": false,
+    "fence_style": "```",
+    "indent_style": "spaces",
+    "indent_size": 4,
+    "include_line_numbers": false,
+    "highlight_syntax": true,
+    "wrap_long_lines": false
+  },
+  
+  "link_style": {
+    "internal_links": "inline",
+    "external_links": "inline",
+    "api_reference_links": "inline_first_mention",
+    "open_in_new_tab": false,
+    "show_link_icons": false
+  },
+  
+  "seo_integration": {
+    "natural_keyword_density": true,
+    "max_keyword_density": 1.5,
+    "focus_keyword_placement": [
+      "title",
+      "first_paragraph",
+      "conclusion",
+      "headings_natural"
+    ],
+    "semantic_variations": true
+  },
+  
+  "quality_checks": {
+    "enforce_word_counts": true,
+    "word_count_tolerance": 0.15,
+    "enforce_required_elements": true,
+    "check_readability_score": true,
+    "target_readability": "grade_10_12",
+    "avoid_passive_voice_percent": 15,
+    "check_sentence_variation": true
+  },
+  
+  "meta": {
+    "version": "1.0.0",
+    "last_updated": "2025-11-01",
+    "profile": "technical_blog_intermediate",
+    "notes": "Optimized for technical audience with practical focus"
+  }
+}

@@ -3,7 +3,6 @@
 from typing import Optional, Dict, List, Any
 from pathlib import Path
 import logging
-import json
 
 from ..base import (
     Agent, EventBus, AgentEvent, AgentContract, SelfCorrectingAgent,
@@ -205,8 +204,7 @@ class KeywordExtractionAgent(SelfCorrectingAgent, Agent):
 
                 try:
 
-                    from src.utils.json_repair import safe_json_loads
-                    keywords_data = safe_json_loads(response_stripped, default={})
+                    keywords_data = json.loads(response_stripped)
 
                 except json.JSONDecodeError as e:
 

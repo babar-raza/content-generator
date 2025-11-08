@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UCOP Integrated Dashboard</title>
+    
+    <!-- React Flow and Dependencies -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@reactflow/core@11.7.4/dist/index.umd.js"></script>
+    
+    <!-- Chart.js for metrics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- CSS Imports -->
+    <link rel="stylesheet" href="https://unpkg.com/@reactflow/core@11.7.4/dist/style.css">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f8fafc;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            height: 100vh;
+        }
+        
+        /* Header */
+        .dashboard-header {
+            background: white;
+            border-bottom: 2px solid #e2e8f0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .dashboard-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .status-dot.healthy { background: #10b981; }
+        .status-dot.warning { background: #f59e0b; }
+        .status-dot.error { background: #ef4444; }
+        
+        /* Main Tabs */
+        .main-tabs {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 0;
+        }
+        
+        .main-tab {
+            padding: 1rem 2rem;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #64748b;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .main-tab:hover {
+            color: #3b82f6;
+            background: #f8fafc;
+        }
+        
+        .main-tab.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        
+        /* Tab Content */
+        .tab-content {
+            display: none;
+            height: calc(100vh - 120px);
+            overflow: auto;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Jobs Tab Styles */
+        .jobs-container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .section-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            background: white;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #f9fafb;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #f8fafc;
+        }
+        
+        th {
+            padding: 0.75rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        td {
+            padding: 0.75rem;
+            border-top: 1px solid #f1f5f9;
+        }
+        
+        .no-data {
+            text-align: center;
+            color: #94a3b8;
+            padding: 2rem;
+        }
+        
+        /* Workflow Visualization Styles */
+        .workflow-container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: calc(100vh - 120px);
+        }
+        
+        .workflow-sidebar {
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            overflow-y: auto;
+        }
+        
+        .workflow-main {
+            background: #fafafa;
+            position: relative;
+        }
+        
+        .workflow-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .sidebar-section {
+            padding: 1.5rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .sidebar-section h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+        
+        .workflow-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .workflow-item {
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .workflow-item:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .workflow-item.active {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        
+        .workflow-name {
+            font-weight: 500;
+            color: #1e293b;
+        }
+        
+        .workflow-status {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            max-width: 900px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-content h2 {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        /* Agent Status */
+        .agent-status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .agent-status.idle { background: #e5e7eb; color: #6b7280; }
+        .agent-status.running { background: #dbeafe; color: #1e40af; }
+        .agent-status.completed { background: #d1fae5; color: #065f46; }
+        .agent-status.failed { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <div class="dashboard-header">
+            <div class="dashboard-title">🎯 UCOP Integrated Dashboard</div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-dot healthy"></div>
+                    <span>System Running</span>
+                </div>
+                <div class="status-item">
+                    <span id="job-count">Jobs: 0</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Tabs -->
+        <div class="main-tabs">
+            <button class="main-tab active" onclick="switchMainTab('jobs')">📋 Jobs</button>
+            <button class="main-tab" onclick="switchMainTab('workflows')">📊 Visual Workflows</button>
+            <button class="main-tab" onclick="switchMainTab('monitoring')">📈 Monitoring</button>
+        </div>
+        
+        <!-- Jobs Tab -->
+        <div id="jobs-tab" class="tab-content active">
+            <div class="jobs-container">
+                <div class="section">
+                    <div class="section-header">
+                        <h2>📋 Active Jobs</h2>
+                        <button class="btn btn-primary" onclick="startNewJob()">+ New Job</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Topic</th>
+                                <th>Template</th>
+                                <th>Status</th>
+                                <th>Duration</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jobs-list">
+                            <tr>
+                                <td colspan="6" class="no-data">No jobs running. Click "New Job" to start.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Workflows Tab -->
+        <div id="workflows-tab" class="tab-content">
+            <div class="workflow-container">
+                <div class="workflow-sidebar">
+                    <div class="sidebar-section">
+                        <h3>Available Workflows</h3>
+                        <div class="workflow-list" id="workflow-profiles">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    <div class="sidebar-section">
+                        <h3>Active Steps</h3>
+                        <div id="active-steps">
+                            <div style="color: #94a3b8; font-size: 0.875rem;">Select a workflow to view</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="workflow-main">
+                    <div id="workflow-canvas" class="workflow-canvas"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Monitoring Tab -->
+        <div id="monitoring-tab" class="tab-content">
+            <div class="jobs-container">
+                <div class="section">
+                    <div class="section-header">
+                        <h2>📊 System Metrics</h2>
+                    </div>
+                    <canvas id="metrics-chart" style="max-height: 400px;"></canvas>
+                </div>
+                
+                <div class="section">
+                    <div class="section-header">
+                        <h2>🔄 Active Flows</h2>
+                    </div>
+                    <div id="active-flows">
+                        <div class="no-data">No active flows</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- New Job Modal -->
+    <div id="new-job-modal" class="modal">
+        <div class="modal-content">
+            <h2>Start New Job</h2>
+            <form id="new-job-form" onsubmit="submitNewJob(event)">
+                <div class="form-group">
+                    <label>Template: *</label>
+                    <select id="job-template" required>
+                        <option value="">Select template...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Topic:</label>
+                    <input type="text" id="job-topic" placeholder="e.g., Python asyncio patterns">
+                    <small style="color: #64748b; font-size: 0.75rem;">Leave empty to auto-generate from context</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Knowledge Base Path:</label>
+                    <input type="text" id="job-kb-path" placeholder="e.g., ./data/kb">
+                    <small style="color: #64748b; font-size: 0.75rem;">Path to KB articles for context</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Documentation Path:</label>
+                    <input type="text" id="job-docs-path" placeholder="e.g., ./data/docs">
+                    <small style="color: #64748b; font-size: 0.75rem;">Path to documentation files</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Blog Posts Path:</label>
+                    <input type="text" id="job-blog-path" placeholder="e.g., ./data/blog">
+                    <small style="color: #64748b; font-size: 0.75rem;">Path to existing blog posts</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>API Reference Path:</label>
+                    <input type="text" id="job-api-path" placeholder="e.g., ./data/api">
+                    <small style="color: #64748b; font-size: 0.75rem;">Path to API reference docs</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Tutorial Path:</label>
+                    <input type="text" id="job-tutorial-path" placeholder="e.g., ./data/tutorials">
+                    <small style="color: #64748b; font-size: 0.75rem;">Path to tutorial content</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="job-auto-topic" style="width: auto; margin-right: 0.5rem;">
+                        Auto-generate topic from context
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label>Output Directory:</label>
+                    <input type="text" id="job-output-dir" value="./output">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Start Job</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        // Global state
+        let currentWorkflow = null;
+        let jobsData = [];
+        let ws = null;
+        let flowInstance = null;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeWebSocket();
+            loadTemplates();
+            loadJobs();
+            loadWorkflowProfiles();
+        });
+        
+        // WebSocket connection
+        function initializeWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/workflow-updates`);
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket closed, reconnecting...');
+                setTimeout(initializeWebSocket, 3000);
+            };
+        }
+        
+        function handleWebSocketMessage(data) {
+            if (data.type === 'job_update') {
+                loadJobs();
+            } else if (data.type === 'step_update') {
+                updateWorkflowStep(data.step, data.status);
+            }
+        }
+        
+        // Tab switching
+        function switchMainTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.main-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // Load data for the tab
+            if (tabName === 'workflows' && !currentWorkflow) {
+                loadWorkflowProfiles();
+            } else if (tabName === 'monitoring') {
+                loadMonitoringData();
+            }
+        }
+        
+        // Load templates
+        async function loadTemplates() {
+            try {
+                const response = await fetch('/api/templates');
+                const data = await response.json();
+                
+                const select = document.getElementById('job-template');
+                select.innerHTML = '<option value="">Select template...</option>';
+                
+                data.templates.forEach(template => {
+                    const option = document.createElement('option');
+                    option.value = template.name;
+                    option.textContent = `${template.type}: ${template.name}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading templates:', error);
+            }
+        }
+        
+        // Load jobs
+        async function loadJobs() {
+            try {
+                const response = await fetch('/api/jobs');
+                const data = await response.json();
+                jobsData = data.jobs;
+                
+                const tbody = document.getElementById('jobs-list');
+                
+                if (jobsData.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="no-data">No jobs running. Click "New Job" to start.</td></tr>';
+                } else {
+                    tbody.innerHTML = jobsData.map(job => `
+                        <tr>
+                            <td>${job.job_id.substring(0, 8)}</td>
+                            <td>${job.topic || 'Auto'}</td>
+                            <td>${job.template}</td>
+                            <td><span class="agent-status ${job.status}">${job.status}</span></td>
+                            <td>${job.duration ? job.duration.toFixed(2) + 's' : '-'}</td>
+                            <td>
+                                <button class="btn" onclick="viewJob('${job.job_id}')">View</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+                
+                document.getElementById('job-count').textContent = `Jobs: ${jobsData.length}`;
+            } catch (error) {
+                console.error('Error loading jobs:', error);
+            }
+        }
+        
+        // Load workflow profiles
+        async function loadWorkflowProfiles() {
+            try {
+                const response = await fetch('/api/workflows/profiles');
+                const data = await response.json();
+                
+                const container = document.getElementById('workflow-profiles');
+                container.innerHTML = data.profiles.map(profile => `
+                    <div class="workflow-item" onclick="selectWorkflow('${profile.id}')">
+                        <div class="workflow-name">${profile.name || profile.id}</div>
+                        <div class="workflow-status">${profile.steps} steps</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading workflow profiles:', error);
+            }
+        }
+        
+        // Select workflow
+        async function selectWorkflow(profileId) {
+            try {
+                currentWorkflow = profileId;
+                
+                // Update UI
+                document.querySelectorAll('.workflow-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                event.target.closest('.workflow-item').classList.add('active');
+                
+                // Load workflow graph
+                const response = await fetch(`/api/workflows/visual/${profileId}`);
+                const graphData = await response.json();
+                
+                renderWorkflowGraph(graphData);
+            } catch (error) {
+                console.error('Error loading workflow:', error);
+            }
+        }
+        
+        // Render workflow graph using React Flow
+        function renderWorkflowGraph(graphData) {
+            const container = document.getElementById('workflow-canvas');
+            container.innerHTML = '<div style="padding: 2rem; text-align: center; color: #64748b;">Workflow visualization loaded. Graph data: ' + graphData.nodes.length + ' nodes</div>';
+            
+            // In a real implementation, you would use React Flow to render the graph
+            // For now, we'll just show the data
+        }
+        
+        // Modal functions
+        function startNewJob() {
+            document.getElementById('new-job-modal').classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('new-job-modal').classList.remove('active');
+        }
+        
+        async function submitNewJob(event) {
+            event.preventDefault();
+            
+            const formData = {
+                template_name: document.getElementById('job-template').value,
+                topic: document.getElementById('job-topic').value || null,
+                auto_topic: document.getElementById('job-auto-topic').checked,
+                kb_path: document.getElementById('job-kb-path').value || null,
+                docs_path: document.getElementById('job-docs-path').value || null,
+                blog_path: document.getElementById('job-blog-path').value || null,
+                api_path: document.getElementById('job-api-path').value || null,
+                tutorial_path: document.getElementById('job-tutorial-path').value || null,
+                output_dir: document.getElementById('job-output-dir').value
+            };
+            
+            console.log('Submitting job with data:', formData);
+            
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    closeModal();
+                    loadJobs();
+                    alert(`Job started: ${result.job_id}`);
+                } else {
+                    alert(`Error: ${result.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error submitting job:', error);
+                alert('Error starting job');
+            }
+        }
+        
+        function viewJob(jobId) {
+            // Navigate to job detail view
+            window.location.href = `/jobs/${jobId}`;
+        }
+        
+        // Load monitoring data
+        async function loadMonitoringData() {
+            try {
+                const response = await fetch('/api/flows/realtime');
+                const data = await response.json();
+                
+                const container = document.getElementById('active-flows');
+                if (data.flows.length === 0) {
+                    container.innerHTML = '<div class="no-data">No active flows</div>';
+                } else {
+                    container.innerHTML = data.flows.map(flow => `
+                        <div style="padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; margin-bottom: 0.5rem;">
+                            <div><strong>${flow.source_agent}</strong> → <strong>${flow.target_agent}</strong></div>
+                            <div style="font-size: 0.875rem; color: #64748b; margin-top: 0.25rem;">
+                                ${flow.event_type} - ${flow.status}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading monitoring data:', error);
+            }
+        }
+        
+        function updateWorkflowStep(stepId, status) {
+            console.log(`Step ${stepId} status: ${status}`);
+            // Update the visual workflow if displayed
+        }
+    </script>
+</body>
+</html>

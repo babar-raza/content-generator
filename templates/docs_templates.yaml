@@ -21,6 +21,7 @@ templates:
         - features
         - usage_examples
       optional_placeholders:
+        - overview
         - tips
         - common_issues
         - api_reference

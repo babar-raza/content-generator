@@ -54,44 +54,13 @@ class SupplementaryContentAgent(SelfCorrectingAgent, Agent):
 
     def execute(self, event: AgentEvent) -> Optional[AgentEvent]:
 
-        # Accept multiple input formats
         content = event.data.get("content", "")
-        
-        # If content is not provided directly, try to assemble from parts
-        if not content:
-            intro = event.data.get("introduction", "")
-            sections = event.data.get("sections", [])
-            conclusion = event.data.get("conclusion", "")
-            
-            # Build content from parts
-            content_parts = []
-            if intro:
-                content_parts.append(intro)
-            
-            for section in sections:
-                if isinstance(section, dict):
-                    section_content = section.get("content", "")
-                    if section_content:
-                        content_parts.append(section_content)
-                elif isinstance(section, str):
-                    content_parts.append(section)
-            
-            if conclusion:
-                content_parts.append(conclusion)
-            
-            content = "\n\n".join(content_parts)
 
         topic = event.data.get("topic", {})
 
-        # If still no content, return empty supplementary sections
-        if not content or not content.strip():
-            logger.warning("No content available for supplementary generation, returning empty")
-            return AgentEvent(
-                event_type="supplementary_generated",
-                data={"supplementary": {}},
-                source_agent=self.agent_id,
-                correlation_id=event.correlation_id
-            )
+        if not content:
+
+            raise ValueError("content is required but was missing or empty")
 
         topic_title = topic.get("title", "the topic")
 

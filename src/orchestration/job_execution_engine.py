@@ -16,7 +16,7 @@ import logging
 import json
 from pathlib import Path
 
-from .workflow_compiler import WorkflowCompiler, WorkflowState, WorkflowDefinition, create_initial_state
+from .workflow_compiler import WorkflowCompiler, WorkflowState, WorkflowDefinition
 from .checkpoint_manager import CheckpointManager, CheckpointState
 
 logger = logging.getLogger(__name__)
@@ -67,8 +67,7 @@ class JobExecution:
             "output_data": self.output_data,
             "error_message": self.error_message,
             "metadata": self.metadata,
-            "batch_group_id": self.batch_group_id,  # NEW
-            "step_details": self.state.get('step_details', {}) if self.state else {}  # Agent execution details
+            "batch_group_id": self.batch_group_id  # NEW
         }
 
 
@@ -157,41 +156,11 @@ class JobExecutionEngine:
         # Setup logging to file
         log_file = logs_dir / "job.log"
         
-        # Start execution in background thread - use real workflow execution
+        # Start execution in background thread
         def execute():
             try:
-                logger.info(f"[Job {job_id}] Starting execution")
-                with open(log_file, 'a') as log:
-                    log.write(f"[{datetime.now().isoformat()}] Execution started\n")
-                
-                # Initialize workflow state with proper structure
-                try:
-                    topic_str = input_params.get('topic', '')
-                    if isinstance(topic_str, dict):
-                        topic_dict = topic_str
-                    else:
-                        topic_dict = {'title': topic_str, 'description': ''}
-                    
-                    logger.info(f"[Job {job_id}] Creating initial state")
-                    job.state = create_initial_state(
-                        topic=topic_dict.get('title', '') if isinstance(topic_dict, dict) else str(topic_dict),
-                        kb_path=input_params.get('kb_path', ''),
-                        uploaded_files=input_params.get('uploaded_files', []),
-                        execution_id=job_id,
-                        correlation_id=correlation_id,
-                        deterministic=input_params.get('deterministic', False),
-                        max_retries=input_params.get('max_retries', 3)
-                    )
-                    logger.info(f"[Job {job_id}] Initial state created")
-                except Exception as e:
-                    logger.error(f"[Job {job_id}] Failed to create initial state: {e}", exc_info=True)
-                    with open(log_file, 'a') as log:
-                        log.write(f"[{datetime.now().isoformat()}] ERROR creating state: {e}\n")
-                    raise
-                
-                # Update job to running
                 job.status = JobStatus.RUNNING
-                job.progress = 5.0
+                job.progress = 10.0
                 job.current_step = "Initializing workflow"
                 self._persist_job(job)
                 self._notify_status_change(job)
@@ -199,161 +168,116 @@ class JobExecutionEngine:
                 # Log to file
                 with open(log_file, 'a') as log:
                     log.write(f"[{datetime.now().isoformat()}] Starting workflow: {workflow_name}\n")
-                    log.write(f"[{datetime.now().isoformat()}] Topic: {topic_str}\n")
+                    log.write(f"[{datetime.now().isoformat()}] Topic: {input_params.get('topic', 'N/A')}\n")
                 
-                # Compile workflow
-                try:
-                    logger.info(f"[Job {job_id}] Compiling workflow: {workflow_name}")
-                    compiled_workflow = self.workflow_compiler.compile_workflow(workflow_name)
-                    logger.info(f"[Job {job_id}] Workflow compiled successfully")
-                except Exception as e:
-                    logger.error(f"[Job {job_id}] Failed to compile workflow: {e}", exc_info=True)
-                    with open(log_file, 'a') as log:
-                        log.write(f"[{datetime.now().isoformat()}] ERROR compiling workflow: {e}\n")
-                    raise
+                # Get workflow steps
+                steps = workflow_def.get('steps', {})
+                total_steps = len(steps)
                 
-                # Execute workflow with streaming
-                config = {"configurable": {"thread_id": job_id}}
-                step_count = 0
+                if total_steps == 0:
+                    raise ValueError("Workflow has no steps defined")
                 
-                logger.info(f"[Job {job_id}] Starting workflow stream")
-                with open(log_file, 'a') as log:
-                    log.write(f"[{datetime.now().isoformat()}] Starting workflow stream\n")
+                topic = input_params.get('topic', 'Generated Topic')
+                kb_path = input_params.get('kb_path', '')
                 
-                try:
-                    for chunk in compiled_workflow.stream(job.state, config=config):
-                        # Check for cancellation
-                        if self._cancel_requests.get(job_id, False):
-                            job.status = JobStatus.CANCELLED
-                            job.error_message = "Job cancelled by user"
-                            logger.info(f"[Job {job_id}] Cancelled by user")
-                            break
-                        
-                        # Handle pause
-                        while self._pause_requests.get(job_id, False):
-                            time.sleep(0.5)
-                        
-                        # Update job state with chunk
-                        if chunk:
-                            # Merge chunk into job.state
-                            for key, value in chunk.items():
-                                if key in job.state:
-                                    job.state[key] = value
-                            
-                            # Log and update progress
-                            if 'current_step' in chunk:
-                                step_count += 1
-                                current_step = chunk['current_step']
-                                job.current_step = current_step
-                                
-                                with open(log_file, 'a') as log:
-                                    log.write(f"[{datetime.now().isoformat()}] Step {step_count}: {current_step}\n")
-                                
-                                # Calculate progress
-                                completed_steps = len(job.state.get('completed_steps', []))
-                                failed_steps = len(job.state.get('failed_steps', []))
-                                total_steps = completed_steps + failed_steps + 1
-                                job.progress = 10.0 + (completed_steps / max(total_steps, 1)) * 85.0
-                                
-                                logger.info(f"[Job {job_id}] progress: {job.progress:.1f}% - {current_step}")
-                                
-                                self._persist_job(job)
-                                self._notify_progress(job_id, job.progress, current_step)
+                logger.info(f"Executing workflow '{workflow_name}' for topic: {topic}")
+                logger.info(f"Total steps: {total_steps}")
+                
+                # Execute each step (simplified - just simulate for now)
+                for idx, (step_id, step_config) in enumerate(steps.items(), 1):
+                    # Check for pause/cancel
+                    if self._cancel_requests.get(job_id, False):
+                        job.status = JobStatus.CANCELLED
+                        job.error_message = "Job cancelled by user"
+                        break
                     
-                    logger.info(f"[Job {job_id}] Stream completed")
+                    while self._pause_requests.get(job_id, False):
+                        time.sleep(0.5)
+                    
+                    # Simulate step execution
+                    agent_name = step_config.get('agent', step_id)
+                    job.current_step = f"Executing {agent_name}"
+                    job.progress = 10 + (idx / total_steps) * 85
+                    
+                    # Log to file
                     with open(log_file, 'a') as log:
-                        log.write(f"[{datetime.now().isoformat()}] Stream completed\n")
-                        
-                except Exception as e:
-                    logger.error(f"[Job {job_id}] Stream error: {e}", exc_info=True)
+                        log.write(f"[{datetime.now().isoformat()}] Step {idx}/{total_steps}: {agent_name}\n")
+                    
+                    logger.info(f"Job {job_id}: Step {idx}/{total_steps} - {agent_name}")
+                    self._persist_job(job)
+                    self._notify_progress(job_id, job.progress, job.current_step)
+                    
+                    # Update pipeline status in metadata
+                    if "pipeline" in job.metadata:
+                        for p in job.metadata["pipeline"]:
+                            if p["id"] == step_id:
+                                p["status"] = "running"
+                                break
+                    
+                    # Simulate work
+                    time.sleep(2)
+                    
+                    # Update pipeline status to completed
+                    if "pipeline" in job.metadata:
+                        for p in job.metadata["pipeline"]:
+                            if p["id"] == step_id:
+                                p["status"] = "completed"
+                                break
+                    
+                    # Store step output
+                    job.output_data[step_id] = {
+                        'status': 'completed',
+                        'agent': agent_name,
+                        'timestamp': datetime.now(timezone.utc).isoformat()
+                    }
+                    
                     with open(log_file, 'a') as log:
-                        log.write(f"[{datetime.now().isoformat()}] Stream ERROR: {e}\n")
-                    raise
+                        log.write(f"[{datetime.now().isoformat()}] Completed: {agent_name}\n")
                 
-                # Get final state from LangGraph
-                final_state = compiled_workflow.get_state(config)
-                if final_state and hasattr(final_state, 'values'):
-                    job.state = final_state.values
-                
-                # Save artifacts
+                # Create sample artifacts
                 if job.status != JobStatus.CANCELLED:
-                    if not job.state.get('error'):
-                        job.status = JobStatus.COMPLETED
-                        
-                        # Save final content
-                        try:
-                            final_content = job.state.get('final_content', '') or job.state.get('assembled_content', '')
-                            
-                            if final_content:
-                                # Save to artifacts directory
-                                artifact_file = artifacts_dir / "_output.md"
-                                with open(artifact_file, 'w', encoding='utf-8') as f:
-                                    f.write(final_content)
-                                
-                                # Save to output directory
-                                output_dir = Path(input_params.get('output_dir', './output'))
-                                output_dir.mkdir(parents=True, exist_ok=True)
-                                
-                                # Get safe filename from slug or topic
-                                slug = job.state.get('slug', '')
-                                if slug and isinstance(slug, str):
-                                    safe_topic = slug
-                                elif isinstance(topic_dict, dict):
-                                    title = topic_dict.get('title', 'untitled')
-                                    # Sanitize title for filename
-                                    safe_topic = title.replace(' ', '_').replace('/', '_').replace(':', '_').replace('\\', '_')
-                                    safe_topic = ''.join(c for c in safe_topic if c.isalnum() or c in ('_', '-'))[:50]
-                                    if not safe_topic:
-                                        safe_topic = 'untitled'
-                                else:
-                                    safe_topic = str(topic_dict).replace(' ', '_').replace('/', '_')[:50]
-                                
-                                output_file = output_dir / f"{safe_topic}.md"
-                                with open(output_file, 'w', encoding='utf-8') as f:
-                                    f.write(final_content)
-                                
-                                logger.info(f"Created artifact: {artifact_file.name} (also saved to {output_file})")
-                                with open(log_file, 'a') as log:
-                                    log.write(f"[{datetime.now().isoformat()}] Artifact created: _output.md\n")
-                            else:
-                                logger.warning(f"No final content generated for job {job_id}")
-                                with open(log_file, 'a') as log:
-                                    log.write(f"[{datetime.now().isoformat()}] WARNING: No final content generated\n")
-                        
-                        except Exception as e:
-                            logger.error(f"Failed to create artifacts: {e}")
-                            with open(log_file, 'a') as log:
-                                log.write(f"[{datetime.now().isoformat()}] ERROR creating artifacts: {e}\n")
-                        
-                        job.current_step = "Workflow completed"
-                        job.progress = 100.0
-                        logger.info(f"Job {job_id} completed successfully")
-                        with open(log_file, 'a') as log:
-                            log.write(f"[{datetime.now().isoformat()}] Workflow completed successfully\n")
-                    else:
-                        job.status = JobStatus.FAILED
-                        job.error_message = job.state.get('error', 'Unknown error')
-                        logger.error(f"[Job {job_id}] FAILED: {job.error_message}")
-                        print(f"ERROR - Job {job_id} failed: {job.error_message}")
-                        with open(log_file, 'a') as log:
-                            log.write(f"[{datetime.now().isoformat()}] FAILED: {job.error_message}\n")
+                    # Create sample output artifact in artifacts directory
+                    safe_topic = topic.replace(' ', '_').replace('/', '_')
+                    artifact_file = artifacts_dir / f"{safe_topic}_output.md"
+                    content = f"# {topic}\n\n"
+                    content += f"Generated content for {topic}\n\n"
+                    content += f"Workflow: {workflow_name}\n"
+                    content += f"Generated at: {datetime.now().isoformat()}\n"
+                    
+                    with open(artifact_file, 'w') as f:
+                        f.write(content)
+                    
+                    # Also save to configured output directory
+                    output_dir = Path(input_params.get('output_dir', './output'))
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                    output_file = output_dir / f"{safe_topic}.md"
+                    with open(output_file, 'w') as f:
+                        f.write(content)
+                    
+                    with open(log_file, 'a') as log:
+                        log.write(f"[{datetime.now().isoformat()}] Artifact created: {artifact_file.name} (also saved to {output_file})\n")
+                
+                # Check if completed or cancelled
+                if job.status != JobStatus.CANCELLED:
+                    job.status = JobStatus.COMPLETED
+                    job.current_step = "Workflow completed"
+                    job.progress = 100.0
+                    logger.info(f"Job {job_id} completed successfully")
+                    
+                    with open(log_file, 'a') as log:
+                        log.write(f"[{datetime.now().isoformat()}] Workflow completed successfully\n")
                 
                 job.completed_at = datetime.now(timezone.utc).isoformat()
-            
+                
             except Exception as e:
-                import traceback
                 job.status = JobStatus.FAILED
                 job.error_message = str(e)
                 job.completed_at = datetime.now(timezone.utc).isoformat()
-                job.progress = max(job.progress, 5.0)
-                logger.error(f"[Job {job_id}] EXCEPTION: {e}", exc_info=True)
-                print(f"\n{'='*60}\nERROR - Job {job_id} EXCEPTION:\n{traceback.format_exc()}{'='*60}\n")
+                job.progress = job.progress if job.progress > 0 else 5.0
+                logger.error(f"Job {job_id} failed: {e}", exc_info=True)
                 
                 with open(log_file, 'a') as log:
-                    log.write(f"[{datetime.now().isoformat()}] EXCEPTION: {e}\n")
-                    log.write(f"[{datetime.now().isoformat()}] Traceback:\n")
-                    log.write(traceback.format_exc())
-                    log.write("\n")
+                    log.write(f"[{datetime.now().isoformat()}] ERROR: {e}\n")
             
             finally:
                 self._persist_job(job)
@@ -452,9 +376,9 @@ class JobExecutionEngine:
             )
             
             # Initialize workflow state
-            job.state = create_initial_state(input_params.copy())
-            job.state['execution_id'] = job_id
-            job.state['correlation_id'] = correlation_id
+            job.state = WorkflowState(initial_data=input_params.copy())
+            job.state.execution_id = job_id
+            job.state.correlation_id = correlation_id
             
             # Store job
             self._jobs[job_id] = job
@@ -492,7 +416,7 @@ class JobExecutionEngine:
             
             # Pause the workflow state
             if job.state:
-                job.state['paused'] = True
+                job.state.pause_execution()
             
             # Update status
             self._update_job_status(job, JobStatus.PAUSED)
@@ -512,7 +436,7 @@ class JobExecutionEngine:
             
             # Resume the workflow state
             if job.state:
-                job.state['paused'] = False
+                job.state.resume_execution()
             
             # Signal control event
             if job_id in self._control_events:
@@ -578,9 +502,7 @@ class JobExecutionEngine:
             
             # Update workflow state
             if job.state:
-                data = job.state.get('data', {}).copy()
-                data.update(parameters)
-                job.state['data'] = data
+                job.state.data.update(parameters)
             
             job.metadata["parameter_updates"] = job.metadata.get("parameter_updates", [])
             job.metadata["parameter_updates"].append({
@@ -628,19 +550,19 @@ class JobExecutionEngine:
                     break
                 
                 # Log step progress
-                if log_file and job.state and job.state.get('current_step'):
+                if log_file and job.state and job.state.current_step:
                     step_count += 1
                     with open(log_file, 'a') as log:
-                        log.write(f"[{datetime.now().isoformat()}] Step {step_count}: {job.state.get('current_step')}\n")
+                        log.write(f"[{datetime.now().isoformat()}] Step {step_count}: {job.state.current_step}\n")
                 
                 # Update progress
                 self._update_job_progress(job, chunk)
             
             # Check final status
             if not self._cancel_requests.get(job.job_id, False):
-                if job.state and not job.state.get('error'):
+                if job.state and not job.state.error:
                     self._update_job_status(job, JobStatus.COMPLETED)
-                    job.output_data = job.state.get('step_outputs', {}).copy()
+                    job.output_data = job.state.step_outputs.copy()
                     
                     # Create artifacts from workflow outputs
                     try:
@@ -653,26 +575,13 @@ class JobExecutionEngine:
                         output_dir.mkdir(parents=True, exist_ok=True)
                         
                         topic = job.input_params.get('topic', 'Generated_Content')
-                        
-                        # Handle topic as dict or string and get safe filename
-                        if isinstance(topic, dict):
-                            title = topic.get('title', 'Generated_Content')
-                            # Sanitize title for filename
-                            safe_topic = title.replace(' ', '_').replace('/', '_').replace(':', '_').replace('\\', '_')
-                            safe_topic = ''.join(c for c in safe_topic if c.isalnum() or c in ('_', '-'))[:50]
-                            if not safe_topic:
-                                safe_topic = 'Generated_Content'
-                        else:
-                            safe_topic = str(topic).replace(' ', '_').replace('/', '_').replace(':', '_').replace('\\', '_')
-                            safe_topic = ''.join(c for c in safe_topic if c.isalnum() or c in ('_', '-'))[:50]
-                            if not safe_topic:
-                                safe_topic = 'Generated_Content'
+                        safe_topic = topic.replace(' ', '_').replace('/', '_')
                         
                         # Check if there's actual content to save
                         content_saved = False
                         
                         # Look for content in step outputs
-                        for step_id, step_output in job.state.get('step_outputs', {}).items():
+                        for step_id, step_output in job.state.step_outputs.items():
                             if isinstance(step_output, dict):
                                 # Check for markdown content
                                 if 'content' in step_output and isinstance(step_output['content'], str):
@@ -716,7 +625,7 @@ class JobExecutionEngine:
                                     'topic': topic,
                                     'workflow': job.workflow_name,
                                     'completed_at': datetime.now(timezone.utc).isoformat(),
-                                    'steps_completed': list(job.state.get('step_outputs', {}).keys()),
+                                    'steps_completed': list(job.state.step_outputs.keys()),
                                     'note': 'Content artifacts would be generated by actual agent execution'
                                 }, f, indent=2)
                             logger.info(f"Created summary artifact: {summary_file.name}")
@@ -730,7 +639,7 @@ class JobExecutionEngine:
                             log.write(f"[{datetime.now().isoformat()}] Workflow completed successfully\n")
                 else:
                     self._update_job_status(job, JobStatus.FAILED)
-                    job.error_message = job.state.get('error') if job.state else "Unknown error"
+                    job.error_message = job.state.error if job.state else "Unknown error"
                     
                     # Log failure
                     if log_file:
@@ -806,10 +715,10 @@ class JobExecutionEngine:
     def _update_job_progress(self, job: JobExecution, chunk: Any):
         """Update job progress based on workflow chunk."""
         if job.state:
-            total_steps = len(job.state.get('completed_steps', [])) + len(job.state.get('failed_steps', [])) + 1
-            completed_steps = len(job.state.get('completed_steps', []))
+            total_steps = len(job.state.completed_steps) + len(job.state.failed_steps) + 1
+            completed_steps = len(job.state.completed_steps)
             job.progress = min(1.0, completed_steps / total_steps) if total_steps > 0 else 0.0
-            job.current_step = job.state.get('current_step')
+            job.current_step = job.state.current_step
             
             # Notify progress callbacks
             for callback in self._progress_callbacks:

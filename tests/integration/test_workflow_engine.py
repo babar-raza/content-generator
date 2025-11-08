@@ -383,7 +383,7 @@ class TestGraphPatching:
     @pytest.mark.asyncio
     async def test_inject_at_invalid_checkpoint(self, mock_agent_registry):
         """Test parameter injection at non-existent checkpoint"""
-        from patching import GraphPatcher, GraphPatch, PatchType
+        #         from patching import GraphPatcher, GraphPatch, PatchType
         
         # patcher = GraphPatcher(validator)
         # patch = GraphPatch(

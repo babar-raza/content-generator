@@ -49,45 +49,12 @@ class DuplicationCheckAgent(SelfCorrectingAgent, Agent):
         self.event_bus.subscribe("execute_check_duplication", self.execute)
 
     def execute(self, event: AgentEvent) -> Optional[AgentEvent]:
-        
-        # Handle both formats: direct topic fields or topics array
-        if "topics" in event.data and isinstance(event.data["topics"], list):
-            # New format: topics array from topic identification
-            topics = event.data["topics"]
-            if not topics:
-                raise ValueError("No topics found in topics array")
-            
-            # Process first topic - handle both string and dict formats
-            first_topic = topics[0]
-            if isinstance(first_topic, str):
-                # Simple string format
-                topic_title = first_topic
-                # Generate slug from title
-                topic_slug = topic_title.lower().replace(" ", "-").replace("'", "")
-                topic = {"title": topic_title, "slug": topic_slug}
-            elif isinstance(first_topic, dict):
-                # Structured dict format - extract with fallbacks
-                topic_title = first_topic.get("title") or first_topic.get("topic") or ""
-                topic_slug = first_topic.get("slug") or ""
-                
-                # If slug is missing but we have a title, generate slug
-                if topic_title and not topic_slug:
-                    topic_slug = topic_title.lower().replace(" ", "-").replace("'", "")
-                
-                # If title is missing but we have slug, use slug as title
-                if topic_slug and not topic_title:
-                    topic_title = topic_slug.replace("-", " ").title()
-                    
-                topic = first_topic
-                topic["title"] = topic_title
-                topic["slug"] = topic_slug
-            else:
-                raise ValueError(f"Unexpected topic format: {type(first_topic)}")
-        else:
-            # Legacy format: direct fields
-            topic_title = event.data.get("topic_title", "")
-            topic_slug = event.data.get("topic_slug", "")
-            topic = event.data.get("topic", {})
+
+        topic_title = event.data.get("topic_title", "")
+
+        topic_slug = event.data.get("topic_slug", "")
+
+        topic = event.data.get("topic", {})
 
         if not topic_title or not topic_slug:
 
@@ -139,7 +106,7 @@ class DuplicationCheckAgent(SelfCorrectingAgent, Agent):
 
                 event_type="topic_approved",
 
-                data={"topic_slug": topic_slug, "topic": topic, "topic_title": topic_title},
+                data={"topic_slug": topic_slug, "topic": topic},
 
                 source_agent=self.agent_id,
 

@@ -3,7 +3,6 @@
 from typing import Optional, Dict, List, Any
 from pathlib import Path
 import logging
-import json
 
 from ..base import (
     Agent, EventBus, AgentEvent, AgentContract, SelfCorrectingAgent,
@@ -61,7 +60,7 @@ class TopicIdentificationAgent(SelfCorrectingAgent, Agent):
 
         user_prompt = prompt_template["user"].format(
 
-            kb_content=kb_content[:5000],
+            kb_article_content=kb_content[:5000],
 
             json_schema=json.dumps(SCHEMAS.get("topics_identified", {"type": "object"}), indent=2)
 
@@ -80,22 +79,10 @@ class TopicIdentificationAgent(SelfCorrectingAgent, Agent):
             model=self.config.ollama_topic_model
 
         )
-        
-        # Use JSON repair to handle malformed responses
-        from src.utils.json_repair import safe_json_loads
-        topics_data = safe_json_loads(response, default={"topics": []})
-        
-        # Handle both dict with 'topics' key and direct list responses
-        if isinstance(topics_data, list):
-            topics_list = topics_data
-            topics_data = {"topics": topics_list}
-        elif isinstance(topics_data, dict) and 'topics' not in topics_data:
-            # If dict but no 'topics' key, wrap the entire dict as a single topic
-            topics_data = {"topics": [topics_data]}
-        
-        topics_list = topics_data.get('topics', [])
 
-        logger.info(f"Identified {len(topics_list)} topics")
+        topics_data = json.loads(response)
+
+        logger.info(f"Identified {len(topics_data['topics'])} topics")
 
         return AgentEvent(
 

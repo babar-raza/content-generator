@@ -8,57 +8,17 @@ existing agent logic and adding enhanced control capabilities.
 import yaml
 import json
 from typing import Dict, List, Optional, Any, Callable, Union
-from typing_extensions import TypedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from datetime import datetime, timezone
 import logging
-
-# Try to import LangGraph components
-HAS_LANGGRAPH = False
-StateGraph = None
-START = None
-END = None
-CompiledStateGraph = None
-MemorySaver = None
-
-try:
-    from langgraph.graph import StateGraph, START, END
-    from langgraph.graph.state import CompiledStateGraph
-    from langgraph.checkpoint.memory import MemorySaver
-    HAS_LANGGRAPH = True
-except ImportError:
-    pass
-
-# Try to import SqliteSaver from various possible locations
-SQLITE_AVAILABLE = False
-SqliteSaver = None
-
-if HAS_LANGGRAPH:
-    try:
-        from langgraph.checkpoint.sqlite import SqliteSaver
-        SQLITE_AVAILABLE = True
-    except ImportError:
-        try:
-            from langgraph.checkpoint.sqlite.aio import SqliteSaver as AsyncSqliteSaver
-            # Use async version if sync not available
-            SqliteSaver = AsyncSqliteSaver
-            SQLITE_AVAILABLE = True
-        except ImportError:
-            try:
-                from langgraph_checkpoint.sqlite import SqliteSaver
-                SQLITE_AVAILABLE = True
-            except ImportError:
-                pass
-
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.state import CompiledStateGraph
+from langgraph.checkpoint.memory import MemorySaver
 import threading
 
 from src.core.contracts import AgentEvent
 
 logger = logging.getLogger(__name__)
-
-if not HAS_LANGGRAPH:
-    logger.warning("langgraph not available - workflow compilation features disabled")
 
 
 @dataclass
@@ -74,7 +34,6 @@ class WorkflowStep:
     timeout: int = 300
     approval_required: bool = False
     parallel_group: Optional[str] = None
-    depends_on: List[str] = field(default_factory=list)
 
 
 @dataclass  
@@ -90,132 +49,91 @@ class WorkflowDefinition:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-from typing_extensions import TypedDict
-
-class WorkflowState(TypedDict, total=False):
-    """Immutable workflow state for LangGraph.
+class WorkflowState:
+    """State management for workflow execution."""
     
-    LangGraph automatically merges updates returned by nodes.
-    Nodes should return only the fields they want to update.
-    """
-    # Input data (provided at workflow start)
-    topic: Dict[str, Any]
-    kb_path: str
-    uploaded_files: List[str]
+    def __init__(self, initial_data: Optional[Dict[str, Any]] = None):
+        self.data: Dict[str, Any] = initial_data or {}
+        self.step_outputs: Dict[str, Any] = {}
+        self.current_step: Optional[str] = None
+        self.execution_id: str = ""
+        self.correlation_id: str = ""
+        self.paused: bool = False
+        self.error: Optional[str] = None
+        self.completed_steps: List[str] = []
+        self.failed_steps: List[str] = []
+        self._lock = threading.RLock()
     
-    # RAG context outputs
-    context_kb: List[str]
-    context_blog: List[str]
-    context_api: List[str]
-    kb_article_content: str
-    kb_meta: Dict[str, Any]
+    def update_step_output(self, step_name: str, output: Dict[str, Any]):
+        """Update output for a specific step."""
+        with self._lock:
+            self.step_outputs[step_name] = output
+            if step_name not in self.completed_steps:
+                self.completed_steps.append(step_name)
     
-    # Content generation outputs
-    topics: List[Dict[str, Any]]
-    outline: Dict[str, Any]
-    introduction: str
-    sections: List[str]
-    conclusion: str
-    supplementary: Dict[str, Any]
-    assembled_content: str
-    final_content: str
+    def set_current_step(self, step_name: str):
+        """Set the currently executing step."""
+        with self._lock:
+            self.current_step = step_name
     
-    # SEO outputs
-    seo_metadata: Dict[str, Any]
-    keywords: List[str]
-    slug: str  # Added slug field for file writer
+    def pause_execution(self):
+        """Pause workflow execution."""
+        with self._lock:
+            self.paused = True
     
-    # Final outputs
-    markdown: str  # Final markdown content with frontmatter
+    def resume_execution(self):
+        """Resume workflow execution."""
+        with self._lock:
+            self.paused = False
     
-    # Execution metadata
-    execution_id: str
-    correlation_id: str
-    current_step: str
-    completed_steps: List[str]
-    failed_steps: List[str]
-    step_details: Dict[str, Dict[str, Any]]  # Track agent inputs/outputs for UI
-    error: Optional[str]
+    def get_step_input(self, step_name: str, input_mapping: Dict[str, str]) -> Dict[str, Any]:
+        """Get input data for a step based on mapping."""
+        with self._lock:
+            inputs = {}
+            
+            for target_key, source_path in input_mapping.items():
+                # Support dot notation: "step1.output.result"
+                value = self._resolve_data_path(source_path)
+                if value is not None:
+                    inputs[target_key] = value
+            
+            return inputs
     
-    # Configuration
-    deterministic: bool
-    max_retries: int
-
-
-def create_initial_state(
-    topic: str = "",
-    kb_path: str = "",
-    uploaded_files: Optional[List[str]] = None,
-    **kwargs
-) -> WorkflowState:
-    """Create initial workflow state from input parameters."""
-    return WorkflowState(
-        topic={'title': topic, 'description': ''},
-        kb_path=kb_path,
-        uploaded_files=uploaded_files or [],
-        context_kb=[],
-        context_blog=[],
-        context_api=[],
-        kb_article_content="",
-        kb_meta={},
-        topics=[],
-        outline={},
-        introduction="",
-        sections=[],
-        conclusion="",
-        supplementary={},
-        assembled_content="",
-        final_content="",
-        seo_metadata={},
-        keywords=[],
-        slug="",
-        markdown="",
-        execution_id=kwargs.get('execution_id', ''),
-        correlation_id=kwargs.get('correlation_id', ''),
-        current_step="",
-        completed_steps=[],
-        failed_steps=[],
-        step_details={},
-        error=None,
-        deterministic=kwargs.get('deterministic', False),
-        max_retries=kwargs.get('max_retries', 3)
-    )
+    def _resolve_data_path(self, path: str) -> Any:
+        """Resolve data path like 'step1.output.result' or 'global.kb_path'."""
+        parts = path.split('.')
+        
+        if parts[0] == 'global':
+            current = self.data
+            for part in parts[1:]:
+                if isinstance(current, dict) and part in current:
+                    current = current[part]
+                else:
+                    return None
+            return current
+        
+        elif parts[0] in self.step_outputs:
+            current = self.step_outputs[parts[0]]
+            for part in parts[1:]:
+                if isinstance(current, dict) and part in current:
+                    current = current[part]
+                else:
+                    return None
+            return current
+        
+        return None
 
 
 class WorkflowCompiler:
     """Compiles YAML workflow definitions into LangGraph DAGs."""
     
-    def __init__(self, registry, event_bus, checkpoint_dir: Path = None, websocket_manager=None):
+    def __init__(self, registry, event_bus):
         self.registry = registry
         self.event_bus = event_bus
-        self.websocket_manager = websocket_manager
-        self._compiled_workflows: Dict[str, Any] = {}
+        self._compiled_workflows: Dict[str, CompiledStateGraph] = {}
         self._workflow_definitions: Dict[str, WorkflowDefinition] = {}
         self._lock = threading.RLock()
         self.workflows = {}
-        self.enabled = HAS_LANGGRAPH
-        
-        if not HAS_LANGGRAPH:
-            logger.warning("WorkflowCompiler initialized without langgraph - features disabled")
-            self.checkpointer = None
-            return
-        
-        # Initialize checkpointer
-        if SQLITE_AVAILABLE and SqliteSaver is not None:
-            try:
-                if checkpoint_dir is None:
-                    checkpoint_dir = Path("./data/checkpoints")
-                checkpoint_dir.mkdir(parents=True, exist_ok=True)
-                
-                checkpoint_db = checkpoint_dir / "workflow_checkpoints.db"
-                self.checkpointer = SqliteSaver.from_conn_string(str(checkpoint_db))
-                logger.info(f"✓ SqliteSaver checkpointer: {checkpoint_db}")
-            except Exception as e:
-                logger.warning(f"SqliteSaver failed ({e}), using MemorySaver")
-                self.checkpointer = MemorySaver()
-        else:
-            self.checkpointer = MemorySaver() if MemorySaver else None
-            logger.info("✓ Using MemorySaver (install aiosqlite for persistent checkpoints)")
         
     def _convert_format(self, data: Dict) -> Dict:
         """Convert v5.1 workflow format to current format."""
@@ -269,70 +187,12 @@ class WorkflowCompiler:
                 raise ValueError("Invalid workflow format")
             
             for name, definition in workflows.items():
-                # Store raw workflow dict
                 self.workflows[name] = definition
-                
-                # Parse and store as WorkflowDefinition for compilation
-                try:
-                    workflow_def = self._parse_workflow_dict(name, definition)
-                    self._workflow_definitions[name] = workflow_def
-                    logger.info(f"Loaded workflow: {name}")
-                except Exception as e:
-                    logger.warning(f"Could not parse workflow {name}: {e}, storing as dict")
+                logger.info(f"Loaded workflow: {name}")
                 
         except Exception as e:
             logger.error(f"Failed to load workflows from {workflow_file}: {e}")
             raise
-    
-    def _parse_workflow_dict(self, name: str, config: Dict[str, Any]) -> WorkflowDefinition:
-        """Parse workflow dict (from converted format) into WorkflowDefinition."""
-        steps = []
-        
-        # Handle steps as dict (from _convert_format)
-        steps_dict = config.get('steps', {})
-        if isinstance(steps_dict, dict):
-            for step_name, step_config in steps_dict.items():
-                step = WorkflowStep(
-                    name=step_name,
-                    agent_id=step_config.get('agent', step_name),
-                    capabilities=[step_name],  # Use step name as capability
-                    inputs={},
-                    outputs={},
-                    conditions={},
-                    retries=config.get('config', {}).get('max_retries', 3),
-                    timeout=300,
-                    approval_required=False,
-                    parallel_group=None,
-                    depends_on=step_config.get('depends_on', [])
-                )
-                steps.append(step)
-        # Handle steps as list (from traditional format)
-        elif isinstance(steps_dict, list):
-            for step_config in steps_dict:
-                step = WorkflowStep(
-                    name=step_config['name'],
-                    agent_id=step_config['agent'],
-                    capabilities=step_config.get('capabilities', []),
-                    inputs=step_config.get('inputs', {}),
-                    outputs=step_config.get('outputs', {}),
-                    conditions=step_config.get('when', {}),
-                    retries=step_config.get('retries', 3),
-                    timeout=step_config.get('timeout', 300),
-                    approval_required=step_config.get('approval_required', False),
-                    parallel_group=step_config.get('parallel_group')
-                )
-                steps.append(step)
-        
-        return WorkflowDefinition(
-            name=name,
-            version=config.get('version', '1.0'),
-            description=config.get('description', ''),
-            steps=steps,
-            global_inputs=config.get('global_inputs', {}),
-            global_outputs=config.get('global_outputs', {}),
-            error_handling=config.get('error_handling', {}),
-            metadata=config.get('metadata', {})
-        )
 
     def _parse_workflow_definition(self, name: str, config: Dict[str, Any]) -> WorkflowDefinition:
         """Parse workflow definition from YAML config."""
@@ -349,8 +209,7 @@ class WorkflowCompiler:
                 retries=step_config.get('retries', 3),
                 timeout=step_config.get('timeout', 300),
                 approval_required=step_config.get('approval_required', False),
-                parallel_group=step_config.get('parallel_group'),
-                depends_on=step_config.get('depends_on', [])
+                parallel_group=step_config.get('parallel_group')
             )
             steps.append(step)
         
@@ -396,8 +255,9 @@ class WorkflowCompiler:
                 for step_name in terminal_steps:
                     graph.add_edge(step_name, END)
             
-            # Compile with persistent checkpointer for pause/resume
-            compiled = graph.compile(checkpointer=self.checkpointer)
+            # Compile with checkpointer for pause/resume
+            checkpointer = MemorySaver()
+            compiled = graph.compile(checkpointer=checkpointer)
             
             self._compiled_workflows[workflow_name] = compiled
             logger.info(f"Compiled workflow: {workflow_name}")
@@ -406,32 +266,16 @@ class WorkflowCompiler:
     def _create_step_node(self, step: WorkflowStep, workflow_def: WorkflowDefinition) -> Callable:
         """Create a LangGraph node function for a workflow step."""
         
-        def step_node(state: WorkflowState) -> Dict[str, Any]:
-            """Execute workflow step - returns STATE UPDATES only."""
+        def step_node(state: WorkflowState) -> WorkflowState:
+            """Execute workflow step."""
             logger.info(f"Executing step: {step.name}")
             
-            # Broadcast step start
-            if self.websocket_manager:
-                try:
-                    import asyncio
-                    from src.realtime.websocket import EventType
-                    job_id = state.get('execution_id', '')
-                    if job_id:
-                        # Try to get running loop, if not available skip broadcast
-                        try:
-                            loop = asyncio.get_running_loop()
-                            asyncio.create_task(
-                                self.websocket_manager.broadcast(
-                                    job_id,
-                                    EventType.NODE_START,
-                                    {'step': step.name, 'agent_id': step.agent_id}
-                                )
-                            )
-                        except RuntimeError:
-                            # No event loop running, skip broadcast
-                            pass
-                except Exception as e:
-                    logger.debug(f"Could not broadcast step start: {e}")
+            # Check if paused
+            if state.paused:
+                logger.info(f"Workflow paused at step: {step.name}")
+                return state
+            
+            state.set_current_step(step.name)
             
             try:
                 # Get agent for this step
@@ -439,192 +283,60 @@ class WorkflowCompiler:
                 if not agent:
                     raise ValueError(f"Agent not found: {step.agent_id}")
                 
-                # Prepare input data from state
-                input_data = self._prepare_agent_input(state, step)
+                # Prepare input data
+                input_data = state.get_step_input(step.name, step.inputs)
+                
+                # Add global data
+                input_data.update(state.data)
                 
                 # Create agent event
                 event = AgentEvent(
                     event_type=f"execute_{step.capabilities[0]}" if step.capabilities else "execute",
                     data=input_data,
                     source_agent="workflow_compiler",
-                    correlation_id=state.get('correlation_id', '')
+                    correlation_id=state.correlation_id
                 )
                 
                 # Execute with retry logic
                 result = None
-                max_retries = state.get('max_retries', step.retries)
+                last_error = None
                 
-                for attempt in range(max_retries):
+                for attempt in range(step.retries):
                     try:
                         result = agent.execute(event)
                         break
                     except Exception as e:
-                        logger.warning(f"Step {step.name} attempt {attempt + 1}/{max_retries} failed: {e}")
-                        if attempt == max_retries - 1:
+                        last_error = e
+                        logger.warning(f"Step {step.name} attempt {attempt + 1} failed: {e}")
+                        if attempt == step.retries - 1:
                             raise
                 
-                # Return state updates (LangGraph will merge these)
-                updates = {
-                    'current_step': step.name,
-                    'completed_steps': state.get('completed_steps', []) + [step.name]
-                }
-                
-                # Track agent execution details for UI
-                step_details = state.get('step_details', {}).copy()
-                step_details[step.name] = {
-                    'agent_id': step.agent_id,
-                    'input': {k: str(v)[:200] if isinstance(v, (str, list, dict)) else v 
-                             for k, v in input_data.items()},  # Truncate for display
-                    'output': {k: str(v)[:200] if isinstance(v, (str, list, dict)) else v 
-                              for k, v in (result.data if result else {}).items()},  # Truncate for display
-                    'status': 'completed',
-                    'timestamp': datetime.now(timezone.utc).isoformat()
-                }
-                updates['step_details'] = step_details
-                
-                # Map agent output to state fields
-                if result and result.data:
-                    updates.update(self._map_agent_output(step.name, result.data))
-                
-                # Broadcast step completion
-                if self.websocket_manager:
-                    try:
-                        import asyncio
-                        from src.realtime.websocket import EventType
-                        job_id = state.get('execution_id', '')
-                        if job_id:
-                            # Try to get running loop, if not available skip broadcast
-                            try:
-                                loop = asyncio.get_running_loop()
-                                asyncio.create_task(
-                                    self.websocket_manager.broadcast(
-                                        job_id,
-                                        EventType.NODE_OUTPUT,
-                                        {
-                                            'step': step.name,
-                                            'agent_id': step.agent_id,
-                                            'status': 'completed',
-                                            'details': step_details.get(step.name, {})
-                                        }
-                                    )
-                                )
-                            except RuntimeError:
-                                # No event loop running, skip broadcast
-                                pass
-                    except Exception as e:
-                        logger.debug(f"Could not broadcast step completion: {e}")
+                # Process result
+                if result:
+                    output_data = result.data
+                    state.update_step_output(step.name, output_data)
+                    
+                    # Update global state based on output mapping
+                    for global_key, step_output_path in step.outputs.items():
+                        value = self._extract_output_value(output_data, step_output_path)
+                        if value is not None:
+                            state.data[global_key] = value
                 
                 logger.info(f"Completed step: {step.name}")
-                return updates
+                return state
                 
             except Exception as e:
-                logger.error(f"Step {step.name} failed: {e}", exc_info=True)
-                
-                failed_steps = state.get('failed_steps', []).copy()
-                failed_steps.append(step.name)
+                logger.error(f"Step {step.name} failed: {e}")
+                state.failed_steps.append(step.name)
+                state.error = str(e)
                 
                 # Handle error based on workflow error handling
                 if workflow_def.error_handling.get('continue_on_error', False):
-                    return {
-                        'failed_steps': failed_steps,
-                        'error': str(e),
-                        'current_step': step.name
-                    }
+                    return state
                 else:
                     raise
         
         return step_node
-    
-    def _prepare_agent_input(self, state: WorkflowState, step: WorkflowStep) -> Dict[str, Any]:
-        """Prepare input data for agent from current state."""
-        input_data = {}
-        
-        # Add all relevant state fields that the agent might need
-        if state.get('topic'):
-            input_data['topic'] = state['topic']
-        if state.get('kb_path'):
-            input_data['kb_path'] = state['kb_path']
-        if state.get('uploaded_files'):
-            input_data['uploaded_files'] = state['uploaded_files']
-        if state.get('kb_article_content'):
-            input_data['kb_article_content'] = state['kb_article_content']
-        if state.get('kb_meta'):
-            input_data['kb_meta'] = state['kb_meta']
-        if state.get('context_kb'):
-            input_data['context_kb'] = state['context_kb']
-        if state.get('context_blog'):
-            input_data['context_blog'] = state['context_blog']
-        if state.get('context_api'):
-            input_data['context_api'] = state['context_api']
-        if state.get('topics'):
-            input_data['topics'] = state['topics']
-        if state.get('outline'):
-            input_data['outline'] = state['outline']
-        if state.get('introduction'):
-            input_data['introduction'] = state['introduction']
-        if state.get('sections'):
-            input_data['sections'] = state['sections']
-        if state.get('conclusion'):
-            input_data['conclusion'] = state['conclusion']
-        if state.get('supplementary'):
-            input_data['supplementary'] = state['supplementary']
-        if state.get('assembled_content'):
-            input_data['assembled_content'] = state['assembled_content']
-            # Also pass as 'content' for agents that expect that key
-            input_data['content'] = state['assembled_content']
-        elif state.get('final_content'):
-            # If assembled_content is missing but final_content exists, use that
-            input_data['content'] = state['final_content']
-        if state.get('seo_metadata'):
-            input_data['seo_metadata'] = state['seo_metadata']
-        if state.get('keywords'):
-            input_data['keywords'] = state['keywords']
-        if state.get('slug'):
-            input_data['slug'] = state['slug']
-        if state.get('kb_article_content'):
-            input_data['kb_article_content'] = state['kb_article_content']
-        if state.get('kb_meta'):
-            input_data['kb_meta'] = state['kb_meta']
-        if state.get('markdown'):
-            input_data['markdown'] = state['markdown']
-        
-        return input_data
-    
-    def _map_agent_output(self, step_name: str, output: Dict[str, Any]) -> Dict[str, Any]:
-        """Map agent output to state field updates."""
-        updates = {}
-        
-        # Map common output fields to state
-        field_mappings = {
-            'topics': 'topics',
-            'outline': 'outline',
-            'introduction': 'introduction',
-            'sections': 'sections',
-            'conclusion': 'conclusion',
-            'supplementary': 'supplementary',
-            'content': 'assembled_content',
-            'final_content': 'final_content',
-            'seo_metadata': 'seo_metadata',
-            'slug': 'slug',
-            'keywords': 'keywords',
-            'context_kb': 'context_kb',
-            'context_blog': 'context_blog',
-            'context_api': 'context_api',
-            'markdown': 'markdown',  # Map markdown explicitly
-            'kb_article_content': 'kb_article_content',
-            'kb_meta': 'kb_meta'
-        }
-        
-        for output_key, state_key in field_mappings.items():
-            if output_key in output:
-                updates[state_key] = output[output_key]
-        
-        # Special handling: extract slug from seo_metadata if present
-        if 'seo_metadata' in output and isinstance(output['seo_metadata'], dict):
-            if 'slug' in output['seo_metadata'] and 'slug' not in updates:
-                updates['slug'] = output['seo_metadata']['slug']
-        
-        return updates
     
     def _add_workflow_edges(self, graph: StateGraph, workflow_def: WorkflowDefinition):
         """Add edges between workflow steps based on dependencies."""

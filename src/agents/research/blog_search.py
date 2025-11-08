@@ -88,7 +88,7 @@ class BlogSearchAgent(SelfCorrectingAgent, Agent):
 
             event_type="rag_complete",
 
-            data={"source": "blog", "context": context, "context_blog": context},
+            data={"source": "blog", "context": context},
 
             source_agent=self.agent_id,
 

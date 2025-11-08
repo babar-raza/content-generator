@@ -88,7 +88,7 @@ class APISearchAgent(SelfCorrectingAgent, Agent):
 
             event_type="rag_complete",
 
-            data={"source": "api", "context": context, "context_api": context},
+            data={"source": "api", "context": context},
 
             source_agent=self.agent_id,
 

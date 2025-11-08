@@ -260,15 +260,15 @@ class TestCLIIntegration:
     def test_cli_main_function_signature(self, cli_path, repo_path):
         """Test that main function has correct signature."""
         proc = subprocess.run(
-            [sys.executable, "-c", """
+            [sys.executable, "-c", f"""
 import sys
-sys.path.insert(0, r'""" + str(repo_path) + """')
+sys.path.insert(0, r'{repo_path}')
 import ucop_cli
 import inspect
 sig = inspect.signature(ucop_cli.main)
 # Should accept no arguments (uses sys.argv)
 assert len(sig.parameters) == 0
-""",
+"""],
             cwd=repo_path,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

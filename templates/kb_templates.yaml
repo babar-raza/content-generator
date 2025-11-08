@@ -23,6 +23,9 @@ templates:
         - steps
         - conclusion
       optional_placeholders:
+        - introduction
+        - steps_metadata
+        - usecases_metadata
         - keywords
         - date
         - use_cases

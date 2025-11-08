@@ -183,7 +183,7 @@ class TemplateRegistry:
         for template_file in template_files:
             self._load_template_file(template_file)
         
-        print(f"✓ Loaded {len(self.templates)} templates from {len(template_files)} files")
+        print(f"OK Loaded {len(self.templates)} templates from {len(template_files)} files")
     
     def _load_template_file(self, file_path: Path) -> None:
         """Load templates from a single YAML file.
@@ -192,7 +192,7 @@ class TemplateRegistry:
             file_path: Path to template YAML file
         """
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f)
         except Exception as e:
             print(f"⚠️ Failed to parse {file_path}: {e}")
@@ -344,10 +344,38 @@ def get_template_registry(templates_dir: Path = Path("./templates")) -> Template
     return _registry_instance
 
 
+def get_template(name: str) -> Optional[Template]:
+    """Get a template by name from the global registry.
+    
+    Args:
+        name: Template name
+        
+    Returns:
+        Template or None if not found
+    """
+    registry = get_template_registry()
+    return registry.get_template(name)
+
+
+def list_templates(template_type: Optional[TemplateType] = None) -> List[Template]:
+    """List all templates from the global registry.
+    
+    Args:
+        template_type: Optional type filter
+        
+    Returns:
+        List of templates
+    """
+    registry = get_template_registry()
+    return registry.list_templates(template_type)
+
+
 __all__ = [
     "Template",
     "TemplateSchema",
     "TemplateType",
     "TemplateRegistry",
-    "get_template_registry"
+    "get_template_registry",
+    "get_template",
+    "list_templates"
 ]

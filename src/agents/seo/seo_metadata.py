@@ -3,8 +3,6 @@
 from typing import Optional, Dict, List, Any
 from pathlib import Path
 import logging
-import json
-import re
 
 from ..base import (
     Agent, EventBus, AgentEvent, AgentContract, SelfCorrectingAgent,
@@ -53,59 +51,6 @@ class SEOMetadataAgent(SelfCorrectingAgent, Agent):
     def _subscribe_to_events(self):
 
         self.event_bus.subscribe("execute_generate_seo", self.execute)
-    
-    def _normalize_seo_payload(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize SEO payload from various provider formats with NO-MOCK validation.
-        
-        Handles:
-        - Nested responses like {"metadata": {...}}
-        - Synonym fields (metaTitle, seo_title, etc.)
-        - String keywords/tags converted to arrays
-        - Auto-generates slug if missing
-        - Rejects mock/placeholder content
-        
-        Args:
-            raw_data: Raw response from LLM provider
-            
-        Returns:
-            Normalized dictionary with standard field names
-        """
-        from src.engine.slug_service import slugify
-        from src.services.services_fixes import NoMockGate, SEOSchemaGate
-        
-        # Apply SEO schema normalization
-        normalized = SEOSchemaGate.coerce_and_fill(raw_data)
-        
-        # Validate for mock content
-        no_mock = NoMockGate()
-        for field, value in normalized.items():
-            if isinstance(value, str):
-                if no_mock.contains_mock(value):
-                    logger.warning(f"Mock content detected in SEO field '{field}': {value[:50]}...")
-                    # Replace with sensible default
-                    if field == 'title':
-                        normalized[field] = 'Blog Post'
-                    elif field == 'seoTitle':
-                        normalized[field] = normalized.get('title', 'Blog Post')
-                    elif field == 'description':
-                        normalized[field] = f"Learn about {normalized.get('title', 'this topic')}"
-                    elif field == 'slug':
-                        normalized[field] = slugify(normalized.get('title', 'untitled'))
-        
-        # Final validation - ensure all required fields exist
-        required = ['title', 'seoTitle', 'description', 'tags', 'keywords', 'slug']
-        for field in required:
-            if field not in normalized:
-                logger.warning(f"Missing required SEO field: {field}")
-                if field in ['tags', 'keywords']:
-                    normalized[field] = []
-                elif field == 'slug':
-                    normalized[field] = slugify(normalized.get('title', 'untitled'))
-                else:
-                    normalized[field] = f"default-{field}"
-        
-        logger.info(f"SEO normalized: title='{normalized['title']}', slug='{normalized['slug']}'")
-        return normalized
 
     def execute(self, event: AgentEvent) -> Optional[AgentEvent]:
 
@@ -239,11 +184,7 @@ class SEOMetadataAgent(SelfCorrectingAgent, Agent):
 
                 try:
 
-                    from src.utils.json_repair import safe_json_loads
-                    seo_data = safe_json_loads(response_stripped, default={})
-                    
-                    # Normalize the payload (unwrap nested, map synonyms, etc.)
-                    seo_data = self._normalize_seo_payload(seo_data)
+                    seo_data = json.loads(response_stripped)
 
                 except json.JSONDecodeError as e:
 
@@ -295,7 +236,7 @@ class SEOMetadataAgent(SelfCorrectingAgent, Agent):
 
                     event_type="seo_generated",
 
-                    data={"seo_metadata": seo_data},
+                    data=seo_data,
 
                     source_agent=self.agent_id,
 
@@ -321,50 +262,31 @@ class SEOMetadataAgent(SelfCorrectingAgent, Agent):
 
                     break
 
-        # All Gemini attempts failed; try Ollama provider before falling back.
+        # All Gemini attempts failed; try local provider before falling back.
         try:
-            logger.info("Gemini failed, attempting Ollama fallback for SEO metadata")
             local_response = self.llm_service.generate(
                 prompt=user_prompt,
                 system_prompt=enhanced_system,
                 json_mode=True,
                 json_schema=SCHEMAS.get("seo_metadata", {"type": "object"}),
-                model=self.config.ollama_topic_model,
-                provider="OLLAMA"
+                model=self.config.gemini_model
             )
             if local_response:
                 local_stripped = local_response.strip()
-                # Clean up markdown if present
-                if local_stripped.startswith('```'):
-                    local_stripped = re.sub(r'^```json\s*', '', local_stripped)
-                    local_stripped = re.sub(r'^```\s*', '', local_stripped)
-                    local_stripped = re.sub(r'\s*```$', '', local_stripped)
-                    local_stripped = local_stripped.strip()
                 try:
-                    from src.utils.json_repair import safe_json_loads
-                    local_data = safe_json_loads(local_stripped, default={})
-                    
-                    # Normalize the payload (unwrap nested, map synonyms, etc.)
-                    local_data = self._normalize_seo_payload(local_data)
-                    
-                    # Validate required fields
-                    required_fields = ['title', 'seoTitle', 'description', 'tags', 'slug', 'keywords']
-                    missing = [f for f in required_fields if f not in local_data]
-                    if missing:
-                        logger.warning(f"Ollama SEO response missing fields: {missing}, using fallback")
-                        raise ValueError(f"Missing fields: {missing}")
+                    local_data = json.loads(local_stripped)
                     local_data = self._enhance_seo_metadata(local_data, topic, content)
-                    logger.info("Successfully generated SEO metadata via Ollama")
+                    logger.info("Successfully generated SEO metadata via local provider")
                     return AgentEvent(
                         event_type="seo_generated",
-                        data={"seo_metadata": local_data},
+                        data=local_data,
                         source_agent=self.agent_id,
                         correlation_id=event.correlation_id
                     )
-                except Exception as e:
-                    logger.warning(f"Ollama provider returned invalid response: {e}, falling back to heuristic")
+                except Exception:
+                    logger.warning("Local provider returned invalid JSON; falling back to heuristic")
         except Exception as le:
-            logger.warning(f"Ollama provider SEO generation failed: {le}, using fallback")
+            logger.warning(f"Local provider SEO generation failed: {le}")
         # Return fallback SEO metadata
         logger.info("Using fallback SEO metadata")
         fallback_seo = self._create_fallback_seo(topic, content, keywords)
@@ -373,7 +295,7 @@ class SEOMetadataAgent(SelfCorrectingAgent, Agent):
 
             event_type="seo_generated",
 
-            data={"seo_metadata": fallback_seo},
+            data=fallback_seo,
 
             source_agent=self.agent_id,
 

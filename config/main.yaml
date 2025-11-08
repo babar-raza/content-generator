@@ -1,0 +1,94 @@
+# Main Configuration - Pipeline and execution order
+
+version: "1.0"
+
+# Agent execution pipeline - order matters!
+pipeline:
+  - topic_identification
+  - kb_ingestion
+  - api_ingestion
+  - blog_ingestion
+  - duplication_check
+  - outline_creation
+  - introduction_writer
+  - section_writer
+  - code_generation
+  - code_validation
+  - conclusion_writer
+  - keyword_extraction
+  - keyword_injection
+  - seo_metadata
+  - frontmatter
+  - content_assembly
+  - link_validation
+  - file_writer
+
+# Pipeline variants for different workflows
+workflows:
+  default:
+    name: "Full Blog Post Generation"
+    steps:
+      - topic_identification
+      - kb_ingestion
+      - api_ingestion
+      - blog_ingestion
+      - duplication_check
+      - outline_creation
+      - introduction_writer
+      - section_writer
+      - code_generation
+      - code_validation
+      - conclusion_writer
+      - keyword_extraction
+      - keyword_injection
+      - seo_metadata
+      - frontmatter
+      - content_assembly
+      - link_validation
+      - file_writer
+  
+  code_only:
+    name: "Code Generation Only"
+    steps:
+      - topic_identification
+      - api_ingestion
+      - code_generation
+      - code_validation
+      - code_splitting
+      - license_injection
+      - file_writer
+  
+  quick_draft:
+    name: "Quick Draft (No SEO)"
+    steps:
+      - topic_identification
+      - kb_ingestion
+      - outline_creation
+      - section_writer
+      - conclusion_writer
+      - content_assembly
+      - file_writer
+
+# Agent dependencies (enforced at runtime)
+dependencies:
+  outline_creation:
+    requires:
+      - topic_identification
+      - kb_ingestion
+  
+  section_writer:
+    requires:
+      - outline_creation
+  
+  code_generation:
+    requires:
+      - api_ingestion
+  
+  content_assembly:
+    requires:
+      - section_writer
+      - conclusion_writer
+  
+  file_writer:
+    requires:
+      - content_assembly

@@ -50,99 +50,111 @@ class ConclusionWriterAgent(SelfCorrectingAgent, Agent):
 
     def execute(self, event: AgentEvent) -> Optional[AgentEvent]:
 
-        sections = event.data.get("sections", [])
+        # Wrap execution with circuit breaker
 
-        topic = event.data.get("topic", {})
+        cb = self.config.resilience_manager.get_circuit_breaker("content_generation")
 
-        if not sections:
+        pool = self.config.resilience_manager.get_resource_pool("content_agents")
 
-            raise ValueError("sections is required but was missing or empty")
+        def _execute():
 
-        # Create summary of sections
+            with pool:
 
-        sections_summary = "\n".join([
+                sections = event.data.get("sections", [])
 
-            f"- {s.get('title', 'Section')}: {s.get('content', '')[:200]}..."
+                topic = event.data.get("topic", {})
 
-            for s in sections[:3]
+                if not sections:
 
-        ])
+                    raise ValueError("sections is required but was missing or empty")
 
-        # Extract key points
+                # Create summary of sections
 
-        key_points = []
+                sections_summary = "\n".join([
 
-        for section in sections:
+                    f"- {s.get('title', 'Section')}: {s.get('content', '')[:200]}..."
 
-            content = section.get('content', '')
+                    for s in sections[:3]
 
-            # Extract first sentence of each section as key point
+                ])
 
-            sentences = content.split('. ')
+                # Extract key points
 
-            if sentences:
+                key_points = []
 
-                key_points.append(sentences[0])
+                for section in sections:
 
-        key_points_text = "\n".join([f"- {kp}" for kp in key_points[:5]])
+                    content = section.get('content', '')
 
-        prompt_template = PROMPTS.get("CONCLUSION_WRITER", {"system": "You are a technical writing specialist.", "user": "Write conclusion"})
+                    # Extract first sentence of each section as key point
 
-        user_prompt = prompt_template["user"].format(
+                    sentences = content.split('. ')
 
-            sections_summary=sections_summary,
+                    if sentences:
 
-            key_points=key_points_text
+                        key_points.append(sentences[0])
 
-        )
+                key_points_text = "\n".join([f"- {kp}" for kp in key_points[:5]])
 
-        # Enhance prompt with tone configuration
+                prompt_template = PROMPTS.get("CONCLUSION_WRITER", {"system": "You are a technical writing specialist.", "user": "Write conclusion"})
 
-        if self.config.tone_config:
+                user_prompt = prompt_template["user"].format(
 
-            user_prompt = build_section_prompt_enhancement(
+                    sections_summary=sections_summary,
 
-                self.config.tone_config,
+                    key_points=key_points_text
 
-                'conclusion',
+                )
 
-                user_prompt
+                # Enhance prompt with tone configuration
 
-            )
+                if self.config.tone_config:
 
-        try:
+                    user_prompt = build_section_prompt_enhancement(
 
-            conclusion = self.llm_service.generate(
+                        self.config.tone_config,
 
-                prompt=user_prompt,
+                        'conclusion',
 
-                system_prompt=prompt_template["system"],
+                        user_prompt
 
-                json_mode=False,
+                    )
 
-                model=self.config.ollama_content_model
+                try:
 
-            )
+                    conclusion = self.llm_service.generate(
 
-        except Exception as e:
+                        prompt=user_prompt,
 
-            logger.error(f"Conclusion generation failed: {e}")
+                        system_prompt=prompt_template["system"],
 
-            conclusion = self._generate_default_conclusion(topic)
+                        json_mode=False,
 
-        logger.info("Generated conclusion with tone configuration")
+                        model=self.config.ollama_content_model
 
-        return AgentEvent(
+                    )
 
-            event_type="conclusion_written",
+                except Exception as e:
 
-            data={"conclusion": conclusion.strip()},
+                    logger.error(f"Conclusion generation failed: {e}")
 
-            source_agent=self.agent_id,
+                    conclusion = self._generate_default_conclusion(topic)
 
-            correlation_id=event.correlation_id
+                logger.info("Generated conclusion with tone configuration")
 
-        )
+                return AgentEvent(
+
+                    event_type="conclusion_written",
+
+                    data={"conclusion": conclusion.strip()},
+
+                    source_agent=self.agent_id,
+
+                    correlation_id=event.correlation_id
+
+                )
+
+        return cb.call(_execute)
 
     def _generate_default_conclusion(self, topic: Dict) -> str:
 
