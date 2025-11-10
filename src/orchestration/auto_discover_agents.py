@@ -12,26 +12,10 @@ from pathlib import Path
 import json
 from datetime import datetime
 import re
+from src.orchestration.agent_scanner import AgentMetadata
 
 
 @dataclass
-class AgentMetadata:
-    """Metadata extracted from agent analysis"""
-    name: str
-    function_name: str
-    is_async: bool
-    parameters: List[Dict[str, Any]]
-    return_type: Optional[str]
-    docstring: Optional[str]
-    decorators: List[str]
-    has_contract: bool
-    contract_method: Optional[str]
-    imports_required: List[str]
-    line_number: int
-    source_code: str
-    inferred_checkpoints: List[Dict[str, Any]] = field(default_factory=list)
-    inferred_capabilities: Dict[str, Any] = field(default_factory=dict)
-    dependencies: List[str] = field(default_factory=list)
 
 
 class AgentScanner:

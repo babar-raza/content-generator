@@ -14,6 +14,7 @@ from .completeness_gate import CompletenessGate
 from .context_merger import ContextMerger
 from .agent_tracker import AgentExecutionTracker
 from .exceptions import *
+from src.engine.unified_engine import JobResult
 
 logger = logging.getLogger(__name__)
 
@@ -35,28 +36,6 @@ class JobConfig:
 
 
 @dataclass
-class JobResult:
-    """Job execution result."""
-    job_id: str
-    status: str
-    output_path: Optional[Path] = None
-    report_path: Optional[Path] = None
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "job_id": self.job_id,
-            "status": self.status,
-            "output_path": str(self.output_path) if self.output_path else None,
-            "report_path": str(self.report_path) if self.report_path else None,
-            "error": self.error,
-            "metadata": self.metadata,
-            "started_at": self.started_at,
-            "completed_at": self.completed_at
-        }
 
 
 class UnifiedJobExecutor:

@@ -11,7 +11,7 @@ Contains agents responsible for content publishing:
 from .gist_readme import GistREADMEAgent
 from .link_validation import LinkValidationAgent
 from .gist_upload import GistUploadAgent
-from .frontmatter import FrontmatterAgent
+from .frontmatter_enhanced import FrontmatterAgent
 from .file_writer import FileWriterAgent
 
 __all__ = [

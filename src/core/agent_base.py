@@ -16,11 +16,19 @@ logger = logging.getLogger(__name__)
 class Agent(ABC):
     """Base agent class with optional mesh capabilities."""
 
-    def __init__(self, agent_id: str, config, event_bus: EventBus, enable_mesh: bool = False):
+    def __init__(self, agent_id: str, config, event_bus: EventBus, enable_mesh: bool = False,
+                 tone_config: Optional[Dict[str, Any]] = None,
+                 perf_config: Optional[Dict[str, Any]] = None,
+                 agent_config: Optional[Dict[str, Any]] = None):
         self.agent_id = agent_id
         self.config = config
         self.event_bus = event_bus
         self.enable_mesh = enable_mesh
+        
+        # Configuration support
+        self.tone_config = tone_config or {}
+        self.perf_config = perf_config or {}
+        self.agent_config = agent_config or {}
 
         # Stats
         self.executions = 0
@@ -30,13 +38,14 @@ class Agent(ABC):
         # Mesh features (optional)
         self._capability_registry = None
         self._current_load = 0
-        self._max_capacity = 3
+        self._max_capacity = self.perf_config.get('limits', {}).get('max_parallel', 3)
 
         # Contract & subscriptions
         self.contract = self._create_contract()
         self._subscribe_to_events()
 
-        logger.info("Initialized %s (mesh=%s)", agent_id, enable_mesh)
+        logger.info("Initialized %s (mesh=%s, tone=%s, perf=%s)", 
+                   agent_id, enable_mesh, bool(tone_config), bool(perf_config))
 
     @abstractmethod
     def _create_contract(self) -> AgentContract:
@@ -91,6 +100,30 @@ class Agent(ABC):
     @property
     def max_capacity(self) -> int:
         return self._max_capacity
+    
+    def get_timeout(self, timeout_type: str = 'agent_execution') -> float:
+        """Get timeout value from perf_config."""
+        return self.perf_config.get('timeouts', {}).get(timeout_type, 30.0)
+    
+    def get_limit(self, limit_type: str) -> int:
+        """Get limit value from perf_config."""
+        limits = self.perf_config.get('limits', {})
+        return limits.get(limit_type, {
+            'max_tokens_per_agent': 4000,
+            'max_steps': 50,
+            'max_retries': 3,
+            'max_context_size': 16000
+        }.get(limit_type, 0))
+    
+    def get_tone_setting(self, section: str, setting: str, default: Any = None) -> Any:
+        """Get tone configuration setting for a specific section."""
+        section_controls = self.tone_config.get('section_controls', {})
+        section_config = section_controls.get(section, {})
+        return section_config.get(setting, default)
+    
+    def is_section_enabled(self, section: str) -> bool:
+        """Check if a section is enabled in tone config."""
+        return self.get_tone_setting(section, 'enabled', True)
 
 
 class SelfCorrectingAgent:

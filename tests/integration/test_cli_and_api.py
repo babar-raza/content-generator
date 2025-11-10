@@ -10,7 +10,7 @@ import importlib
 
 # Flag for whether ops console is available
 try:
-    from src.web.ops_console import OpsConsole
+    from src.orchestration.ops_console import OpsConsole
     HAS_OPS_CONSOLE = True
 except ImportError:
     HAS_OPS_CONSOLE = False

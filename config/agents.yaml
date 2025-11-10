@@ -1469,3 +1469,189 @@ agents:
       max_runtime_s: 300
       max_tokens: 4096
       max_memory_mb: 1024
+  ingest_tutorial_node:
+    id: ingest_tutorial_node
+    version: 1.0.0
+    description: Ingest tutorial content and create embeddings.
+    entrypoint:
+      type: python
+      module: agents
+      function: ingest_tutorial_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - tutorial_path
+        - config
+        properties:
+          tutorial_path:
+            type: string
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - tutorial_content
+        - tutorial_ingestion_success
+        properties:
+          tutorial_content:
+            type: string
+          tutorial_ingestion_success:
+            type: boolean
+          tutorial_meta:
+            type: object
+      checkpoints:
+      - name: before_execution
+        description: Before ingest_tutorial_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After ingest_tutorial_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: read
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  ingest_docs_node:
+    id: ingest_docs_node
+    version: 1.0.0
+    description: Ingest documentation content and create embeddings.
+    entrypoint:
+      type: python
+      module: agents
+      function: ingest_docs_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - docs_path
+        - config
+        properties:
+          docs_path:
+            type: string
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - docs_content
+        - docs_ingestion_success
+        properties:
+          docs_content:
+            type: string
+          docs_ingestion_success:
+            type: boolean
+          docs_meta:
+            type: object
+      checkpoints:
+      - name: before_execution
+        description: Before ingest_docs_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After ingest_docs_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: read
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  tutorial_search_node:
+    id: tutorial_search_node
+    version: 1.0.0
+    description: Search tutorial content for relevant context.
+    entrypoint:
+      type: python
+      module: agents
+      function: tutorial_search_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - current_topic
+        - config
+        properties:
+          current_topic:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - context_tutorial
+        properties:
+          context_tutorial:
+            type: array
+            items:
+              type: string
+      checkpoints:
+      - name: before_execution
+        description: Before tutorial_search_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After tutorial_search_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024
+  docs_search_node:
+    id: docs_search_node
+    version: 1.0.0
+    description: Search documentation for relevant context.
+    entrypoint:
+      type: python
+      module: agents
+      function: docs_search_node
+      async: false
+    contract:
+      inputs:
+        type: object
+        required:
+        - current_topic
+        - config
+        properties:
+          current_topic:
+            type: object
+          config:
+            type: object
+      outputs:
+        type: object
+        required:
+        - context_docs
+        properties:
+          context_docs:
+            type: array
+            items:
+              type: string
+      checkpoints:
+      - name: before_execution
+        description: Before docs_search_node starts
+        mutable_params: []
+      - name: after_execution
+        description: After docs_search_node completes
+        mutable_params: []
+    capabilities:
+      stateful: true
+      async: false
+      model_switchable: false
+      side_effects: none
+    resources:
+      max_runtime_s: 300
+      max_tokens: 4096
+      max_memory_mb: 1024

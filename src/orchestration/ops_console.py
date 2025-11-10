@@ -27,6 +27,8 @@ from enhanced_registry import EnhancedAgentRegistry
 from job_execution_engine import JobExecutionEngine, JobExecution, JobStatus
 from workflow_compiler import WorkflowCompiler
 from patching import GraphPatcher, GraphPatch, PatchType
+from src.realtime.job_control import JobControl
+from src.orchestration.workflow_compiler import WorkflowDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +47,6 @@ class AgentInfo(BaseModel):
     last_used: Optional[str] = None
 
 
-class WorkflowDefinition(BaseModel):
-    """Workflow definition for API."""
-    id: str
-    name: str
-    description: Optional[str] = None
-    nodes: List[Dict[str, Any]]
-    edges: List[Dict[str, Any]]
-    timeout: Optional[int] = 300
 
 
 class JobRequest(BaseModel):
@@ -62,10 +56,6 @@ class JobRequest(BaseModel):
     priority: int = Field(default=5, ge=1, le=10)
 
 
-class JobControl(BaseModel):
-    """Job control command."""
-    action: str  # pause, resume, cancel
-    reason: Optional[str] = None
 
 
 class ParameterUpdate(BaseModel):

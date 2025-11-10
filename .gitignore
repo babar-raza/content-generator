@@ -1,6 +1,10 @@
-*.pyc
-/data
-/chroma_db
-/cache
-.npmrc
-/output
+.env
+/.vscode
+/src/mcp/__pycache__
+/src/mesh/__pycache__
+/src/orchestration/__pycache__
+/src/services/__pycache__
+/src/utils/__pycache__
+/venv
+src/__pycache__/main.cpython-312.pyc
+/src/core/__pycache__

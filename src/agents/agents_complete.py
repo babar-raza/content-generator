@@ -32,7 +32,7 @@ from src.agents.publishing.link_validation import LinkValidationAgent
 from src.agents.publishing.gist_upload import GistUploadAgent
 from src.agents.publishing.gist_readme import GistReadmeAgent
 from src.agents.publishing.file_writer import FileWriterAgent
-from src.agents.publishing.frontmatter import FrontmatterAgent
+from src.agents.publishing.frontmatter_enhanced import FrontmatterAgent
 
 # Support agents
 from src.agents.support.model_selection import ModelSelectionAgent

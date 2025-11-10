@@ -435,6 +435,11 @@ class LLMService:
         Returns:
             Generated text from the LLM
         """
+        
+        # Track call count for monitoring
+        if not hasattr(self, '_call_count'):
+            self._call_count = 0
+        self._call_count += 1
 
         # Smart Model Routing for Ollama
         # If using Ollama and no specific model requested, use router
@@ -1221,7 +1226,9 @@ class DatabaseService:
         self.db_paths = {
             "kb": db_base_path / f"kb-{family}",
             "blog": db_base_path / f"blog-{family}",
-            "api": db_base_path / f"api-{family}"
+            "api": db_base_path / f"api-{family}",
+            "tutorial": db_base_path / f"tutorial-{family}",
+            "docs": db_base_path / f"docs-{family}"
         }
         
         # Create all directories
@@ -1543,7 +1550,7 @@ class DatabaseService:
 
         Args:
 
-            source: Collection source (kb, blog, api)
+            source: Collection source (kb, blog, api, tutorial, docs)
 
             doc_id: Document ID
 
@@ -1579,7 +1586,7 @@ class DatabaseService:
 
         Args:
 
-            source: Collection source (kb, blog, api)
+            source: Collection source (kb, blog, api, tutorial, docs)
 
             ids: List of document IDs to check
 
@@ -1639,7 +1646,7 @@ class DatabaseService:
 
         }
 
-        for source in ["kb", "blog", "api"]:
+        for source in ["kb", "blog", "api", "tutorial", "docs"]:
 
             try:
 

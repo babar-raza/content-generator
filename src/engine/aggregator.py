@@ -7,6 +7,7 @@ import logging
 import yaml
 
 from .exceptions import IncompleteOutputError
+from src.core.template_registry import TemplateSchema
 
 logger = logging.getLogger(__name__)
 
@@ -22,36 +23,7 @@ class SectionRequirement:
 
 
 @dataclass
-class TemplateSchema:
-    """Template requirements schema."""
-    template_name: str
-    required_sections: List[SectionRequirement]
-    min_word_count: int = 800
-    max_word_count: int = 5000
-    require_headings: bool = True
-    
-    @classmethod
-    def from_yaml(cls, path: Path) -> 'TemplateSchema':
-        """Load template schema from YAML."""
-        with open(path) as f:
-            data = yaml.safe_load(f)
-        
-        sections = [
-            SectionRequirement(**s) for s in data.get('required_sections', [])
-        ]
-        
-        validation = data.get('validation_rules', {})
-        
-        return cls(
-            template_name=data['template_name'],
-            required_sections=sections,
-            min_word_count=validation.get('min_word_count', 800),
-            max_word_count=validation.get('max_word_count', 5000),
-            require_headings=validation.get('require_headings', True)
-        )
 
-
-@dataclass
 class AggregatorReport:
     """Aggregation and validation report."""
     template: str

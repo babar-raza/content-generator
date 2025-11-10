@@ -183,71 +183,142 @@ class JobExecutionEngine:
                 logger.info(f"Executing workflow '{workflow_name}' for topic: {topic}")
                 logger.info(f"Total steps: {total_steps}")
                 
-                # Execute each step (simplified - just simulate for now)
-                for idx, (step_id, step_config) in enumerate(steps.items(), 1):
-                    # Check for pause/cancel
-                    if self._cancel_requests.get(job_id, False):
-                        job.status = JobStatus.CANCELLED
-                        job.error_message = "Job cancelled by user"
-                        break
-                    
-                    while self._pause_requests.get(job_id, False):
-                        time.sleep(0.5)
-                    
-                    # Simulate step execution
-                    agent_name = step_config.get('agent', step_id)
-                    job.current_step = f"Executing {agent_name}"
-                    job.progress = 10 + (idx / total_steps) * 85
-                    
-                    # Log to file
-                    with open(log_file, 'a') as log:
-                        log.write(f"[{datetime.now().isoformat()}] Step {idx}/{total_steps}: {agent_name}\n")
-                    
-                    logger.info(f"Job {job_id}: Step {idx}/{total_steps} - {agent_name}")
+                # PRODUCTION EXECUTION - Real agent calls with Ollama
+                from .production_execution_engine import ProductionExecutionEngine
+                
+                # Initialize production engine
+                try:
+                    prod_engine = ProductionExecutionEngine(self.config)
+                    logger.info(f"✓ Production execution engine initialized for job {job_id}")
+                except Exception as e:
+                    logger.error(f"Failed to initialize production engine: {e}")
+                    raise
+                
+                # Convert steps dict to list format
+                steps_list = [
+                    {
+                        'id': step_id,
+                        'agent': step_config.get('agent', step_id),
+                        'name': step_config.get('name', step_id)
+                    }
+                    for step_id, step_config in steps.items()
+                ]
+                
+                # Progress callback for real-time updates
+                def progress_callback(progress: float, message: str):
+                    job.progress = progress
+                    job.current_step = message
                     self._persist_job(job)
-                    self._notify_progress(job_id, job.progress, job.current_step)
-                    
-                    # Update pipeline status in metadata
+                    self._notify_progress(job_id, progress, message)
+                
+                # Checkpoint callback for pipeline status updates
+                def checkpoint_callback(agent_type: str, checkpoint_data: Dict):
+                    # Update pipeline status
                     if "pipeline" in job.metadata:
                         for p in job.metadata["pipeline"]:
-                            if p["id"] == step_id:
-                                p["status"] = "running"
-                                break
-                    
-                    # Simulate work
-                    time.sleep(2)
-                    
-                    # Update pipeline status to completed
-                    if "pipeline" in job.metadata:
-                        for p in job.metadata["pipeline"]:
-                            if p["id"] == step_id:
+                            if p["agent"] == agent_type:
                                 p["status"] = "completed"
                                 break
                     
-                    # Store step output
-                    job.output_data[step_id] = {
-                        'status': 'completed',
-                        'agent': agent_name,
-                        'timestamp': datetime.now(timezone.utc).isoformat()
-                    }
-                    
+                    # Log to file
                     with open(log_file, 'a') as log:
-                        log.write(f"[{datetime.now().isoformat()}] Completed: {agent_name}\n")
+                        log.write(
+                            f"[{datetime.now().isoformat()}] Completed: {agent_type} | "
+                            f"LLM calls: {checkpoint_data.get('llm_calls', 0)}\n"
+                        )
                 
-                # Create sample artifacts
+                # Check for pause/cancel before each agent
+                def should_continue():
+                    if self._cancel_requests.get(job_id, False):
+                        return False
+                    while self._pause_requests.get(job_id, False):
+                        time.sleep(0.5)
+                    return True
+                
+                # Execute pipeline with real agents
+                logger.info(f"Starting production pipeline execution for job {job_id}")
+                
+                execution_results = prod_engine.execute_pipeline(
+                    workflow_name=workflow_name,
+                    steps=steps_list,
+                    input_data=input_params,
+                    job_id=job_id,
+                    progress_callback=progress_callback,
+                    checkpoint_callback=checkpoint_callback
+                )
+                
+                # Store execution results
+                job.output_data = execution_results.get('agent_outputs', {})
+                job.metadata['llm_calls'] = execution_results.get('llm_calls', 0)
+                job.metadata['tokens_used'] = execution_results.get('tokens_used', 0)
+                job.metadata['execution_time'] = execution_results.get('total_duration', 0)
+                
+                # Check for errors in execution
+                if 'error' in execution_results:
+                    job.status = JobStatus.FAILED
+                    job.error_message = execution_results['error']
+                    logger.error(f"Pipeline execution failed: {execution_results['error']}")
+                    with open(log_file, 'a') as log:
+                        log.write(f"[{datetime.now().isoformat()}] ERROR: {execution_results['error']}\n")
+                    return
+                
+                logger.info(
+                    f"✓ Pipeline completed successfully | "
+                    f"Job: {job_id} | "
+                    f"Duration: {execution_results.get('total_duration', 0):.2f}s | "
+                    f"LLM calls: {execution_results.get('llm_calls', 0)}"
+                )
+                
+                with open(log_file, 'a') as log:
+                    log.write(f"[{datetime.now().isoformat()}] Pipeline execution completed\n")
+                
+                # Create artifacts from real agent outputs
                 if job.status != JobStatus.CANCELLED:
-                    # Create sample output artifact in artifacts directory
+                    topic = input_params.get('topic', 'Generated Topic')
                     safe_topic = topic.replace(' ', '_').replace('/', '_')
-                    artifact_file = artifacts_dir / f"{safe_topic}_output.md"
-                    content = f"# {topic}\n\n"
-                    content += f"Generated content for {topic}\n\n"
-                    content += f"Workflow: {workflow_name}\n"
-                    content += f"Generated at: {datetime.now().isoformat()}\n"
                     
-                    with open(artifact_file, 'w') as f:
-                        f.write(content)
+                    # Get assembled content from agent outputs
+                    assembled_content = execution_results.get('shared_state', {}).get('assembled_content', '')
+                    frontmatter = execution_results.get('shared_state', {}).get('frontmatter', '')
+                    
+                    # Create output file with real content
+                    if assembled_content:
+                        artifact_file = artifacts_dir / f"{safe_topic}.md"
+                        
+                        # Combine frontmatter and content
+                        full_content = frontmatter + "\n\n" + assembled_content if frontmatter else assembled_content
+                        
+                        with open(artifact_file, 'w', encoding='utf-8') as f:
+                            f.write(full_content)
+                        
+                        logger.info(f"✓ Artifact written: {artifact_file}")
+                        job.metadata['artifact_path'] = str(artifact_file)
                     
                     # Also save to configured output directory
+                    if self.config.output_dir and assembled_content:
+                        output_dir = Path(self.config.output_dir)
+                        output_dir.mkdir(parents=True, exist_ok=True)
+                        
+                        # Determine output format based on blog flag
+                        if getattr(self.config, 'blog_output', False):
+                            # Blog style: ./output/{slug}/index.md
+                            slug = execution_results.get('shared_state', {}).get('slug', safe_topic.lower())
+                            blog_dir = output_dir / slug
+                            blog_dir.mkdir(parents=True, exist_ok=True)
+                            output_file = blog_dir / "index.md"
+                        else:
+                            # Single file: ./output/{slug}.md
+                            slug = execution_results.get('shared_state', {}).get('slug', safe_topic.lower())
+                            output_file = output_dir / f"{slug}.md"
+                        
+                        # Write final output
+                        full_content = frontmatter + "\n\n" + assembled_content if frontmatter else assembled_content
+                        
+                        with open(output_file, 'w', encoding='utf-8') as f:
+                            f.write(full_content)
+                        
+                        logger.info(f"✓ Output written: {output_file}")
+                        job.metadata['output_path'] = str(output_file)
                     output_dir = Path(input_params.get('output_dir', './output'))
                     output_dir.mkdir(parents=True, exist_ok=True)
                     output_file = output_dir / f"{safe_topic}.md"

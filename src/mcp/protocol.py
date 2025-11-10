@@ -9,6 +9,8 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field
 from datetime import datetime
+from src.visualization.workflow_debugger import DebugBreakpoint
+from src.visualization.workflow_debugger import DebugSession
 
 
 # ============================================================================
@@ -278,27 +280,9 @@ class SubscriptionRequest(BaseModel):
 # Monitoring & Debugging
 # ============================================================================
 
-class DebugBreakpoint(BaseModel):
-    """Debug breakpoint configuration."""
-    agent_id: str
-    event_type: str
-    condition: Optional[str] = None
-    enabled: bool = True
 
 
-class DebugSession(BaseModel):
-    """Debug session for workflow execution."""
-    session_id: str
-    job_id: str
-    status: str  # "active", "paused", "completed"
-    breakpoints: List[DebugBreakpoint] = Field(default_factory=list)
-    current_breakpoint: Optional[str] = None
-    created_at: datetime
 
-
-# ============================================================================
-# Helper Functions
-# ============================================================================
 
 def create_resource_uri(resource_type: ResourceType, resource_id: str) -> str:
     """Create MCP-compliant resource URI."""

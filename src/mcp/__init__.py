@@ -10,6 +10,7 @@ from .contracts import (
     create_code_contract
 )
 from .adapter import MCPComplianceAdapter
+from .config_aware_executor import ConfigAwareMCPExecutor
 
 __all__ = [
     'MCPContract',
@@ -19,5 +20,6 @@ __all__ = [
     'create_ingestion_contract',
     'create_writer_contract',
     'create_code_contract',
-    'MCPComplianceAdapter'
+    'MCPComplianceAdapter',
+    'ConfigAwareMCPExecutor'
 ]

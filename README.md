@@ -1,671 +1,247 @@
-# UCOP v10 - Unified Content Operations Platform
-**Enhanced Edition with Unified Generator v10.0**
+# UCOP - Unified Content Operations Platform
 
-> Complete, Production-Ready Platform with Unified Execution Engine
+A production-ready, autonomous content generation system powered by LangGraph workflows and 30+ specialized agents. UCOP transforms knowledge base articles into SEO-optimized blog posts with automated validation, code generation, and multi-provider LLM integration.
 
----
+## Features
 
-## 🎯 Quick Start (30 seconds)
+- **Autonomous Agent Mesh**: 30+ MCP-compliant agents for content generation, SEO optimization, and validation
+- **Multi-LLM Support**: Ollama (local), Gemini, OpenAI with intelligent fallback and rate limiting
+- **Event-Driven Architecture**: LangGraph workflows with checkpoint persistence and hot-reload
+- **Real-Time Orchestration**: WebSocket-based job control, live monitoring, and visual debugging
+- **Production-Ready**: Comprehensive validation, error handling, and performance optimization
+- **CLI & Web UI**: Dual interfaces with full feature parity
+
+## Quick Start
+
+### Installation
 
 ```bash
-# 1. Install
+# 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. Option A: Use Direct CLI (No server needed!)
-python ucop_cli.py create blog_generation --input "Python Classes"
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your API keys and settings
 
-# 2. Option B: Start Web UI
-python start_web_ui.py
-# Then open http://localhost:8080
+# 3. Run setup (initializes local models and checks system)
+./setup.sh  # Linux/Mac
+setup.bat   # Windows
 ```
-
-That's it! 🚀
-
----
-
-## 📖 Table of Contents
-
-- [What's New in v10](#whats-new-in-v10)
-- [Features](#features)
-- [Installation](#installation)
-- [Usage Modes](#usage-modes)
-- [Web Interface](#web-interface)
-- [CLI Usage](#cli-usage)
-- [Python API](#python-api)
-- [API Reference](#api-reference)
-- [Configuration](#configuration)
-- [Architecture](#architecture)
-- [Testing](#testing)
-- [Troubleshooting](#troubleshooting)
-- [Ollama Router Integration](./OLLAMA_ROUTER_INTEGRATION.md)
-- [Quick Start Guide](./quickstart.sh)
-
----
-
-## 🆕 What's New in v10
-
-### Unified Execution Engine
-- ✨ **Direct CLI Mode** - Run jobs without web server
-- ✨ **Python API** - Import and use programmatically
-- ✨ **Faster Execution** - ~50ms improvement in startup
-- ✨ **CUDA Auto-Detection** - Automatic GPU detection with CPU fallback
-
-### Ollama Model Router (NEW!)
-- 🤖 **Smart Model Selection** - Automatically picks the best Ollama model for each task
-- 🎯 **Task-Aware Routing** - Code tasks → codellama, Content → llama3, etc.
-- ⚡ **Performance Optimized** - Fast models for simple tasks, powerful for complex
-- 🔧 **Fully Integrated** - Works seamlessly with all agents and workflows
-
-### Flexible Input Modes
-- 📄 **Topic Strings** - "Python Classes" (existing)
-- 📁 **Single Files** - `article.md`
-- 📂 **Folders** - `./docs/` (processes all markdown)
-- 📋 **File Lists** - `["doc1.md", "doc2.md"]`
-
-### Blog Output Control (NEW!)
-- 📝 **Blog Switch** - Control output path format
-  - Blog ON: `./output/{slug}/index.md` (blog-style)
-  - Blog OFF: `./output/{slug}.md` (single file)
-- 🔗 **URL-Safe Slugs** - Automatic slug generation from titles
-- 🎯 **Deterministic Paths** - Same input = same output path
-
-### Quality Gates & Validation
-- ✅ **Output Validation** - Template schema checking
-- ✅ **Completeness Detection** - Catches empty/incomplete results
-- ✅ **API Strictness** - Validates code against truth tables
-- ✅ **Duplication Detection** - Prevents content reuse
-
-### Enhanced Features
-- 🔄 **Batch Job Submission** - Create multiple jobs at once
-- 📊 **Agent I/O Tracking** - Monitor data flow between agents
-- 📚 **Citation Tracking** - Track sources used in content
-- 🔍 **Context Merging** - Smart context precedence handling
-
----
-
-## ✨ Core Features
-
-### Unified Job Management
-- ✅ **Multiple execution modes** - CLI direct, CLI via HTTP, Web UI
-- ✅ **Shared job storage** - All interfaces see same jobs
-- ✅ **Real-time sync** - Changes reflected instantly everywhere
-
-### Interactive Control
-- ✅ **Pause/Resume** - Stop and continue jobs at any time
-- ✅ **Step Through** - Debug jobs step-by-step
-- ✅ **Live Editing** - Modify pipelines during execution
-- ✅ **Cancel** - Stop jobs cleanly
-
-### Real-Time Monitoring
-- ✅ **WebSocket updates** - Live progress without refresh
-- ✅ **Progress tracking** - See exactly where jobs are
-- ✅ **Error reporting** - Detailed error messages
-- ✅ **Output viewing** - See results in real-time
-
-### MCP Compliance
-- ✅ **Standard contracts** - All agents follow MCP protocol
-- ✅ **Input validation** - Schema-based validation
-- ✅ **Checkpoints** - Resume from any point
-- ✅ **Discovery** - Automatic agent detection
-
----
-
-## 📦 Installation
-
-### Requirements
-- Python 3.8+
-- pip
-
-### Steps
-
-```bash
-# Extract or clone project
-cd ucop_v10
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Optional: For enhanced duplication detection
-pip install scikit-learn
-
-# Test installation
-python test_installation.py
-```
-
-### Verify Installation
-
-```bash
-# Check engine exists
-ls src/engine/executor.py
-
-# Test CLI
-python ucop_cli.py --help
-
-# Run tests
-pytest tests/ -v
-```
-
----
-
-## 🚀 Usage Modes
-
-UCOP v10 offers four ways to run jobs:
-
-### Mode 1: Direct CLI (NEW! Recommended)
-**No web server needed**
-
-```bash
-# Create and run job directly
-python ucop_cli.py create blog_generation --input "Python Classes"
-
-# With file input
-python ucop_cli.py create blog_generation --input article.md
-
-# With folder input
-python ucop_cli.py create blog_generation --input ./docs/
-
-# With parameters
-python ucop_cli.py create blog_generation \
-  --input "AI Trends" \
-  --params '{"tone": "professional", "length": "long"}'
-```
-
-### Mode 2: CLI via HTTP (Classic)
-**Communicates with web server**
-
-```bash
-# Start web server first
-python start_web_ui.py
-
-# In another terminal
-python ucop_cli.py --mode http create blog_generation \
-  --params '{"topic": "Python Tips"}'
-```
-
-### Mode 3: Web Interface
-**Full dashboard and monitoring**
-
-```bash
-# Start server
-python start_web_ui.py
-
-# Open browser
-# http://localhost:8080
-```
-
-### Mode 4: Python API (NEW!)
-**Import and use programmatically**
-
-```python
-from src.engine import UnifiedJobExecutor, JobConfig
-from pathlib import Path
-
-executor = UnifiedJobExecutor()
-
-# Simple usage
-result = executor.run_job(JobConfig(
-    workflow="blog_generation",
-    input="Python Classes",
-    template="blog"
-))
-
-# With file input
-result = executor.run_job(JobConfig(
-    workflow="blog_generation",
-    input=Path("article.md"),
-    template="blog"
-))
-
-# With extra context
-result = executor.run_job(JobConfig(
-    workflow="blog_generation",
-    input="Python Classes",
-    template="blog",
-    extra_context=[
-        {
-            "type": "text",
-            "content": "Focus on beginners",
-            "priority": 10
-        }
-    ]
-))
-
-print(f"Job: {result.job_id}, Status: {result.status}")
-```
-
----
-
-## 💻 CLI Usage
-
-### Basic Commands
-
-```bash
-# Help
-python ucop_cli.py --help
-
-# List all jobs
-python ucop_cli.py list
-
-# Create job (direct mode)
-python ucop_cli.py create WORKFLOW --input INPUT
-
-# Create job (HTTP mode)
-python ucop_cli.py --mode http create WORKFLOW --params PARAMS
-
-# Show job details
-python ucop_cli.py show JOB_ID
-
-# Watch job progress
-python ucop_cli.py watch JOB_ID
-
-# Control jobs
-python ucop_cli.py pause JOB_ID
-python ucop_cli.py resume JOB_ID
-python ucop_cli.py cancel JOB_ID
-```
-
-### Input Modes (NEW!)
-
-#### Topic String
-```bash
-python ucop_cli.py create blog_generation --input "Python Classes"
-```
-
-#### Single File
-```bash
-python ucop_cli.py create blog_generation --input article.md
-```
-
-#### Folder (processes all .md files)
-```bash
-python ucop_cli.py create blog_generation --input ./docs/
-```
-
-#### File List
-```bash
-python ucop_cli.py create blog_generation \
-  --input '["doc1.md", "doc2.md", "doc3.md"]'
-```
-
-### Advanced Options
-
-```bash
-# With template selection
-python ucop_cli.py create blog_generation \
-  --input "Python Classes" \
-  --template blog
-
-# With blog mode ON (output to {slug}/index.md)
-python ucop_cli.py create blog_generation \
-  --input "Python Classes" \
-  --title "Python Classes Tutorial" \
-  --blog
-
-# With blog mode OFF (output to {slug}.md) - default
-python ucop_cli.py create blog_generation \
-  --input "Python Classes" \
-  --title "Python Classes Tutorial"
-
-# With extra context
-python ucop_cli.py create blog_generation \
-  --input "Python Classes" \
-  --context '{"type": "text", "content": "Focus on beginners", "priority": 10}'
-
-# Watch during creation
-python ucop_cli.py create blog_generation \
-  --input "Python Classes" \
-  --watch
-
-# Custom update interval
-python ucop_cli.py watch JOB_ID --interval 1.0
-
-# Different server
-python ucop_cli.py --server http://192.168.1.100:8080 list
-```
-
-### Blog Switch Examples
-
-```bash
-# Blog mode OFF (default) - creates single file
-python ucop_cli.py create blog_generation \
-  --input "Python Tips" \
-  --title "Python Tips and Tricks"
-# Output: ./output/python-tips-and-tricks.md
-
-# Blog mode ON - creates blog-style directory structure
-python ucop_cli.py create blog_generation \
-  --input "Python Tips" \
-  --title "Python Tips and Tricks" \
-  --blog
-# Output: ./output/python-tips-and-tricks/index.md
-
-# Special characters in title are cleaned
-python ucop_cli.py create blog_generation \
-  --title "Python's Best Practices & Tips (2024)!" \
-  --blog
-# Output: ./output/pythons-best-practices-tips-2024/index.md
-```
-
-### CUDA Detection
-
-The system automatically detects CUDA availability:
-
-```bash
-# Automatic detection (default)
-python ucop_cli.py create blog_generation --input "Topic"
-# Logs: "Using device: cuda" or "Using device: cpu"
-
-# Force CPU mode
-FORCE_DEVICE=cpu python ucop_cli.py create blog_generation --input "Topic"
-
-# Force CUDA mode
-FORCE_DEVICE=cuda python ucop_cli.py create blog_generation --input "Topic"
-```
-
-**Device Detection Priority:**
-1. Explicit device parameter (via Python API)
-2. `FORCE_DEVICE` environment variable
-3. Auto-detect CUDA (if PyTorch installed and CUDA available)
-4. Fallback to CPU
-
----
-
-## 🤖 Ollama Model Router (NEW!)
-
-UCOP v10 includes an intelligent model router that automatically selects the best Ollama model for each task.
-
-### How It Works
-
-The router analyzes your task and picks the optimal model:
-- **Code tasks** → codellama, deepseek-coder
-- **Blog writing** → llama3, mistral, mixtral
-- **Quick tasks** → phi, gemma (fast models)
-- **Complex analysis** → mixtral (large context)
-
-### Configuration
-
-```python
-# Enable smart routing (default)
-config.enable_smart_routing = True
-
-# Disable to always use default model
-config.enable_smart_routing = False
-
-# Set default model
-config.ollama_topic_model = "llama3"
-```
-
-### Usage Examples
-
-**Automatic (Recommended)**:
-```python
-# Router selects model automatically
-response = llm_service.generate(
-    prompt="Write Python code",
-    task_context="code generation",  # NEW: helps router choose
-    agent_name="CodeAgent",           # NEW: provides context
-    provider="OLLAMA"
-)
-```
-
-**Explicit Control**:
-```python
-from src.utils.model_helper import get_optimal_model
-
-# Get best model for task
-model = get_optimal_model(
-    task="write blog article about Python",
-    agent_name="ContentWriter"
-)
-
-# Use it
-response = llm_service.generate(prompt=prompt, model=model)
-```
-
-**Benefits**:
-- ⚡ 30-50% faster on simple tasks
-- 🎯 Better quality on specialized tasks
-- 💰 More efficient resource usage
-- 🔄 Automatic - no code changes needed
-
-**See `OLLAMA_ROUTER_INTEGRATION.md` for complete documentation.**
-
----
-
-## 🐍 Python API
 
 ### Basic Usage
 
-```python
-from src.engine import UnifiedJobExecutor, JobConfig
+**CLI Mode:**
+```bash
+# Generate a single blog post
+python ucop_cli.py generate --input kb_article.md --output output/
 
-executor = UnifiedJobExecutor()
-config = JobConfig(
-    workflow="blog_generation",
-    input="Your Topic",
-    template="blog"
-)
+# Process batch
+python ucop_cli.py batch --manifest batch.json
 
-result = executor.run_job(config)
-print(f"Job completed: {result.job_id}")
+# List available workflows
+python ucop_cli.py viz workflows
+
+# Monitor job execution
+python ucop_cli.py job list
 ```
 
-### With Blog Mode
+**Web UI Mode:**
+```bash
+# Start web server
+python start_web.py
 
-```python
-from src.engine import UnifiedJobExecutor, JobConfig
-
-# Blog mode OFF (default) - single file output
-executor = UnifiedJobExecutor()
-result = executor.run_job(JobConfig(
-    workflow="blog_generation",
-    input="Python Tips",
-    title="Python Tips and Tricks",
-    blog_mode=False  # ./output/python-tips-and-tricks.md
-))
-
-# Blog mode ON - blog directory structure
-result = executor.run_job(JobConfig(
-    workflow="blog_generation",
-    input="Python Tips",
-    title="Python Tips and Tricks",
-    blog_mode=True  # ./output/python-tips-and-tricks/index.md
-))
+# Open browser to http://localhost:8000
+# Access visual workflow editor, real-time monitoring, and job control
 ```
 
-### With Device Selection
+## Architecture
 
-```python
-from src.engine import UnifiedJobExecutor, JobConfig
-
-# Auto-detect device (default)
-executor = UnifiedJobExecutor()
-print(f"Using device: {executor.device}")
-
-# Force CPU
-executor_cpu = UnifiedJobExecutor(device="cpu")
-
-# Force CUDA (if available)
-executor_cuda = UnifiedJobExecutor(device="cuda")
-
-# Run job with selected device
-result = executor_cuda.run_job(JobConfig(
-    workflow="blog_generation",
-    input="Advanced ML Techniques"
-))
-```
-
-### With Validation
-
-```python
-from src.engine import UnifiedJobExecutor, JobConfig, CompletenessGate
-
-executor = UnifiedJobExecutor()
-gate = CompletenessGate()
-
-# Run job
-result = executor.run_job(JobConfig(
-    workflow="blog_generation",
-    input="Python Classes"
-))
-
-# Validate output
-if result.status == "completed":
-    is_valid, errors = gate.validate(result.final_output)
-    if not is_valid:
-        print(f"Validation errors: {errors}")
-        diagnostics = gate.attach_diagnostics(result.final_output)
-        print(f"Diagnostics: {diagnostics}")
-```
-
-### Batch Processing
-
-```python
-from src.engine import UnifiedJobExecutor, JobConfig
-
-executor = UnifiedJobExecutor()
-
-topics = ["Python", "JavaScript", "TypeScript", "Go"]
-job_ids = []
-
-for topic in topics:
-    result = executor.run_job(JobConfig(
-        workflow="blog_generation",
-        input=topic,
-        template="blog"
-    ))
-    job_ids.append(result.job_id)
-    print(f"Created job {result.job_id} for {topic}")
-
-print(f"Created {len(job_ids)} jobs")
-```
-
----
-
-## 📁 Project Structure
+UCOP uses a layered architecture with event-driven orchestration:
 
 ```
-ucop_v10/
+┌─────────────────────────────────────────────────────────────┐
+│                        CLI / Web UI                          │
+├─────────────────────────────────────────────────────────────┤
+│              Orchestration & Job Execution                   │
+│   (LangGraph Workflows, State Management, Checkpoints)       │
+├─────────────────────────────────────────────────────────────┤
+│                    Agent Mesh Layer                          │
+│  (30+ Specialized Agents: Content, SEO, Code, Publishing)    │
+├─────────────────────────────────────────────────────────────┤
+│                   Engine & Services                          │
+│   (Unified Engine, Template Registry, Validation Gates)      │
+├─────────────────────────────────────────────────────────────┤
+│                  LLM Providers & Storage                     │
+│        (Ollama, Gemini, OpenAI, ChromaDB, Embeddings)        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+See [docs/architecture.md](docs/architecture.md) for detailed information.
+
+## Documentation
+
+- **[Architecture Overview](docs/architecture.md)** - System design and component interaction
+- **[Workflows](docs/workflows.md)** - LangGraph workflow definitions and agent orchestration
+- **[MCP Endpoints](docs/mcp_endpoints.md)** - Model Context Protocol integration
+- **[Visual Orchestration](docs/visual_orchestration.md)** - Web UI workflow editor and debugger
+- **[CLI Reference](docs/cli.md)** - Complete command-line interface documentation
+- **[Datastore](docs/datastore.md)** - Vector database and embedding management
+- **[Agent Layers](docs/layers.md)** - Agent organization and specialization
+
+## Agent Overview
+
+UCOP includes 30+ specialized agents organized into layers:
+
+### Content Agents
+- **OutlineCreationAgent**: Generates structured content outlines
+- **IntroductionWriterAgent**: Creates engaging introductions
+- **SectionWriterAgent**: Writes detailed content sections
+- **ConclusionWriterAgent**: Crafts compelling conclusions
+- **SupplementaryContentAgent**: Adds FAQs, tips, and additional content
+
+### SEO Agents
+- **KeywordExtractionAgent**: Extracts relevant keywords from source
+- **KeywordInjectionAgent**: Strategically places keywords
+- **SEOMetadataAgent**: Generates titles, descriptions, and meta tags
+
+### Code Agents
+- **CodeGenerationAgent**: Creates working code examples
+- **CodeValidationAgent**: Validates code against API specifications
+- **GistUploadAgent**: Uploads code to GitHub Gists
+
+### Publishing Agents
+- **FrontmatterAgent**: Generates Hugo frontmatter with metadata
+- **SlugGenerationAgent**: Creates SEO-friendly URLs
+
+### Research & Support
+- **TrendsResearchAgent**: Uses Google Trends for keyword research
+- **ContentIntelligenceAgent**: Analyzes semantic relationships
+- **ValidationAgent**: Ensures content quality and completeness
+
+## Configuration
+
+### Main Configuration (`config/main.yaml`)
+
+```yaml
+llm:
+  providers:
+    - ollama    # Local models (primary)
+    - gemini    # Google Gemini (fallback)
+    - openai    # OpenAI (fallback)
+  
+  models:
+    ollama: "qwen2.5:14b"
+    gemini: "gemini-1.5-pro"
+    openai: "gpt-4o"
+
+workflows:
+  default_profile: "blog_generation"
+  checkpoint_enabled: true
+  hot_reload: true
+
+vectorstore:
+  provider: "chromadb"
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+```
+
+### Agent Configuration (`config/agents.yaml`)
+
+Defines all 30+ agents with their capabilities, dependencies, and LLM preferences. See file for complete configuration.
+
+## MCP Endpoints
+
+UCOP exposes MCP-compliant endpoints for agent orchestration:
+
+- `workflow.execute` - Execute a workflow with given inputs
+- `workflow.status` - Get execution status and metrics
+- `workflow.checkpoint.list` - List available checkpoints
+- `workflow.checkpoint.restore` - Restore from checkpoint
+- `agent.invoke` - Invoke a specific agent directly
+- `agent.list` - List all available agents
+- `realtime.subscribe` - Subscribe to real-time updates
+
+See [docs/mcp_endpoints.md](docs/mcp_endpoints.md) for complete API reference.
+
+## Testing
+
+```bash
+# Run all tests
+pytest
+
+# Run specific test suites
+pytest tests/unit/           # Unit tests
+pytest tests/integration/    # Integration tests
+pytest tests/e2e/           # End-to-end tests
+
+# Run with coverage
+pytest --cov=src --cov-report=html
+
+# Performance tests
+pytest tests/performance/
+```
+
+## Development
+
+### Project Structure
+
+```
+.
+├── config/              # Configuration files
+├── docs/               # Documentation
+├── examples/           # Example inputs and workflows
 ├── src/
-│   ├── core/              # Core components (v9.3)
-│   ├── engine/            # NEW: Unified execution engine
-│   │   ├── __init__.py
-│   │   ├── executor.py    # UnifiedJobExecutor
-│   │   ├── input_resolver.py
-│   │   ├── aggregator.py
-│   │   ├── completeness_gate.py
-│   │   ├── context_merger.py
-│   │   ├── agent_tracker.py
-│   │   └── exceptions.py
-│   ├── mcp/               # MCP contract system
-│   ├── orchestration/     # Workflow engine (enhanced)
-│   ├── realtime/          # WebSocket control
-│   ├── web/               # FastAPI app (enhanced)
-│   ├── services/          # External integrations
-│   ├── utils/             # Utilities (enhanced)
-│   │   ├── citation_tracker.py      # NEW
-│   │   └── duplication_detector.py  # NEW
-│   └── agents/            # Agent implementations
-│       └── code/
-│           └── api_validator.py     # NEW
-├── templates/
-│   ├── workflows.yaml
-│   ├── blog_templates.yaml
-│   └── schema/            # NEW: Validation schemas
-│       ├── blog_template.yaml
-│       └── code_template.yaml
-├── data/                  # NEW: Reference data
-│   └── api_reference/
-│       └── python_stdlib.json
-├── tests/                 # NEW: Test suite
-│   ├── unit/
-│   │   └── test_engine.py
-│   └── integration/
-│       └── test_unified_executor.py
-├── start_web_ui.py        # Server entry point
-├── ucop_cli.py            # CLI tool (enhanced)
-├── requirements.txt       # Dependencies
-└── README.md              # This file
+│   ├── agents/         # Agent implementations
+│   ├── core/           # Core abstractions and utilities
+│   ├── engine/         # Execution engine
+│   ├── mcp/           # MCP protocol implementation
+│   ├── mesh/          # Agent mesh coordination
+│   ├── orchestration/  # Workflow orchestration
+│   ├── services/       # Support services
+│   ├── utils/         # Utility functions
+│   ├── visualization/ # Visual debugging and monitoring
+│   └── web/           # Web UI
+├── templates/         # Content templates
+├── tests/            # Test suites
+├── tools/            # Development and maintenance tools
+├── ucop_cli.py       # CLI entry point
+└── start_web.py      # Web UI entry point
 ```
 
----
-
-## 🧪 Testing
-
-### Run Tests
+### Development Tools
 
 ```bash
-# All tests
-pytest tests/ -v
+# Validate system before deployment
+python tools/pre_deploy_check.py
 
-# Unit tests only
-pytest tests/unit/ -v
+# Check production readiness
+python tools/validate_production.py
 
-# Integration tests only
-pytest tests/integration/ -v
+# Run performance benchmarks
+python tools/perf_runner.py
 
-# Specific test
-pytest tests/unit/test_engine.py -v
+# Maintain and optimize project
+python tools/maintain.py
 ```
 
-### Quick Installation Test
+## Performance
 
-```python
-# test_installation.py
-from pathlib import Path
+UCOP is optimized for production use:
 
-def test_v10_installation():
-    # Check engine
-    assert Path("src/engine/executor.py").exists()
-    assert Path("src/utils/citation_tracker.py").exists()
-    assert Path("templates/schema/blog_template.yaml").exists()
-    
-    # Try imports
-    from src.engine import UnifiedJobExecutor, JobConfig
-    from src.utils.citation_tracker import CitationTracker
-    
-    print("✅ All v10 components installed successfully!")
+- **Concurrent Execution**: Parallel agent execution with dependency resolution
+- **Checkpoint Persistence**: Resume workflows from any point
+- **Rate Limiting**: Automatic backoff and retry with multiple providers
+- **Caching**: Template and embedding caching for faster execution
+- **GPU Support**: Optional GPU acceleration for local models
 
-if __name__ == "__main__":
-    test_v10_installation()
-```
+See [docs/performance.md](docs/performance.md) for benchmarks and optimization guides.
 
----
+## License
 
-## 🎉 Summary
+Copyright © 2024 Aspose.net. All rights reserved.
 
-UCOP v10 combines the best of v9.3 and v10:
+## Support
 
-### ✅ From v9.3
-- Web dashboard & CLI
-- Real-time monitoring
-- Interactive control
-- MCP compliance
-
-### ✨ New in v10
-- Direct CLI mode (no server)
-- Python API
-- Multiple input modes
-- Output validation
-- Agent I/O tracking
-- Batch job submission
-
-**Get started now:**
-
-```bash
-# Fastest: Direct CLI
-python ucop_cli.py create blog_generation --input "Your Topic"
-
-# Full features: Web UI
-python start_web_ui.py  # Then open http://localhost:8080
-
-# Programmatic: Python API
-python -c "
-from src.engine import UnifiedJobExecutor, JobConfig
-executor = UnifiedJobExecutor()
-result = executor.run_job(JobConfig(workflow='blog_generation', input='Your Topic'))
-print(f'Job {result.job_id}: {result.status}')
-"
-```
-
-🚀 **Version:** 10.0.0 | **Status:** Production Ready | **Requirements Met:** 10/10
+For issues, questions, or contributions:
+- **Issues**: File issues in the project repository
+- **Documentation**: See the [docs/](docs/) directory
+- **Examples**: Check the [examples/](examples/) directory

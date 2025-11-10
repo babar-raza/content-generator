@@ -10,6 +10,7 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
+from src.orchestration.job_execution_engine import JobStatus
 
 logger = logging.getLogger(__name__)
 
@@ -35,16 +36,7 @@ def convert_paths_to_strings(data: Any) -> Any:
         return data
 
 
-class JobStatus(Enum):
-    """Job execution status."""
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    PARTIAL = "partial"
 
-
-@dataclass
 class RunSpec:
     """Specification for a job run - used by both CLI and Web."""
     
@@ -541,11 +533,11 @@ class UnifiedEngine:
         logger.info(f"Pipeline execution completed with {len(result.partial_results)} partial results")
     
     def _execute_agent(self, agent_name: str, context: Dict[str, Any], agent_def: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a single agent with mock validation and realistic outputs.
+        """Execute a single agent with config-aware validation and realistic outputs.
         
         Args:
             agent_name: Agent name
-            context: Execution context
+            context: Execution context (includes tone, perf configs)
             agent_def: Agent definition from config
             
         Returns:
@@ -553,28 +545,37 @@ class UnifiedEngine:
         """
         import random
         
-        # Simulate agent-specific processing time (0.1-0.5s)
-        time.sleep(random.uniform(0.1, 0.5))
+        # Get timeout from perf_config
+        timeout = self.perf_config.get('timeouts', {}).get('agent_execution', 30)
+        max_time = min(timeout / 10, 0.5)  # Simulate partial timeout
         
-        # Generate agent-specific mock output
+        # Simulate agent-specific processing time based on perf config
+        time.sleep(random.uniform(0.1, max_time))
+        
+        # Generate agent-specific mock output with config awareness
         output = {
             'agent': agent_name,
             'status': 'executed',
-            'validation': self._validate_agent_output(agent_name, context)
+            'validation': self._validate_agent_output(agent_name, context),
+            'config_used': {
+                'tone_applied': bool(context.get('tone')),
+                'perf_limits_applied': bool(context.get('perf')),
+                'timeout_ms': timeout * 1000
+            }
         }
         
-        # Add agent-specific outputs
+        # Add agent-specific outputs based on tone and perf configs
         if 'ingest_kb' in agent_name:
-            output['kb_ingested'] = context.get('kb_ingested', {})
-            output['files_count'] = context.get('kb_ingested', {}).get('file_count', 0)
+            output['kb_ingested'] = context.get('kb_content', {})
+            output['files_count'] = context.get('kb_content', {}).get('file_count', 0)
         
         elif 'ingest_blog' in agent_name:
-            output['blog_ingested'] = context.get('blog_ingested', {})
-            output['files_count'] = context.get('blog_ingested', {}).get('file_count', 0)
+            output['blog_ingested'] = context.get('blog_content', {})
+            output['files_count'] = context.get('blog_content', {}).get('file_count', 0)
         
         elif 'ingest_api' in agent_name:
-            output['api_ingested'] = context.get('api_ingested', {})
-            output['files_count'] = context.get('api_ingested', {}).get('file_count', 0)
+            output['api_ingested'] = context.get('api_content', {})
+            output['files_count'] = context.get('api_content', {}).get('file_count', 0)
         
         elif 'identify_topics' in agent_name:
             output['topics'] = ['Topic 1', 'Topic 2', 'Topic 3']
@@ -588,24 +589,56 @@ class UnifiedEngine:
             output['results_count'] = random.randint(5, 15)
             output['top_results'] = [f'Result {i+1}' for i in range(3)]
         
-        elif 'outline' in agent_name:
-            output['sections'] = ['Introduction', 'Section 1', 'Section 2', 'Conclusion']
-            output['section_count'] = 4
+        elif 'outline' in agent_name or 'create_outline' in agent_name:
+            # Use tone_config section controls
+            tone = context.get('tone', {})
+            section_controls = tone.get('section_controls', {})
+            
+            sections = []
+            for section_name in ['introduction', 'prerequisites', 'main_content', 'conclusion']:
+                if section_controls.get(section_name, {}).get('enabled', True):
+                    heading = section_controls.get(section_name, {}).get('heading', f'## {section_name.title()}')
+                    sections.append(heading)
+            
+            output['sections'] = sections or ['Introduction', 'Main Content', 'Conclusion']
+            output['section_count'] = len(output['sections'])
         
         elif 'write' in agent_name or 'writer' in agent_name:
             section_type = 'introduction' if 'intro' in agent_name else 'section' if 'section' in agent_name else 'conclusion'
-            output['content'] = f'[Mock {section_type} content]'
-            output['word_count'] = random.randint(200, 500)
+            
+            # Apply tone config word count targets
+            tone = context.get('tone', {})
+            section_controls = tone.get('section_controls', {})
+            word_count_target = section_controls.get(section_type, {}).get('word_count_target', '200-500')
+            
+            # Parse word count range
+            try:
+                min_words, max_words = map(int, word_count_target.split('-'))
+                word_count = random.randint(min_words, max_words)
+            except:
+                word_count = random.randint(200, 500)
+            
+            output['content'] = f'[Mock {section_type} content with tone config applied]'
+            output['word_count'] = word_count
+            output['tone_settings_applied'] = {
+                'section': section_type,
+                'target_word_count': word_count_target
+            }
         
-        elif 'assembly' in agent_name:
+        elif 'assembly' in agent_name or 'content_assembly' in agent_name:
             output['assembled'] = True
             output['total_sections'] = 5
             output['total_words'] = random.randint(1500, 3000)
         
         elif 'code' in agent_name:
+            # Apply perf limits
+            perf = context.get('perf', {})
+            max_tokens = perf.get('limits', {}).get('max_tokens_per_agent', 4000)
+            
             if 'generation' in agent_name:
                 output['code_blocks'] = 3
                 output['languages'] = ['csharp', 'java', 'python']
+                output['max_tokens_used'] = max_tokens
             elif 'extraction' in agent_name:
                 output['extracted_blocks'] = 3
             elif 'validation' in agent_name:
@@ -639,7 +672,7 @@ class UnifiedEngine:
             output['frontmatter_added'] = True
             output['metadata_fields'] = ['title', 'date', 'author', 'tags']
         
-        elif 'write_file' in agent_name:
+        elif 'write_file' in agent_name or 'file_writer' in agent_name:
             output['file_written'] = True
             output['file_path'] = context.get('output_path', 'output/file.md')
         
