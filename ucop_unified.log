@@ -1,0 +1,404 @@
+2025-11-11 09:42:12,408 - __main__ - ERROR - Fatal error: 'ConfigValidator' object has no attribute 'validate'
+Traceback (most recent call last):
+  File "C:\Users\prora\OneDrive\Documents\GitHub\content-generator\start_web.py", line 645, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "C:\Users\prora\OneDrive\Documents\GitHub\content-generator\start_web.py", line 640, in main
+    return server.run()
+           ^^^^^^^^^^^^
+  File "C:\Users\prora\OneDrive\Documents\GitHub\content-generator\start_web.py", line 480, in run
+    if not self.validate_environment():
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\prora\OneDrive\Documents\GitHub\content-generator\start_web.py", line 176, in validate_environment
+    config_valid, config_warnings = validator.validate(self.config)
+                                    ^^^^^^^^^^^^^^^^^^
+AttributeError: 'ConfigValidator' object has no attribute 'validate'
+2025-11-11 09:45:23,640 - __main__ - WARNING - Device initialization failed: cannot import name 'DeviceManager' from 'src.engine.device' (C:\Users\prora\OneDrive\Documents\GitHub\content-generator\src\engine\device\__init__.py)
+2025-11-11 09:45:24,344 - __main__ - ERROR - Failed to initialize job system: CheckpointManager.__init__() got an unexpected keyword argument 'checkpoint_dir'
+Traceback (most recent call last):
+  File "C:\Users\prora\OneDrive\Documents\GitHub\content-generator\start_web.py", line 265, in initialize_job_system
+    checkpoint_manager = CheckpointManager(checkpoint_dir="./data/checkpoints")
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: CheckpointManager.__init__() got an unexpected keyword argument 'checkpoint_dir'
+2025-11-11 09:45:24,344 - __main__ - WARNING - Job system initialization failed - continuing with limited functionality
+2025-11-11 09:45:24,405 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 09:45:24,405 - src.visualization.monitor - INFO - Visual Orchestration Monitor initialized
+2025-11-11 09:45:24,405 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 09:45:24,489 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 09:45:24,582 - src.web.app_integrated - INFO - Starting Integrated UCOP Web UI with Visual Orchestration
+2025-11-11 09:45:24,587 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 09:45:24,587 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring started
+2025-11-11 09:45:24,587 - src.web.app_integrated - INFO - Visual Orchestration System initialized
+2025-11-11 09:48:56,267 - src.visualization.monitor - INFO - Visual orchestration monitoring stopped
+2025-11-11 09:48:57,279 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring stopped
+2025-11-11 09:48:57,280 - src.web.app_integrated - INFO - Application stopped
+2025-11-11 09:56:19,670 - __main__ - WARNING - Device initialization failed: cannot import name 'DeviceManager' from 'src.engine.device' (C:\Users\prora\OneDrive\Documents\GitHub\content-generator\src\engine\device\__init__.py)
+2025-11-11 09:56:20,264 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 09:56:20,265 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 09:56:20,265 - src.orchestration.enhanced_registry - INFO - Discovered 35 agents from src\agents
+2025-11-11 09:56:20,272 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_fast-draft
+2025-11-11 09:56:20,272 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_full
+2025-11-11 09:56:20,274 - src.orchestration.job_execution_engine - INFO - Loaded 1 persisted jobs
+2025-11-11 09:56:20,373 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 09:56:20,373 - src.visualization.monitor - INFO - Visual Orchestration Monitor initialized
+2025-11-11 09:56:20,373 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 09:56:20,436 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 09:56:20,437 - src.web.app_integrated - INFO - Execution engine connected to web app
+2025-11-11 09:56:20,477 - src.web.app_integrated - INFO - Starting Integrated UCOP Web UI with Visual Orchestration
+2025-11-11 09:56:20,477 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 09:56:20,477 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring started
+2025-11-11 09:56:20,479 - src.web.app_integrated - INFO - Visual Orchestration System initialized
+2025-11-11 09:56:54,521 - src.web.app_integrated - INFO - ================================================================================
+2025-11-11 09:56:54,521 - src.web.app_integrated - INFO - Received job request via API
+2025-11-11 09:56:54,521 - src.web.app_integrated - INFO -   Template: docs_api
+2025-11-11 09:56:54,523 - src.web.app_integrated - INFO -   Topic: Aspose.BarCode 2D Barcode Generator
+2025-11-11 09:56:54,523 - src.web.app_integrated - INFO -   Auto-topic: True
+2025-11-11 09:56:54,523 - src.web.app_integrated - INFO -   KB path: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer
+2025-11-11 09:56:54,523 - src.web.app_integrated - INFO -   Docs path: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\
+2025-11-11 09:56:54,523 - src.web.app_integrated - INFO -   Blog path: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\
+2025-11-11 09:56:54,523 - src.web.app_integrated - INFO -   API path: D:\onedrive\Documents\GitHub\aspose.net\content\reference.aspose.net\barcode\en\
+2025-11-11 09:56:54,523 - src.web.app_integrated - INFO -   Tutorial path: None
+2025-11-11 09:56:54,523 - src.web.app_integrated - INFO -   Output dir: ./output
+2025-11-11 10:02:32,886 - src.visualization.monitor - INFO - Visual orchestration monitoring stopped
+2025-11-11 10:02:33,891 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring stopped
+2025-11-11 10:02:33,891 - src.web.app_integrated - INFO - Application stopped
+2025-11-11 10:02:39,007 - __main__ - WARNING - Device initialization failed: cannot import name 'DeviceManager' from 'src.engine.device' (C:\Users\prora\OneDrive\Documents\GitHub\content-generator\src\engine\device\__init__.py)
+2025-11-11 10:02:39,617 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 10:02:39,618 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 10:02:39,620 - src.orchestration.enhanced_registry - INFO - Discovered 35 agents from src\agents
+2025-11-11 10:02:39,625 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_fast-draft
+2025-11-11 10:02:39,626 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_full
+2025-11-11 10:02:39,628 - src.orchestration.job_execution_engine - INFO - Loaded 1 persisted jobs
+2025-11-11 10:02:39,715 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 10:02:39,716 - src.visualization.monitor - INFO - Visual Orchestration Monitor initialized
+2025-11-11 10:02:39,716 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 10:02:39,775 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 10:02:39,779 - src.web.app_integrated - INFO - Execution engine connected to web app
+2025-11-11 10:02:39,813 - src.web.app_integrated - INFO - Starting Integrated UCOP Web UI with Visual Orchestration
+2025-11-11 10:02:39,813 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 10:02:39,814 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring started
+2025-11-11 10:02:39,814 - src.web.app_integrated - INFO - Visual Orchestration System initialized
+2025-11-11 10:02:49,838 - src.web.app_integrated - INFO - ================================================================================
+2025-11-11 10:02:49,838 - src.web.app_integrated - INFO - Received job request via API
+2025-11-11 10:02:49,839 - src.web.app_integrated - INFO -   Template: docs_api
+2025-11-11 10:02:49,840 - src.web.app_integrated - INFO -   Topic: Aspose.BarCode 2D Barcode Generator
+2025-11-11 10:02:49,840 - src.web.app_integrated - INFO -   Auto-topic: True
+2025-11-11 10:02:49,840 - src.web.app_integrated - INFO -   KB path: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer
+2025-11-11 10:02:49,840 - src.web.app_integrated - INFO -   Docs path: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\
+2025-11-11 10:02:49,840 - src.web.app_integrated - INFO -   Blog path: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\
+2025-11-11 10:02:49,840 - src.web.app_integrated - INFO -   API path: D:\onedrive\Documents\GitHub\aspose.net\content\reference.aspose.net\barcode\en\
+2025-11-11 10:02:49,840 - src.web.app_integrated - INFO -   Tutorial path: None
+2025-11-11 10:02:49,840 - src.web.app_integrated - INFO -   Output dir: ./output
+2025-11-11 10:03:03,998 - src.web.app_integrated - INFO - ================================================================================
+2025-11-11 10:03:03,999 - src.web.app_integrated - INFO - Received job request via API
+2025-11-11 10:03:04,000 - src.web.app_integrated - INFO -   Template: docs_api
+2025-11-11 10:03:04,000 - src.web.app_integrated - INFO -   Topic: (auto-generate)
+2025-11-11 10:03:04,000 - src.web.app_integrated - INFO -   Auto-topic: False
+2025-11-11 10:03:04,001 - src.web.app_integrated - INFO -   KB path: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer
+2025-11-11 10:03:04,001 - src.web.app_integrated - INFO -   Docs path: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\
+2025-11-11 10:03:04,001 - src.web.app_integrated - INFO -   Blog path: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\
+2025-11-11 10:03:04,002 - src.web.app_integrated - INFO -   API path: D:\onedrive\Documents\GitHub\aspose.net\content\reference.aspose.net\barcode\en\
+2025-11-11 10:03:04,002 - src.web.app_integrated - INFO -   Tutorial path: None
+2025-11-11 10:03:04,002 - src.web.app_integrated - INFO -   Output dir: ./output
+2025-11-11 10:03:04,112 - src.web.app_integrated - INFO - Starting job execution...
+2025-11-11 10:03:04,112 - src.engine.unified_engine - INFO - ================================================================================
+2025-11-11 10:03:04,114 - src.engine.unified_engine - INFO - Starting new job
+2025-11-11 10:03:04,114 - src.engine.unified_engine - INFO -   Template: docs_api
+2025-11-11 10:03:04,114 - src.engine.unified_engine - INFO -   Topic: (auto-generate)
+2025-11-11 10:03:04,114 - src.engine.unified_engine - INFO -   Auto-topic: False
+2025-11-11 10:03:04,114 - src.engine.unified_engine - INFO -   Context sources: KB: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer, Docs: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\, Blog: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\, API: D:\onedrive\Documents\GitHub\aspose.net\content\reference.aspose.net\barcode\en\
+2025-11-11 10:03:04,114 - src.engine.unified_engine - INFO -   Output dir: output
+2025-11-11 10:03:04,114 - src.engine.unified_engine - INFO - Validating run specification...
+2025-11-11 10:03:04,114 - src.engine.unified_engine - ERROR - Validation failed with 1 error(s):
+2025-11-11 10:03:04,116 - src.engine.unified_engine - ERROR -   - Must provide topic when auto_topic=False
+2025-11-11 10:03:04,116 - src.web.app_integrated - INFO - Job execution completed: failed
+2025-11-11 10:03:04,116 - src.web.app_integrated - INFO - Job stored in jobs_store: 34706cf9418d
+2025-11-11 10:05:36,126 - src.visualization.monitor - INFO - Visual orchestration monitoring stopped
+2025-11-11 10:05:37,132 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring stopped
+2025-11-11 10:05:37,132 - src.web.app_integrated - INFO - Application stopped
+2025-11-11 10:39:30,559 - __main__ - WARNING - Device initialization failed: cannot import name 'DeviceManager' from 'src.engine.device' (C:\Users\prora\OneDrive\Documents\GitHub\content-generator\src\engine\device\__init__.py)
+2025-11-11 10:39:31,156 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 10:39:31,157 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 10:39:31,158 - src.orchestration.enhanced_registry - INFO - Discovered 35 agents from src\agents
+2025-11-11 10:39:31,163 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_fast-draft
+2025-11-11 10:39:31,163 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_full
+2025-11-11 10:39:31,175 - src.orchestration.job_execution_engine_enhanced - INFO - [INIT] JobExecutionEngineEnhanced initialized
+2025-11-11 10:39:31,175 - src.orchestration.job_execution_engine_enhanced - INFO -   Storage: data\jobs
+2025-11-11 10:39:31,175 - src.orchestration.job_execution_engine_enhanced - INFO -   Verbose: True, Debug: False
+2025-11-11 10:39:31,175 - src.orchestration.job_execution_engine_enhanced - INFO -   Config loaded: LLM=OLLAMA
+2025-11-11 10:39:31,254 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 10:39:31,259 - src.visualization.monitor - INFO - Visual Orchestration Monitor initialized
+2025-11-11 10:39:31,259 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 10:39:31,315 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 10:39:31,320 - src.web.app_integrated - INFO - Execution engine connected to web app
+2025-11-11 10:39:31,351 - src.web.app_integrated - INFO - Starting Integrated UCOP Web UI with Visual Orchestration
+2025-11-11 10:39:31,351 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 10:39:31,351 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring started
+2025-11-11 10:39:31,351 - src.web.app_integrated - INFO - Visual Orchestration System initialized
+2025-11-11 10:39:45,400 - src.web.app_integrated - INFO - ================================================================================
+2025-11-11 10:39:45,400 - src.web.app_integrated - INFO - Received job request via API
+2025-11-11 10:39:45,400 - src.web.app_integrated - INFO -   Template: docs_api
+2025-11-11 10:39:45,400 - src.web.app_integrated - INFO -   Topic: (auto-generate)
+2025-11-11 10:39:45,400 - src.web.app_integrated - INFO -   Auto-topic: True
+2025-11-11 10:39:45,400 - src.web.app_integrated - INFO -   KB path: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer
+2025-11-11 10:39:45,401 - src.web.app_integrated - INFO -   Docs path: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\
+2025-11-11 10:39:45,401 - src.web.app_integrated - INFO -   Blog path: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\
+2025-11-11 10:39:45,401 - src.web.app_integrated - INFO -   API path: D:\onedrive\Documents\GitHub\aspose.net\content\reference.aspose.net\barcode\en\
+2025-11-11 10:39:45,401 - src.web.app_integrated - INFO -   Tutorial path: None
+2025-11-11 10:39:45,401 - src.web.app_integrated - INFO -   Output dir: ./output
+2025-11-11 10:39:45,401 - src.web.app_integrated - INFO - Using job execution engine for submission
+2025-11-11 10:39:45,401 - src.orchestration.job_execution_engine_enhanced - INFO - ================================================================================
+2025-11-11 10:39:45,401 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB SUBMIT] New job submission
+2025-11-11 10:39:45,401 - src.orchestration.job_execution_engine_enhanced - INFO -   Job ID: b7d27a7b-0613-40e2-8893-cd7aac29b382
+2025-11-11 10:39:45,401 - src.orchestration.job_execution_engine_enhanced - INFO -   Workflow: docs_api
+2025-11-11 10:39:45,403 - src.orchestration.job_execution_engine_enhanced - INFO -   Topic: auto-generated
+2025-11-11 10:39:45,403 - job.b7d27a7b - INFO - ================================================================================
+2025-11-11 10:39:45,411 - job.b7d27a7b - INFO - JOB EXECUTION LOG
+2025-11-11 10:39:45,413 - job.b7d27a7b - INFO - ================================================================================
+2025-11-11 10:39:45,422 - job.b7d27a7b - INFO - Job ID: b7d27a7b-0613-40e2-8893-cd7aac29b382
+2025-11-11 10:39:45,429 - job.b7d27a7b - INFO - Workflow: docs_api
+2025-11-11 10:39:45,430 - job.b7d27a7b - INFO - Started: 2025-11-11T10:39:45.430193
+2025-11-11 10:39:45,442 - job.b7d27a7b - INFO - Parameters:
+2025-11-11 10:39:45,445 - job.b7d27a7b - INFO -   topic: auto-generated
+2025-11-11 10:39:45,446 - job.b7d27a7b - INFO -   template_name: docs_api
+2025-11-11 10:39:45,446 - job.b7d27a7b - INFO -   auto_topic: True
+2025-11-11 10:39:45,446 - job.b7d27a7b - INFO -   kb_path: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer
+2025-11-11 10:39:45,448 - job.b7d27a7b - INFO -   docs_path: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\
+2025-11-11 10:39:45,448 - job.b7d27a7b - INFO -   blog_path: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\
+2025-11-11 10:39:45,448 - job.b7d27a7b - INFO -   api_path: D:\onedrive\Documents\GitHub\aspose.net\content\reference.aspose.net\barcode\en\
+2025-11-11 10:39:45,448 - job.b7d27a7b - INFO -   tutorial_path: NoneType
+2025-11-11 10:39:45,448 - job.b7d27a7b - INFO -   output_dir: ./output
+2025-11-11 10:39:45,450 - job.b7d27a7b - INFO - ================================================================================
+2025-11-11 10:39:45,450 - job.b7d27a7b - INFO - Job created
+2025-11-11 10:39:45,450 - job.b7d27a7b - WARNING - Workflow 'docs_api' not found, using minimal fallback
+2025-11-11 10:39:45,450 - job.b7d27a7b - INFO - Pipeline has 0 steps
+2025-11-11 10:39:45,457 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB QUEUED] Job b7d27a7b-0613-40e2-8893-cd7aac29b382 submitted successfully
+2025-11-11 10:39:45,457 - job.b7d27a7b - INFO - 
+[EXECUTION START]
+2025-11-11 10:39:45,457 - src.web.app_integrated - INFO - Job submitted successfully: b7d27a7b-0613-40e2-8893-cd7aac29b382
+2025-11-11 10:39:45,457 - job.b7d27a7b - INFO - Job execution started
+2025-11-11 10:39:45,463 - job.b7d27a7b - ERROR - 
+[FAILURE] Job execution failed
+2025-11-11 10:39:45,463 - job.b7d27a7b - ERROR - Error: Workflow 'docs_api' has no steps defined
+2025-11-11 10:39:45,465 - job.b7d27a7b - ERROR - Stack trace:
+2025-11-11 10:39:45,473 - job.b7d27a7b - ERROR - Traceback (most recent call last):
+  File "C:\Users\prora\OneDrive\Documents\GitHub\content-generator\src\orchestration\job_execution_engine_enhanced.py", line 299, in execute
+    raise ValueError(f"Workflow '{workflow_name}' has no steps defined")
+ValueError: Workflow 'docs_api' has no steps defined
+
+2025-11-11 10:39:45,477 - job.b7d27a7b - ERROR - Job failed: Workflow 'docs_api' has no steps defined
+2025-11-11 10:39:45,477 - src.orchestration.job_execution_engine_enhanced - ERROR - Job b7d27a7b-0613-40e2-8893-cd7aac29b382 failed: Workflow 'docs_api' has no steps defined
+2025-11-11 10:39:45,490 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB END] Job b7d27a7b-0613-40e2-8893-cd7aac29b382 finished with status: failed
+2025-11-11 10:48:11,794 - src.visualization.monitor - INFO - Visual orchestration monitoring stopped
+2025-11-11 10:48:12,808 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring stopped
+2025-11-11 10:48:12,808 - src.web.app_integrated - INFO - Application stopped
+2025-11-11 10:48:17,827 - __main__ - WARNING - Device initialization failed: cannot import name 'DeviceManager' from 'src.engine.device' (C:\Users\prora\OneDrive\Documents\GitHub\content-generator\src\engine\device\__init__.py)
+2025-11-11 10:48:18,294 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 10:48:18,295 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 10:48:18,296 - src.orchestration.enhanced_registry - INFO - Discovered 35 agents from src\agents
+2025-11-11 10:48:18,302 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_fast-draft
+2025-11-11 10:48:18,302 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_full
+2025-11-11 10:48:18,304 - src.orchestration.job_execution_engine_enhanced - INFO - [INIT] JobExecutionEngineEnhanced initialized
+2025-11-11 10:48:18,304 - src.orchestration.job_execution_engine_enhanced - INFO -   Storage: data\jobs
+2025-11-11 10:48:18,304 - src.orchestration.job_execution_engine_enhanced - INFO -   Verbose: True, Debug: False
+2025-11-11 10:48:18,305 - src.orchestration.job_execution_engine_enhanced - INFO -   Config loaded: LLM=OLLAMA
+2025-11-11 10:48:18,326 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 10:48:18,328 - src.visualization.monitor - INFO - Visual Orchestration Monitor initialized
+2025-11-11 10:48:18,329 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 10:48:18,357 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 10:48:18,362 - src.web.app_integrated - INFO - Execution engine connected to web app
+2025-11-11 10:48:18,408 - src.web.app_integrated - INFO - Starting Integrated UCOP Web UI with Visual Orchestration
+2025-11-11 10:48:18,409 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 10:48:18,410 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring started
+2025-11-11 10:48:18,410 - src.web.app_integrated - INFO - Visual Orchestration System initialized
+2025-11-11 10:48:49,227 - src.web.app_integrated - INFO - ================================================================================
+2025-11-11 10:48:49,228 - src.web.app_integrated - INFO - Received job request via API
+2025-11-11 10:48:49,228 - src.web.app_integrated - INFO -   Template: docs_reference
+2025-11-11 10:48:49,228 - src.web.app_integrated - INFO -   Topic: (auto-generate)
+2025-11-11 10:48:49,229 - src.web.app_integrated - INFO -   Auto-topic: True
+2025-11-11 10:48:49,229 - src.web.app_integrated - INFO -   KB path: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer
+2025-11-11 10:48:49,229 - src.web.app_integrated - INFO -   Docs path: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\
+2025-11-11 10:48:49,229 - src.web.app_integrated - INFO -   Blog path: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\
+2025-11-11 10:48:49,231 - src.web.app_integrated - INFO -   API path: None
+2025-11-11 10:48:49,231 - src.web.app_integrated - INFO -   Tutorial path: None
+2025-11-11 10:48:49,232 - src.web.app_integrated - INFO -   Output dir: ./output
+2025-11-11 10:48:49,232 - src.web.app_integrated - INFO - Using job execution engine for submission
+2025-11-11 10:48:49,233 - src.orchestration.job_execution_engine_enhanced - INFO - ================================================================================
+2025-11-11 10:48:49,233 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB SUBMIT] New job submission
+2025-11-11 10:48:49,234 - src.orchestration.job_execution_engine_enhanced - INFO -   Job ID: d9ff83c4-6e39-49b6-8d9d-0055a3565b88
+2025-11-11 10:48:49,234 - src.orchestration.job_execution_engine_enhanced - INFO -   Workflow: docs_reference
+2025-11-11 10:48:49,235 - src.orchestration.job_execution_engine_enhanced - INFO -   Topic: auto-generated
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO - ================================================================================
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO - JOB EXECUTION LOG
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO - ================================================================================
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO - Job ID: d9ff83c4-6e39-49b6-8d9d-0055a3565b88
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO - Workflow: docs_reference
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO - Started: 2025-11-11T10:48:49.236099
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO - Parameters:
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO -   topic: auto-generated
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO -   template_name: docs_reference
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO -   auto_topic: True
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO -   kb_path: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO -   docs_path: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO -   blog_path: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO -   api_path: NoneType
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO -   tutorial_path: NoneType
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO -   output_dir: ./output
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO - ================================================================================
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO - Job created
+2025-11-11 10:48:49,236 - job.d9ff83c4 - WARNING - Workflow 'docs_reference' not found, using minimal fallback
+2025-11-11 10:48:49,236 - job.d9ff83c4 - INFO - Pipeline has 0 steps
+2025-11-11 10:48:49,248 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB QUEUED] Job d9ff83c4-6e39-49b6-8d9d-0055a3565b88 submitted successfully
+2025-11-11 10:48:49,248 - job.d9ff83c4 - INFO - 
+[EXECUTION START]
+2025-11-11 10:48:49,248 - src.web.app_integrated - INFO - Job submitted successfully: d9ff83c4-6e39-49b6-8d9d-0055a3565b88
+2025-11-11 10:48:49,248 - job.d9ff83c4 - INFO - Job execution started
+2025-11-11 10:48:49,252 - job.d9ff83c4 - ERROR - 
+[FAILURE] Job execution failed
+2025-11-11 10:48:49,252 - job.d9ff83c4 - ERROR - Error: Workflow 'docs_reference' has no steps defined
+2025-11-11 10:48:49,252 - job.d9ff83c4 - ERROR - Stack trace:
+2025-11-11 10:48:49,253 - job.d9ff83c4 - ERROR - Traceback (most recent call last):
+  File "C:\Users\prora\OneDrive\Documents\GitHub\content-generator\src\orchestration\job_execution_engine_enhanced.py", line 299, in execute
+    raise ValueError(f"Workflow '{workflow_name}' has no steps defined")
+ValueError: Workflow 'docs_reference' has no steps defined
+
+2025-11-11 10:48:49,253 - job.d9ff83c4 - ERROR - Job failed: Workflow 'docs_reference' has no steps defined
+2025-11-11 10:48:49,253 - src.orchestration.job_execution_engine_enhanced - ERROR - Job d9ff83c4-6e39-49b6-8d9d-0055a3565b88 failed: Workflow 'docs_reference' has no steps defined
+2025-11-11 10:48:49,256 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB END] Job d9ff83c4-6e39-49b6-8d9d-0055a3565b88 finished with status: failed
+2025-11-11 10:54:49,671 - src.visualization.monitor - INFO - Visual orchestration monitoring stopped
+2025-11-11 10:54:50,685 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring stopped
+2025-11-11 10:54:50,685 - src.web.app_integrated - INFO - Application stopped
+2025-11-11 10:55:06,581 - __main__ - WARNING - Device initialization failed: cannot import name 'DeviceManager' from 'src.engine.device' (C:\Users\prora\OneDrive\Documents\GitHub\content-generator\src\engine\device\__init__.py)
+2025-11-11 10:55:07,069 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 10:55:07,070 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 10:55:07,072 - src.orchestration.enhanced_registry - INFO - Discovered 35 agents from src\agents
+2025-11-11 10:55:07,077 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_fast-draft
+2025-11-11 10:55:07,077 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_full
+2025-11-11 10:55:07,079 - src.orchestration.job_execution_engine_enhanced - INFO - [INIT] JobExecutionEngineEnhanced initialized
+2025-11-11 10:55:07,079 - src.orchestration.job_execution_engine_enhanced - INFO -   Storage: data\jobs
+2025-11-11 10:55:07,079 - src.orchestration.job_execution_engine_enhanced - INFO -   Verbose: True, Debug: False
+2025-11-11 10:55:07,079 - src.orchestration.job_execution_engine_enhanced - INFO -   Config loaded: LLM=OLLAMA
+2025-11-11 10:55:07,103 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 10:55:07,104 - src.visualization.monitor - INFO - Visual Orchestration Monitor initialized
+2025-11-11 10:55:07,105 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 10:55:07,127 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 10:55:07,132 - src.web.app_integrated - INFO - Execution engine connected to web app
+2025-11-11 10:55:07,166 - src.web.app_integrated - INFO - Starting Integrated UCOP Web UI with Visual Orchestration
+2025-11-11 10:55:07,168 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 10:55:07,168 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring started
+2025-11-11 10:55:07,168 - src.web.app_integrated - INFO - Visual Orchestration System initialized
+2025-11-11 10:55:13,306 - src.visualization.monitor - INFO - Visual orchestration monitoring stopped
+2025-11-11 10:55:14,308 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring stopped
+2025-11-11 10:55:14,308 - src.web.app_integrated - INFO - Application stopped
+2025-11-11 11:14:47,244 - __main__ - WARNING - Device initialization failed: cannot import name 'DeviceManager' from 'src.engine.device' (C:\Users\prora\OneDrive\Documents\GitHub\content-generator\src\engine\device\__init__.py)
+2025-11-11 11:14:47,720 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 11:14:47,732 - src.orchestration.checkpoint_manager - INFO - Loaded 0 persisted executions
+2025-11-11 11:14:47,734 - src.orchestration.enhanced_registry - INFO - Discovered 35 agents from src\agents
+2025-11-11 11:14:47,740 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_fast-draft
+2025-11-11 11:14:47,741 - src.orchestration.workflow_compiler - INFO - Loaded workflow: blog_generation_full
+2025-11-11 11:14:47,766 - src.orchestration.job_execution_engine_enhanced - INFO - [INIT] JobExecutionEngineEnhanced initialized
+2025-11-11 11:14:47,767 - src.orchestration.job_execution_engine_enhanced - INFO -   Storage: data\jobs
+2025-11-11 11:14:47,767 - src.orchestration.job_execution_engine_enhanced - INFO -   Verbose: True, Debug: False
+2025-11-11 11:14:47,768 - src.orchestration.job_execution_engine_enhanced - INFO -   Config loaded: LLM=OLLAMA
+2025-11-11 11:14:47,792 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 11:14:47,792 - src.visualization.monitor - INFO - Visual Orchestration Monitor initialized
+2025-11-11 11:14:47,793 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 11:14:47,826 - src.visualization.workflow_visualizer - INFO - Loaded workflows from templates\workflows.yaml
+2025-11-11 11:14:47,841 - src.web.app_integrated - INFO - Execution engine connected to web app
+2025-11-11 11:14:47,880 - src.web.app_integrated - INFO - Starting Integrated UCOP Web UI with Visual Orchestration
+2025-11-11 11:14:47,880 - src.visualization.monitor - INFO - Visual orchestration monitoring started
+2025-11-11 11:14:47,888 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring started
+2025-11-11 11:14:47,888 - src.web.app_integrated - INFO - Visual Orchestration System initialized
+2025-11-11 11:15:13,956 - src.web.app_integrated - INFO - ================================================================================
+2025-11-11 11:15:13,956 - src.web.app_integrated - INFO - Received job request via API
+2025-11-11 11:15:13,957 - src.web.app_integrated - INFO -   Template: docs_api
+2025-11-11 11:15:13,957 - src.web.app_integrated - INFO -   Topic: (auto-generate)
+2025-11-11 11:15:13,957 - src.web.app_integrated - INFO -   Auto-topic: True
+2025-11-11 11:15:13,957 - src.web.app_integrated - INFO -   KB path: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer
+2025-11-11 11:15:13,957 - src.web.app_integrated - INFO -   Docs path: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\
+2025-11-11 11:15:13,958 - src.web.app_integrated - INFO -   Blog path: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\
+2025-11-11 11:15:13,958 - src.web.app_integrated - INFO -   API path: None
+2025-11-11 11:15:13,958 - src.web.app_integrated - INFO -   Tutorial path: None
+2025-11-11 11:15:13,958 - src.web.app_integrated - INFO -   Output dir: ./output
+2025-11-11 11:15:13,958 - src.web.app_integrated - INFO - Using job execution engine for submission
+2025-11-11 11:15:13,959 - src.orchestration.job_execution_engine_enhanced - INFO - ================================================================================
+2025-11-11 11:15:13,959 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB SUBMIT] New job submission
+2025-11-11 11:15:13,959 - src.orchestration.job_execution_engine_enhanced - INFO -   Job ID: d777b88b-7b1c-442c-a428-3f5daeb1b7fe
+2025-11-11 11:15:13,959 - src.orchestration.job_execution_engine_enhanced - INFO -   Workflow: docs_api
+2025-11-11 11:15:13,959 - src.orchestration.job_execution_engine_enhanced - INFO -   Topic: auto-generated
+2025-11-11 11:15:13,961 - job.d777b88b - INFO - ================================================================================
+2025-11-11 11:15:13,962 - job.d777b88b - INFO - JOB EXECUTION LOG
+2025-11-11 11:15:13,962 - job.d777b88b - INFO - ================================================================================
+2025-11-11 11:15:13,962 - job.d777b88b - INFO - Job ID: d777b88b-7b1c-442c-a428-3f5daeb1b7fe
+2025-11-11 11:15:13,963 - job.d777b88b - INFO - Workflow: docs_api
+2025-11-11 11:15:13,963 - job.d777b88b - INFO - Started: 2025-11-11T11:15:13.963275
+2025-11-11 11:15:13,963 - job.d777b88b - INFO - Parameters:
+2025-11-11 11:15:13,963 - job.d777b88b - INFO -   topic: auto-generated
+2025-11-11 11:15:13,964 - job.d777b88b - INFO -   template_name: docs_api
+2025-11-11 11:15:13,964 - job.d777b88b - INFO -   auto_topic: True
+2025-11-11 11:15:13,964 - job.d777b88b - INFO -   kb_path: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer
+2025-11-11 11:15:13,965 - job.d777b88b - INFO -   docs_path: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\
+2025-11-11 11:15:13,965 - job.d777b88b - INFO -   blog_path: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\
+2025-11-11 11:15:13,966 - job.d777b88b - INFO -   api_path: NoneType
+2025-11-11 11:15:13,966 - job.d777b88b - INFO -   tutorial_path: NoneType
+2025-11-11 11:15:13,966 - job.d777b88b - INFO -   output_dir: ./output
+2025-11-11 11:15:13,967 - job.d777b88b - INFO - ================================================================================
+2025-11-11 11:15:13,967 - job.d777b88b - INFO - Job created
+2025-11-11 11:15:13,967 - job.d777b88b - WARNING - Workflow 'docs_api' not found, using minimal fallback
+2025-11-11 11:15:13,967 - job.d777b88b - INFO - Pipeline has 0 steps
+2025-11-11 11:15:13,967 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB QUEUED] Job d777b88b-7b1c-442c-a428-3f5daeb1b7fe submitted successfully
+2025-11-11 11:15:13,967 - job.d777b88b - INFO - 
+[EXECUTION START]
+2025-11-11 11:15:13,967 - src.web.app_integrated - INFO - Job submitted successfully: d777b88b-7b1c-442c-a428-3f5daeb1b7fe
+2025-11-11 11:15:13,967 - job.d777b88b - INFO - Job execution started
+2025-11-11 11:15:13,977 - job.d777b88b - WARNING - Workflow 'docs_api' has no steps defined
+2025-11-11 11:15:13,977 - job.d777b88b - WARNING - Workflow 'docs_api' has no steps defined
+2025-11-11 11:15:13,985 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB END] Job d777b88b-7b1c-442c-a428-3f5daeb1b7fe finished with status: failed
+2025-11-11 11:15:42,906 - src.web.app_integrated - INFO - ================================================================================
+2025-11-11 11:15:42,906 - src.web.app_integrated - INFO - Received job request via API
+2025-11-11 11:15:42,907 - src.web.app_integrated - INFO -   Template: default_blog
+2025-11-11 11:15:42,907 - src.web.app_integrated - INFO -   Topic: (auto-generate)
+2025-11-11 11:15:42,907 - src.web.app_integrated - INFO -   Auto-topic: True
+2025-11-11 11:15:42,907 - src.web.app_integrated - INFO -   KB path: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer
+2025-11-11 11:15:42,908 - src.web.app_integrated - INFO -   Docs path: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\
+2025-11-11 11:15:42,908 - src.web.app_integrated - INFO -   Blog path: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\
+2025-11-11 11:15:42,909 - src.web.app_integrated - INFO -   API path: None
+2025-11-11 11:15:42,910 - src.web.app_integrated - INFO -   Tutorial path: None
+2025-11-11 11:15:42,910 - src.web.app_integrated - INFO -   Output dir: ./output
+2025-11-11 11:15:42,911 - src.web.app_integrated - INFO - Using job execution engine for submission
+2025-11-11 11:15:42,911 - src.orchestration.job_execution_engine_enhanced - INFO - ================================================================================
+2025-11-11 11:15:42,912 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB SUBMIT] New job submission
+2025-11-11 11:15:42,912 - src.orchestration.job_execution_engine_enhanced - INFO -   Job ID: 9b60c881-cd4c-4554-889f-6b43939fb51a
+2025-11-11 11:15:42,913 - src.orchestration.job_execution_engine_enhanced - INFO -   Workflow: default_blog
+2025-11-11 11:15:42,913 - src.orchestration.job_execution_engine_enhanced - INFO -   Topic: auto-generated
+2025-11-11 11:15:42,913 - job.9b60c881 - INFO - ================================================================================
+2025-11-11 11:15:42,919 - job.9b60c881 - INFO - JOB EXECUTION LOG
+2025-11-11 11:15:42,919 - job.9b60c881 - INFO - ================================================================================
+2025-11-11 11:15:42,919 - job.9b60c881 - INFO - Job ID: 9b60c881-cd4c-4554-889f-6b43939fb51a
+2025-11-11 11:15:42,919 - job.9b60c881 - INFO - Workflow: default_blog
+2025-11-11 11:15:42,919 - job.9b60c881 - INFO - Started: 2025-11-11T11:15:42.919225
+2025-11-11 11:15:42,919 - job.9b60c881 - INFO - Parameters:
+2025-11-11 11:15:42,919 - job.9b60c881 - INFO -   topic: auto-generated
+2025-11-11 11:15:42,919 - job.9b60c881 - INFO -   template_name: default_blog
+2025-11-11 11:15:42,919 - job.9b60c881 - INFO -   auto_topic: True
+2025-11-11 11:15:42,927 - job.9b60c881 - INFO -   kb_path: D:\onedrive\Documents\GitHub\aspose.net\content\kb.aspose.net\barcode\en\2d-barcode-writer
+2025-11-11 11:15:42,929 - job.9b60c881 - INFO -   docs_path: D:\onedrive\Documents\GitHub\aspose.net\content\docs.aspose.net\barcode\en\
+2025-11-11 11:15:42,929 - job.9b60c881 - INFO -   blog_path: D:\onedrive\Documents\GitHub\aspose.net\content\blog.aspose.net\barcode\
+2025-11-11 11:15:42,929 - job.9b60c881 - INFO -   api_path: NoneType
+2025-11-11 11:15:42,931 - job.9b60c881 - INFO -   tutorial_path: NoneType
+2025-11-11 11:15:42,931 - job.9b60c881 - INFO -   output_dir: ./output
+2025-11-11 11:15:42,931 - job.9b60c881 - INFO - ================================================================================
+2025-11-11 11:15:42,931 - job.9b60c881 - INFO - Job created
+2025-11-11 11:15:42,931 - job.9b60c881 - WARNING - Workflow 'default_blog' not found, using minimal fallback
+2025-11-11 11:15:42,931 - job.9b60c881 - INFO - Pipeline has 0 steps
+2025-11-11 11:15:42,939 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB QUEUED] Job 9b60c881-cd4c-4554-889f-6b43939fb51a submitted successfully
+2025-11-11 11:15:42,939 - job.9b60c881 - INFO - 
+[EXECUTION START]
+2025-11-11 11:15:42,939 - src.web.app_integrated - INFO - Job submitted successfully: 9b60c881-cd4c-4554-889f-6b43939fb51a
+2025-11-11 11:15:42,939 - job.9b60c881 - INFO - Job execution started
+2025-11-11 11:15:42,943 - job.9b60c881 - WARNING - Workflow 'default_blog' has no steps defined
+2025-11-11 11:15:42,943 - job.9b60c881 - WARNING - Workflow 'default_blog' has no steps defined
+2025-11-11 11:15:42,949 - src.orchestration.job_execution_engine_enhanced - INFO - [JOB END] Job 9b60c881-cd4c-4554-889f-6b43939fb51a finished with status: failed
+2025-11-11 11:17:00,311 - src.visualization.monitor - INFO - Visual orchestration monitoring stopped
+2025-11-11 11:17:01,324 - src.visualization.agent_flow_monitor - INFO - Agent flow monitoring stopped
+2025-11-11 11:17:01,324 - src.web.app_integrated - INFO - Application stopped

@@ -1,105 +1,218 @@
 #!/bin/bash
-set -e
+set -e  # Exit on error
 
-echo "🚀 UCOP Setup Script"
-echo "===================="
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# Check Python version
+echo "================================================================"
+echo "  UCOP - Unified Content Operations Platform"
+echo "  Setup Script for Linux/Mac"
+echo "================================================================"
 echo ""
-echo "Checking Python version..."
-python3 --version || { echo "Python 3.8+ required"; exit 1; }
 
-# Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
-    echo ""
-    echo "Creating virtual environment..."
-    python3 -m venv venv
+# Function to print colored output
+print_step() {
+    echo -e "${BLUE}[Step $1/$2]${NC} $3"
+}
+
+print_success() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}✗${NC} $1"
+}
+
+# Step 1: Check Python
+print_step 1 6 "Checking Python installation..."
+if ! command -v python3 &> /dev/null; then
+    print_error "Python 3 is not installed"
+    echo "Please install Python 3.8+ from https://python.org"
+    exit 1
 fi
 
-# Activate virtual environment
-echo ""
-echo "Activating virtual environment..."
+PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
+print_success "Found Python $PYTHON_VERSION"
+
+# Check Python version is >= 3.8
+PYTHON_MAJOR=$(python3 -c 'import sys; print(sys.version_info.major)')
+PYTHON_MINOR=$(python3 -c 'import sys; print(sys.version_info.minor)')
+
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 8 ]); then
+    print_error "Python 3.8 or higher is required"
+    exit 1
+fi
+
+# Step 2: Create virtual environment
+print_step 2 6 "Creating virtual environment..."
+if [ -d "venv" ]; then
+    print_warning "Virtual environment already exists"
+    read -p "Recreate it? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -rf venv
+        python3 -m venv venv
+        print_success "Virtual environment recreated"
+    else
+        print_success "Using existing virtual environment"
+    fi
+else
+    python3 -m venv venv
+    print_success "Virtual environment created"
+fi
+
+# Step 3: Activate virtual environment
+print_step 3 6 "Activating virtual environment..."
 source venv/bin/activate
 
-# Upgrade pip
-echo ""
-echo "Upgrading pip..."
-pip install --upgrade pip
+if [ $? -ne 0 ]; then
+    print_error "Failed to activate virtual environment"
+    exit 1
+fi
+print_success "Virtual environment activated"
 
-# Install dependencies
-echo ""
-echo "Installing dependencies..."
-pip install -r requirements.txt
+# Step 4: Upgrade pip
+print_step 4 6 "Upgrading pip..."
+python -m pip install --upgrade pip --quiet
+print_success "pip upgraded"
 
-# Create necessary directories
+# Step 5: Install dependencies
+print_step 5 6 "Installing dependencies..."
+echo "This may take a few minutes..."
 echo ""
-echo "Creating directories..."
-mkdir -p reports
-mkdir -p output
-mkdir -p logs
 
-# Create .env if it doesn't exist
+if [ -f "requirements.txt" ]; then
+    pip install -r requirements.txt --quiet
+    if [ $? -eq 0 ]; then
+        print_success "All dependencies installed"
+    else
+        print_warning "Some dependencies failed (optional packages)"
+        echo "Core packages should be installed. Check requirements.txt for optional packages."
+    fi
+else
+    print_error "requirements.txt not found"
+    exit 1
+fi
+
+# Step 6: Create directories
+print_step 6 6 "Creating project directories..."
+mkdir -p output data logs checkpoints test_output reports
+print_success "Project directories created"
+
+# Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
     echo ""
-    echo "Creating .env from example..."
+    echo "Creating default .env file..."
     if [ -f ".env.example" ]; then
         cp .env.example .env
-        echo "⚠️  Please edit .env with your API keys"
+        print_success ".env file created from .env.example"
     else
-        cat > .env << 'EOFENV'
-# LLM Provider API Keys
-GEMINI_API_KEY=your_gemini_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here
+        cat > .env << 'ENVEOF'
+# UCOP Environment Configuration
 
-# GitHub (for Gist uploads)
-GITHUB_TOKEN=your_github_token_here
-
-# Ollama Configuration
+# === LLM Configuration ===
+# Ollama (Local)
 OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:14b
 
-# System Configuration
+# Google Gemini (Optional)
+# GEMINI_API_KEY=your_api_key_here
+
+# OpenAI (Optional)
+# OPENAI_API_KEY=your_api_key_here
+
+# === System Configuration ===
 LOG_LEVEL=INFO
-ENABLE_GPU=auto
-MAX_WORKERS=5
-EOFENV
-        echo "✓ Created .env file - please edit with your API keys"
+OUTPUT_DIR=./output
+DATA_DIR=./data
+
+# === Feature Flags ===
+ENABLE_MESH_ORCHESTRATION=true
+ENABLE_VISUAL_ORCHESTRATION=true
+ENABLE_MCP_ENDPOINTS=true
+ENVEOF
+        print_success "Default .env file created"
     fi
+    echo ""
+    print_warning "Edit .env file to configure API keys if needed"
 fi
 
-# Check Ollama installation
+# Validation
 echo ""
-echo "Checking Ollama..."
-if command -v ollama &> /dev/null; then
-    echo "✓ Ollama is installed"
-    echo "  Testing Ollama connection..."
-    if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-        echo "  ✓ Ollama server is running"
-    else
-        echo "  ⚠️  Ollama server is not running"
-        echo "  Start it with: ollama serve"
-    fi
+echo "================================================================"
+echo "  Validation"
+echo "================================================================"
+echo ""
+
+echo "Testing core imports..."
+python3 << 'PYEOF'
+import sys
+import importlib
+
+modules_to_test = [
+    ('Core Config', 'src.core.config'),
+    ('Core Template Registry', 'src.core.template_registry'),
+    ('Mesh Runtime', 'src.mesh.runtime_async'),
+    ('Engine Executor', 'src.engine.executor'),
+    ('Orchestration Registry', 'src.orchestration.enhanced_registry'),
+]
+
+passed = 0
+failed = []
+
+for name, module in modules_to_test:
+    try:
+        importlib.import_module(module)
+        print(f'  ✓ {name}')
+        passed += 1
+    except ImportError as e:
+        print(f'  ✗ {name}: {str(e)[:50]}')
+        failed.append(name)
+
+print(f'\nResult: {passed}/{len(modules_to_test)} modules imported successfully')
+
+if failed:
+    print(f'Failed modules: {", ".join(failed)}')
+    print('\nNote: Some optional dependencies may not be installed.')
+    print('Check requirements.txt to uncomment optional packages.')
+    sys.exit(0)  # Don't fail, just warn
+PYEOF
+
+if [ $? -eq 0 ]; then
+    print_success "Core modules validated"
 else
-    echo "⚠️  Ollama not found"
-    echo "   Install from: https://ollama.ai"
+    print_warning "Some modules failed validation (may need optional dependencies)"
 fi
 
-# Run validation
+# Final summary
 echo ""
-echo "Running system validation..."
-if python tools/validate_imports.py; then
-    echo "✓ Import validation passed"
-else
-    echo "⚠️  Some imports failed - check logs"
-fi
-
+echo "================================================================"
+echo "  Setup Complete!"
+echo "================================================================"
 echo ""
-echo "✅ Setup complete!"
+echo "Python: $PYTHON_VERSION"
+echo "Virtual Environment: $PWD/venv"
+echo "Configuration: .env"
 echo ""
-echo "Next steps:"
-echo "  1. Edit .env with your API keys"
-echo "  2. Start Ollama if not running: ollama serve"
-echo "  3. Pull Ollama model: ollama pull qwen2.5:14b"
-echo "  4. Run CLI: python ucop_cli.py --help"
-echo "  5. Start Web UI: python start_web.py"
+echo "To activate the environment:"
+echo "  ${GREEN}source venv/bin/activate${NC}"
+echo ""
+echo "To run the CLI:"
+echo "  ${GREEN}python ucop_cli.py --help${NC}"
+echo ""
+echo "To start the web UI:"
+echo "  ${GREEN}python start_web.py${NC}"
+echo ""
+echo "To run tests:"
+echo "  ${GREEN}pytest tests/test_imports_smoke.py -v${NC}"
+echo ""
+echo "For more information, see README.md"
 echo ""

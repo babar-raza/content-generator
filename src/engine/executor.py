@@ -14,7 +14,7 @@ from .completeness_gate import CompletenessGate
 from .context_merger import ContextMerger
 from .agent_tracker import AgentExecutionTracker
 from .exceptions import *
-from src.engine.unified_engine import JobResult
+from src.engine.engine import JobResult
 
 logger = logging.getLogger(__name__)
 

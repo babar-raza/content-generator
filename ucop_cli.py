@@ -10,7 +10,7 @@ from typing import Optional
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.engine.unified_engine import get_engine, RunSpec, JobStatus
+from src.engine.engine import get_engine, RunSpec, JobStatus
 from src.core.template_registry import list_templates
 
 

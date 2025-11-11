@@ -10,7 +10,6 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
-from src.orchestration.job_execution_engine import JobStatus
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,16 @@ def convert_paths_to_strings(data: Any) -> Any:
         return data
 
 
+class JobStatus(Enum):
+    """Job execution status."""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    PARTIAL = "partial"
 
+
+@dataclass
 class RunSpec:
     """Specification for a job run - used by both CLI and Web."""
     
@@ -234,7 +242,7 @@ class UnifiedEngine:
     
     def __init__(self):
         """Initialize engine with validated configs."""
-        from config import load_validated_config
+        from config.validator import load_validated_config
         from src.core.template_registry import get_template_registry
         
         # Load and validate all configs at startup (fail-fast)
@@ -248,7 +256,7 @@ class UnifiedEngine:
         self.main_config = self.config_snapshot.main_config
         self.merged_config = self.config_snapshot.merged_config
         
-        print(f"✓ Engine initialized")
+        print(f"[OK] Engine initialized")
         print(f"  Config hash: {self.config_snapshot.config_hash}")
         print(f"  Templates: {len(self.template_registry.list_templates())}")
         print(f"  Engine version: {self.config_snapshot.engine_version}")
@@ -511,6 +519,8 @@ class UnifiedEngine:
                 # Store partial result
                 result.partial_results[agent_name] = output
                 
+                logger.info(f"    ✓ Agent completed in {step_log.duration:.2f}s")
+                
             except Exception as e:
                 step_log.errors.append(str(e))
                 result.error = f"Agent '{agent_name}' failed: {e}"
@@ -521,225 +531,34 @@ class UnifiedEngine:
                 step_log.end_time = time.time()
                 step_log.duration = step_log.end_time - step_log.start_time
                 result.agent_logs.append(step_log)
-                
-                # Log completion with actual duration
-                if step_log.errors:
-                    logger.info(f"    ⚠ Agent completed with errors in {step_log.duration:.2f}s")
-                else:
-                    logger.info(f"    ✓ Agent completed in {step_log.duration:.2f}s")
         
         # Store final context
         result.partial_results['final_context'] = agent_context
         logger.info(f"Pipeline execution completed with {len(result.partial_results)} partial results")
     
     def _execute_agent(self, agent_name: str, context: Dict[str, Any], agent_def: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a single agent with config-aware validation and realistic outputs.
-        
-        Args:
-            agent_name: Agent name
-            context: Execution context (includes tone, perf configs)
-            agent_def: Agent definition from config
-            
-        Returns:
-            Agent output with validation status and agent-specific data
-        """
-        import random
-        
-        # Get timeout from perf_config
-        timeout = self.perf_config.get('timeouts', {}).get('agent_execution', 30)
-        max_time = min(timeout / 10, 0.5)  # Simulate partial timeout
-        
-        # Simulate agent-specific processing time based on perf config
-        time.sleep(random.uniform(0.1, max_time))
-        
-        # Generate agent-specific mock output with config awareness
-        output = {
-            'agent': agent_name,
-            'status': 'executed',
-            'validation': self._validate_agent_output(agent_name, context),
-            'config_used': {
-                'tone_applied': bool(context.get('tone')),
-                'perf_limits_applied': bool(context.get('perf')),
-                'timeout_ms': timeout * 1000
-            }
-        }
-        
-        # Add agent-specific outputs based on tone and perf configs
-        if 'ingest_kb' in agent_name:
-            output['kb_ingested'] = context.get('kb_content', {})
-            output['files_count'] = context.get('kb_content', {}).get('file_count', 0)
-        
-        elif 'ingest_blog' in agent_name:
-            output['blog_ingested'] = context.get('blog_content', {})
-            output['files_count'] = context.get('blog_content', {}).get('file_count', 0)
-        
-        elif 'ingest_api' in agent_name:
-            output['api_ingested'] = context.get('api_content', {})
-            output['files_count'] = context.get('api_content', {}).get('file_count', 0)
-        
-        elif 'identify_topics' in agent_name:
-            output['topics'] = ['Topic 1', 'Topic 2', 'Topic 3']
-            output['recommended_topic'] = context.get('topic', 'Auto-derived Topic')
-        
-        elif 'check_duplication' in agent_name:
-            output['is_duplicate'] = False
-            output['similar_articles'] = []
-        
-        elif 'search' in agent_name or 'rag' in agent_name:
-            output['results_count'] = random.randint(5, 15)
-            output['top_results'] = [f'Result {i+1}' for i in range(3)]
-        
-        elif 'outline' in agent_name or 'create_outline' in agent_name:
-            # Use tone_config section controls
-            tone = context.get('tone', {})
-            section_controls = tone.get('section_controls', {})
-            
-            sections = []
-            for section_name in ['introduction', 'prerequisites', 'main_content', 'conclusion']:
-                if section_controls.get(section_name, {}).get('enabled', True):
-                    heading = section_controls.get(section_name, {}).get('heading', f'## {section_name.title()}')
-                    sections.append(heading)
-            
-            output['sections'] = sections or ['Introduction', 'Main Content', 'Conclusion']
-            output['section_count'] = len(output['sections'])
-        
-        elif 'write' in agent_name or 'writer' in agent_name:
-            section_type = 'introduction' if 'intro' in agent_name else 'section' if 'section' in agent_name else 'conclusion'
-            
-            # Apply tone config word count targets
-            tone = context.get('tone', {})
-            section_controls = tone.get('section_controls', {})
-            word_count_target = section_controls.get(section_type, {}).get('word_count_target', '200-500')
-            
-            # Parse word count range
-            try:
-                min_words, max_words = map(int, word_count_target.split('-'))
-                word_count = random.randint(min_words, max_words)
-            except:
-                word_count = random.randint(200, 500)
-            
-            output['content'] = f'[Mock {section_type} content with tone config applied]'
-            output['word_count'] = word_count
-            output['tone_settings_applied'] = {
-                'section': section_type,
-                'target_word_count': word_count_target
-            }
-        
-        elif 'assembly' in agent_name or 'content_assembly' in agent_name:
-            output['assembled'] = True
-            output['total_sections'] = 5
-            output['total_words'] = random.randint(1500, 3000)
-        
-        elif 'code' in agent_name:
-            # Apply perf limits
-            perf = context.get('perf', {})
-            max_tokens = perf.get('limits', {}).get('max_tokens_per_agent', 4000)
-            
-            if 'generation' in agent_name:
-                output['code_blocks'] = 3
-                output['languages'] = ['csharp', 'java', 'python']
-                output['max_tokens_used'] = max_tokens
-            elif 'extraction' in agent_name:
-                output['extracted_blocks'] = 3
-            elif 'validation' in agent_name:
-                output['valid'] = True
-                output['errors'] = []
-            elif 'splitting' in agent_name:
-                output['split_files'] = 3
-        
-        elif 'seo' in agent_name:
-            output['title'] = 'Optimized SEO Title'
-            output['description'] = 'Meta description'
-            output['keywords'] = ['keyword1', 'keyword2', 'keyword3']
-        
-        elif 'keyword' in agent_name:
-            if 'extraction' in agent_name:
-                output['keywords'] = ['kw1', 'kw2', 'kw3', 'kw4', 'kw5']
-            elif 'injection' in agent_name:
-                output['injected_count'] = 5
-        
-        elif 'gist' in agent_name:
-            if 'readme' in agent_name:
-                output['readme_created'] = True
-            elif 'upload' in agent_name:
-                output['gist_url'] = 'https://gist.github.com/mock/abc123'
-        
-        elif 'link' in agent_name and 'validation' in agent_name:
-            output['links_checked'] = random.randint(10, 20)
-            output['broken_links'] = []
-        
-        elif 'frontmatter' in agent_name:
-            output['frontmatter_added'] = True
-            output['metadata_fields'] = ['title', 'date', 'author', 'tags']
-        
-        elif 'write_file' in agent_name or 'file_writer' in agent_name:
-            output['file_written'] = True
-            output['file_path'] = context.get('output_path', 'output/file.md')
-        
-        else:
-            output['mock_data'] = f"Generic output from {agent_name}"
-        
-        return output
-    
-    def _validate_agent_output(self, agent_name: str, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate agent output based on agent type.
+        """Execute a single agent (stub - real implementation would call actual agent).
         
         Args:
             agent_name: Agent name
             context: Execution context
+            agent_def: Agent definition from config
             
         Returns:
-            Validation result with status and messages
+            Agent output
         """
-        validation = {
-            'validated': True,
-            'warnings': [],
-            'errors': []
+        # Placeholder implementation
+        # Real implementation would:
+        # 1. Import the actual agent class
+        # 2. Initialize with config
+        # 3. Call agent.execute(context)
+        # 4. Return agent output
+        
+        return {
+            'agent': agent_name,
+            'status': 'executed',
+            'mock_output': f"Output from {agent_name}"
         }
-        
-        # Agent-specific validation rules
-        if 'ingest' in agent_name:
-            # Validate ingestion agents
-            has_kb = context.get('kb_ingested', {}).get('ingested', False)
-            has_blog = context.get('blog_ingested', {}).get('ingested', False)
-            has_api = context.get('api_ingested', {}).get('ingested', False)
-            
-            if not (has_kb or has_blog or has_api):
-                validation['warnings'].append('No content sources ingested yet')
-        
-        elif 'search' in agent_name or 'rag' in agent_name:
-            # Validate search/RAG agents
-            if not context.get('kb_ingested', {}).get('ingested', False):
-                validation['warnings'].append('KB not ingested before search')
-        
-        elif 'outline' in agent_name:
-            # Validate outline agent
-            if not context.get('topic'):
-                validation['errors'].append('No topic defined for outline')
-                validation['validated'] = False
-        
-        elif 'write' in agent_name or 'writer' in agent_name:
-            # Validate writer agents
-            if not context.get('create_outline_node', {}).get('status') == 'executed':
-                validation['warnings'].append('Writing without outline')
-        
-        elif 'code_generation' in agent_name or 'generate_code' in agent_name:
-            # Validate code generation
-            if not context.get('api_ingested', {}).get('ingested', False):
-                validation['warnings'].append('Code generation without API reference')
-        
-        elif 'seo' in agent_name or 'keyword' in agent_name:
-            # Validate SEO agents
-            if not context.get('content_assembly_node', {}).get('status') == 'executed':
-                validation['warnings'].append('SEO optimization before content assembly')
-        
-        elif 'file' in agent_name or 'write_file' in agent_name:
-            # Validate file writing
-            if not context.get('frontmatter_node', {}).get('status') == 'executed':
-                validation['errors'].append('Cannot write file without frontmatter')
-                validation['validated'] = False
-        
-        return validation
     
     def _ingest_path(self, path: str) -> Dict[str, Any]:
         """Ingest content from path for RAG.
@@ -902,22 +721,15 @@ class UnifiedEngine:
         Args:
             result: JobResult
         """
-        # Write manifest to reports directory, not output directory
-        reports_dir = Path('./reports')
-        reports_dir.mkdir(parents=True, exist_ok=True)
+        if not result.output_path:
+            return
         
-        manifest_path = reports_dir / f'{result.job_id}_manifest.json'
+        manifest_path = result.output_path.parent / f'{result.output_path.stem}_manifest.json'
         
-        # Create lightweight manifest without large content
         manifest = {
             'job_id': result.job_id,
             'timestamp': datetime.now().isoformat(),
-            'run_spec': {
-                'topic': result.run_spec.topic,
-                'template_name': result.run_spec.template_name,
-                'auto_topic': result.run_spec.auto_topic,
-                'output_dir': str(result.run_spec.output_dir)
-            },
+            'run_spec': result.run_spec.to_dict(),
             'template_name': result.run_spec.template_name,
             'pipeline_order': result.pipeline_order,
             'sources_used': result.sources_used,
@@ -927,24 +739,13 @@ class UnifiedEngine:
                 'engine_version': self.config_snapshot.engine_version
             },
             'status': result.status.value,
-            'duration': result.duration,
-            'output_path': str(result.output_path) if result.output_path else None,
-            # Summary of agent execution without full logs
-            'agent_summary': [
-                {
-                    'agent': log.agent_name,
-                    'duration': log.duration,
-                    'error_count': len(log.errors)
-                }
-                for log in result.agent_logs
-            ]
+            'duration': result.duration
         }
         
         with open(manifest_path, 'w') as f:
             json.dump(manifest, f, indent=2)
         
         result.manifest_path = manifest_path
-        logger.info(f"✓ Manifest written to: {manifest_path}")
     
     def _generate_run_summary(self, result: JobResult) -> str:
         """Generate run summary for artifact header.

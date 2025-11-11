@@ -3,9 +3,34 @@
 Provides workflow compilation, job execution, monitoring, and control.
 """
 
-from .workflow_compiler import WorkflowCompiler, WorkflowDefinition, WorkflowStep, WorkflowState  # type: ignore
-from .workflow_state import BlogState  # type: ignore
-from .job_execution_engine import JobExecutionEngine  # type: ignore
+import logging
+logger = logging.getLogger(__name__)
+
+# Try to import LangGraph-dependent components
+try:
+    from .workflow_compiler import WorkflowCompiler, WorkflowDefinition, WorkflowStep, WorkflowState  # type: ignore
+    from .workflow_state import BlogState  # type: ignore
+    from .job_execution_engine import JobExecutionEngine  # type: ignore
+    LANGGRAPH_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"LangGraph not available, using fallback: {e}")
+    LANGGRAPH_AVAILABLE = False
+    # Import fallback components
+    from .fallback_engine import (
+        FallbackOrchestrationEngine as JobExecutionEngine,
+        WorkflowStep, 
+        WorkflowState,
+        JobStatus
+    )
+    # Create placeholder classes
+    class WorkflowCompiler:
+        def __init__(self, *args, **kwargs):
+            raise NotImplementedError("WorkflowCompiler requires LangGraph")
+    class WorkflowDefinition:
+        pass
+    class BlogState:
+        pass
+
 from .checkpoint_manager import CheckpointManager  # type: ignore
 
 # These imports are optional - may not exist in all installations

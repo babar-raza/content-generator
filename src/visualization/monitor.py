@@ -431,7 +431,3 @@ def get_monitor() -> VisualOrchestrationMonitor:
                 _monitor_instance = VisualOrchestrationMonitor()
     
     return _monitor_instance
-
-
-# Backward compatibility alias
-FlowMonitor = VisualOrchestrationMonitor

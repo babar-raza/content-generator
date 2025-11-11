@@ -11,9 +11,26 @@ from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, field
 from pathlib import Path
 import logging
-from langgraph.graph import StateGraph, START, END
-from langgraph.graph.state import CompiledStateGraph
-from langgraph.checkpoint.memory import MemorySaver
+try:
+    from langgraph.graph import StateGraph, START, END
+    from langgraph.graph.state import CompiledStateGraph
+    from langgraph.checkpoint.memory import MemorySaver
+    LANGGRAPH_AVAILABLE = True
+except ImportError:
+    LANGGRAPH_AVAILABLE = False
+    # Mock classes for when langgraph is not available
+    class StateGraph:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("LangGraph not available. Install with: pip install langgraph")
+    
+    class CompiledStateGraph:
+        pass
+    
+    class MemorySaver:
+        pass
+    
+    START = "start"
+    END = "end"
 import threading
 
 from src.core.contracts import AgentEvent

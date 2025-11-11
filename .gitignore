@@ -8,3 +8,13 @@
 /venv
 src/__pycache__/main.cpython-312.pyc
 /src/core/__pycache__
+/src/engine/__pycache__
+/test_checkpoints
+/tests/__pycache__
+/chroma_db
+.env.example
+.npmrc
+.wget-hsts
+/config/__pycache__
+/data/jobs
+*.pyc

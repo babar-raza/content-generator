@@ -323,6 +323,35 @@ class TemplateRegistry:
             errors = template.validate_template()
             results[name] = errors
         return results
+    
+    def compile(self, template_name: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Compile a template with given context.
+        
+        Args:
+            template_name: Name of template to compile
+            context: Context data for compilation
+            
+        Returns:
+            Compiled template result with workflow and metadata
+        """
+        template = self.get_template(template_name)
+        if not template:
+            raise ValueError(f"Template not found: {template_name}")
+        
+        # Get workflow if template has it
+        workflow = []
+        if hasattr(template, 'metadata') and isinstance(template.metadata, dict):
+            workflow = template.metadata.get("workflow", [])
+        
+        # Build compiled result
+        result = {
+            "template_name": template_name,
+            "template": template,
+            "workflow": workflow,
+            "context": context
+        }
+        
+        return result
 
 
 # Global registry instance
