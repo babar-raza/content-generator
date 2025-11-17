@@ -261,3 +261,15 @@ def get_config_manager() -> EnhancedConfigManager:
         _config_manager = EnhancedConfigManager()
         _config_manager.load_all()
     return _config_manager
+
+
+class EnhancedConfigLoader:
+    """Loader for enhanced configuration with snapshot capability."""
+
+    def __init__(self):
+        self.manager = get_config_manager()
+
+    def get_snapshot(self):
+        """Get a snapshot of the current configuration."""
+        from config.validator import load_validated_config
+        return load_validated_config()

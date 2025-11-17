@@ -1,164 +1,92 @@
-# job_execution_engine.py
-"""Job execution engine with live control capabilities for UCOP workflows.
+"""Job Execution Engine - Manages job queue and execution lifecycle."""
 
-Provides start, pause, resume, cancel, and real-time monitoring of workflow executions.
-"""
-
-import asyncio
+import logging
+import queue
 import threading
 import time
 import uuid
-from typing import Dict, List, Optional, Any, Callable
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-import logging
-import json
+from datetime import datetime
 from pathlib import Path
+from typing import Dict, List, Optional, Any, Set
 
-from .workflow_compiler import WorkflowCompiler, WorkflowState, WorkflowDefinition
-from .checkpoint_manager import CheckpointManager, CheckpointState
+from src.core import EventBus, AgentEvent, Config
+
+from .workflow_compiler import WorkflowCompiler
+from .execution_plan import ExecutionPlan, ExecutionStep
+from .job_state import JobState, JobMetadata, JobStatus, StepStatus, StepExecution
+from .job_storage import JobStorage
+from .enhanced_registry import EnhancedAgentRegistry
+from .checkpoint_manager import CheckpointManager
 
 logger = logging.getLogger(__name__)
 
 
-class JobStatus(Enum):
-    """Job execution status."""
-    PENDING = "pending"
-    RUNNING = "running"
-    PAUSED = "paused"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
-@dataclass
-class JobExecution:
-    """Represents a job execution instance."""
-    job_id: str
-    workflow_name: str
-    correlation_id: str
-    status: JobStatus = JobStatus.PENDING
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    current_step: Optional[str] = None
-    progress: float = 0.0
-    input_params: Dict[str, Any] = field(default_factory=dict)
-    output_data: Dict[str, Any] = field(default_factory=dict)
-    error_message: Optional[str] = None
-    execution_thread: Optional[threading.Thread] = None
-    state: Optional[WorkflowState] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    batch_group_id: Optional[str] = None  # NEW: for batch support
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization."""
-        return {
-            "job_id": self.job_id,
-            "workflow_name": self.workflow_name,
-            "correlation_id": self.correlation_id,
-            "status": self.status.value,
-            "started_at": self.started_at,
-            "completed_at": self.completed_at,
-            "current_step": self.current_step,
-            "progress": self.progress,
-            "input_params": self.input_params,
-            "topic": self.input_params.get("topic", "Unknown"),
-            "output_data": self.output_data,
-            "error_message": self.error_message,
-            "metadata": self.metadata,
-            "batch_group_id": self.batch_group_id  # NEW
-        }
-
-
 class JobExecutionEngine:
-    """Manages job execution with live control capabilities."""
+    """Manages job execution lifecycle with queue, persistence, and control operations."""
     
-    def __init__(self, workflow_compiler: WorkflowCompiler, checkpoint_manager: CheckpointManager):
-        self.workflow_compiler = workflow_compiler
-        self.checkpoint_manager = checkpoint_manager
+    def __init__(
+        self,
+        compiler: WorkflowCompiler,
+        registry: EnhancedAgentRegistry,
+        event_bus: Optional[EventBus] = None,
+        config: Optional[Config] = None,
+        max_concurrent_jobs: int = 3,
+        storage_dir: Optional[Path] = None,
+        checkpoint_config: Optional[Dict[str, Any]] = None
+    ):
+        """Initialize job execution engine.
+        
+        Args:
+            compiler: WorkflowCompiler for creating execution plans
+            registry: EnhancedAgentRegistry for agent management
+            event_bus: Event bus for emitting job events
+            config: Configuration object for agent initialization
+            max_concurrent_jobs: Maximum number of concurrent job executions
+            storage_dir: Directory for job persistence (default: .jobs/)
+            checkpoint_config: Checkpoint configuration (or loaded from config/checkpoints.yaml)
+        """
+        self.compiler = compiler
+        self.registry = registry
+        self.event_bus = event_bus or EventBus()
+        self.config = config or Config()
+        self.max_concurrent_jobs = max_concurrent_jobs
+        
+        # Job storage
+        self.storage = JobStorage(base_dir=storage_dir)
+        
+        # Checkpoint configuration
+        self.checkpoint_config = checkpoint_config or self._load_checkpoint_config()
+        checkpoint_path = Path(self.checkpoint_config.get('storage_path', '.checkpoints'))
+        self.checkpoint_manager = CheckpointManager(storage_path=checkpoint_path)
+        self.checkpoint_keep_last = self.checkpoint_config.get('keep_last', 10)
+        self.checkpoint_auto_cleanup = self.checkpoint_config.get('auto_cleanup', True)
+        self.checkpoint_keep_after_completion = self.checkpoint_config.get('keep_after_completion', 5)
         
         # Job tracking
-        self._jobs: Dict[str, JobExecution] = {}
+        self._jobs: Dict[str, JobState] = {}
         self._lock = threading.RLock()
         
-        # Event callbacks
-        self._status_callbacks: List[Callable[[JobExecution], None]] = []
-        self._progress_callbacks: List[Callable[[str, float, str], None]] = []
+        # Job queue
+        self._job_queue: queue.Queue = queue.Queue()
+        self._pending_jobs: Set[str] = set()
         
-        # Control channels
-        self._control_events: Dict[str, asyncio.Event] = {}
-        self._pause_requests: Dict[str, bool] = {}
-        self._cancel_requests: Dict[str, bool] = {}
+        # Control flags
+        self._pause_requested: Dict[str, bool] = {}
+        self._cancel_requested: Dict[str, bool] = {}
+        self._running = False
         
-        # Monitoring
-        self._monitor_thread = None
-        self._monitor_running = False
+        # Worker threads
+        self._worker_threads: List[threading.Thread] = []
         
-        # Storage for persistence
-        self.storage_dir = Path("./data/jobs")
-        self.storage_dir.mkdir(parents=True, exist_ok=True)
-        
+        # Load existing jobs on startup
         self._load_persisted_jobs()
-
-    def submit_job(self, workflow_name: str, input_params: Dict[str, Any], job_id: str = None) -> str:
-        """Submit a new job for execution."""
-        if job_id is None:
-            job_id = str(uuid.uuid4())
-        
-        # Get workflow definition
-        workflow_def = self.workflow_compiler.workflows.get(workflow_name)
-        if not workflow_def:
-            raise ValueError(f"Workflow '{workflow_name}' not found")
-        
-        # Create job directories for artifacts and logs
-        job_dir = self.storage_dir / job_id
-        artifacts_dir = job_dir / "artifacts"
-        logs_dir = job_dir / "logs"
-        job_dir.mkdir(parents=True, exist_ok=True)
-        artifacts_dir.mkdir(parents=True, exist_ok=True)
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Create job execution
-        correlation_id = str(uuid.uuid4())
-        job = JobExecution(
-            job_id=job_id,
-            workflow_name=workflow_name,
-            correlation_id=correlation_id,
-            status=JobStatus.PENDING,
-            started_at=datetime.now(timezone.utc).isoformat(),
-            input_params=input_params,
-            metadata={
-                "artifacts_dir": str(artifacts_dir),
-                "logs_dir": str(logs_dir)
-            }
-        )
-        
-        # Store pipeline from workflow definition for later access
-        if workflow_def:
-            steps = workflow_def.get('steps', {})
-            pipeline = []
-            for step_id, step_config in steps.items():
-                pipeline.append({
-                    "id": step_id,
-                    "name": step_config.get("name", step_id),
-                    "agent": step_config.get("agent", step_id),
-                    "status": "pending"
-                })
-            job.metadata["pipeline"] = pipeline
-        
-        with self._lock:
-            self._jobs[job_id] = job
-        
-        # Persist job
-        self._persist_job(job)
-        
-        # Setup logging to file
-        log_file = logs_dir / "job.log"
-        
-        # Start execution in background thread
-        def execute():
+    
+    def _load_checkpoint_config(self) -> Dict[str, Any]:
+        """Load checkpoint configuration from config file."""
+        config_file = Path(__file__).parent.parent.parent / 'config' / 'checkpoints.yaml'
+        if config_file.exists():
             try:
+<<<<<<< Updated upstream
                 job.status = JobStatus.RUNNING
                 job.progress = 10.0
                 job.current_step = "Initializing workflow"
@@ -340,390 +268,31 @@ class JobExecutionEngine:
                 
                 job.completed_at = datetime.now(timezone.utc).isoformat()
                 
+=======
+                import yaml
+                with open(config_file, 'r') as f:
+                    data = yaml.safe_load(f)
+                    return data.get('checkpoint', {})
+>>>>>>> Stashed changes
             except Exception as e:
-                job.status = JobStatus.FAILED
-                job.error_message = str(e)
-                job.completed_at = datetime.now(timezone.utc).isoformat()
-                job.progress = job.progress if job.progress > 0 else 5.0
-                logger.error(f"Job {job_id} failed: {e}", exc_info=True)
-                
-                with open(log_file, 'a') as log:
-                    log.write(f"[{datetime.now().isoformat()}] ERROR: {e}\n")
-            
-            finally:
-                self._persist_job(job)
-                self._notify_status_change(job)
-        
-        thread = threading.Thread(target=execute, daemon=True)
-        job.execution_thread = thread
-        thread.start()
-        
-        logger.info(f"Submitted job {job_id} for workflow {workflow_name}")
-        return job_id
-
-    def _notify_status_change(self, job: JobExecution):
-        """Notify status change callbacks."""
-        for callback in self._status_callbacks:
-            try:
-                callback(job)
-            except Exception as e:
-                logger.error(f"Status callback failed: {e}")
-
-    def _notify_progress(self, job_id: str, progress: float, step: str):
-        """Notify progress callbacks."""
-        for callback in self._progress_callbacks:
-            try:
-                callback(job_id, progress, step)
-            except Exception as e:
-                logger.error(f"Progress callback failed: {e}")
-                
-    def start_monitoring(self):
-        """Start the job monitoring thread."""
-        if not self._monitor_running:
-            self._monitor_running = True
-            self._monitor_thread = threading.Thread(target=self._monitor_jobs, daemon=True)
-            self._monitor_thread.start()
-            logger.info("Started job monitoring")
+                logger.warning(f"Failed to load checkpoint config: {e}")
+        return {}
     
-    def stop_monitoring(self):
-        """Stop the job monitoring thread."""
-        self._monitor_running = False
-        if self._monitor_thread:
-            self._monitor_thread.join(timeout=5)
-        logger.info("Stopped job monitoring")
-    
-    def register_status_callback(self, callback: Callable[[JobExecution], None]):
-        """Register callback for job status changes."""
-        with self._lock:
-            self._status_callbacks.append(callback)
-    
-    def register_progress_callback(self, callback: Callable[[str, float, str], None]):
-        """Register callback for job progress updates."""
-        with self._lock:
-            self._progress_callbacks.append(callback)
-    
-    def start_job(
-        self, 
-        workflow_name: str, 
-        input_params: Dict[str, Any],
-        correlation_id: Optional[str] = None,
-        job_id: Optional[str] = None
-    ) -> JobExecution:
-        """Start a new job execution."""
-        with self._lock:
-            # Generate IDs
-            job_id = job_id or f"job_{uuid.uuid4().hex[:8]}"
-            correlation_id = correlation_id or f"corr_{uuid.uuid4().hex[:8]}"
-            
-            # Validate workflow exists
-            workflow_def = self.workflow_compiler.get_workflow_definition(workflow_name)
-            if not workflow_def:
-                raise ValueError(f"Workflow not found: {workflow_name}")
-            
-            # Validate workflow
-            validation_issues = self.workflow_compiler.validate_workflow(workflow_name)
-            if validation_issues:
-                raise ValueError(f"Workflow validation failed: {validation_issues}")
-            
-            # Create job directories for artifacts and logs
-            job_dir = self.storage_dir / job_id
-            artifacts_dir = job_dir / "artifacts"
-            logs_dir = job_dir / "logs"
-            job_dir.mkdir(parents=True, exist_ok=True)
-            artifacts_dir.mkdir(parents=True, exist_ok=True)
-            logs_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Create job execution
-            job = JobExecution(
-                job_id=job_id,
-                workflow_name=workflow_name,
-                correlation_id=correlation_id,
-                input_params=input_params.copy(),
-                started_at=datetime.now(timezone.utc).isoformat(),
-                metadata={
-                    "artifacts_dir": str(artifacts_dir),
-                    "logs_dir": str(logs_dir)
-                }
-            )
-            
-            # Initialize workflow state
-            job.state = WorkflowState(initial_data=input_params.copy())
-            job.state.execution_id = job_id
-            job.state.correlation_id = correlation_id
-            
-            # Store job
-            self._jobs[job_id] = job
-            self._persist_job(job)
-            
-            # Initialize control events
-            self._control_events[job_id] = asyncio.Event()
-            self._pause_requests[job_id] = False
-            self._cancel_requests[job_id] = False
-            
-            # Start execution in separate thread
-            execution_thread = threading.Thread(
-                target=self._execute_job_workflow,
-                args=(job,),
-                daemon=True
-            )
-            job.execution_thread = execution_thread
-            execution_thread.start()
-            
-            # Update status
-            self._update_job_status(job, JobStatus.RUNNING)
-            
-            logger.info(f"Started job: {job_id} for workflow: {workflow_name}")
-            return job
-    
-    def pause_job(self, job_id: str) -> bool:
-        """Pause a running job."""
-        with self._lock:
-            job = self._jobs.get(job_id)
-            if not job or job.status != JobStatus.RUNNING:
-                return False
-            
-            # Set pause request
-            self._pause_requests[job_id] = True
-            
-            # Pause the workflow state
-            if job.state:
-                job.state.pause_execution()
-            
-            # Update status
-            self._update_job_status(job, JobStatus.PAUSED)
-            
-            logger.info(f"Paused job: {job_id}")
-            return True
-    
-    def resume_job(self, job_id: str) -> bool:
-        """Resume a paused job."""
-        with self._lock:
-            job = self._jobs.get(job_id)
-            if not job or job.status != JobStatus.PAUSED:
-                return False
-            
-            # Clear pause request
-            self._pause_requests[job_id] = False
-            
-            # Resume the workflow state
-            if job.state:
-                job.state.resume_execution()
-            
-            # Signal control event
-            if job_id in self._control_events:
-                self._control_events[job_id].set()
-            
-            # Update status
-            self._update_job_status(job, JobStatus.RUNNING)
-            
-            logger.info(f"Resumed job: {job_id}")
-            return True
-    
-    def cancel_job(self, job_id: str) -> bool:
-        """Cancel a job execution."""
-        with self._lock:
-            job = self._jobs.get(job_id)
-            if not job or job.status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
-                return False
-            
-            # Set cancel request
-            self._cancel_requests[job_id] = True
-            
-            # Signal control event to wake up execution
-            if job_id in self._control_events:
-                self._control_events[job_id].set()
-            
-            # Update status
-            self._update_job_status(job, JobStatus.CANCELLED)
-            job.completed_at = datetime.now(timezone.utc).isoformat()
-            
-            logger.info(f"Cancelled job: {job_id}")
-            return True
-    
-    def get_job_status(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """Get current job status."""
-        with self._lock:
-            job = self._jobs.get(job_id)
-            return job.to_dict() if job else None
-    
-    def list_jobs(self, status_filter: Optional[JobStatus] = None) -> List[Dict[str, Any]]:
-        """List jobs with optional status filter."""
-        with self._lock:
-            jobs = []
-            for job in self._jobs.values():
-                if status_filter is None or job.status == status_filter:
-                    jobs.append(job.to_dict())
-            return jobs
-    
-    def get_job_logs(self, job_id: str) -> List[Dict[str, Any]]:
-        """Get execution logs for a job."""
-        # In a real implementation, this would return structured logs
-        # For now, return basic checkpoint history
-        return self.checkpoint_manager.get_checkpoint_history(f"exec_{job_id}")
-    
-    def update_job_parameters(self, job_id: str, parameters: Dict[str, Any]) -> bool:
-        """Update job parameters during execution."""
-        with self._lock:
-            job = self._jobs.get(job_id)
-            if not job or job.status not in [JobStatus.RUNNING, JobStatus.PAUSED]:
-                return False
-            
-            # Update job parameters
-            job.input_params.update(parameters)
-            
-            # Update workflow state
-            if job.state:
-                job.state.data.update(parameters)
-            
-            job.metadata["parameter_updates"] = job.metadata.get("parameter_updates", [])
-            job.metadata["parameter_updates"].append({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "parameters": parameters.copy()
-            })
-            
-            self._persist_job(job)
-            
-            logger.info(f"Updated parameters for job: {job_id}")
-            return True
-    
-    def _execute_job_workflow(self, job: JobExecution):
-        """Execute workflow for a job in a separate thread."""
-        log_file = None
+    def _load_persisted_jobs(self) -> None:
+        """Load persisted jobs from storage on startup."""
         try:
-            # Setup log file
-            job_dir = self.storage_dir / job.job_id
-            logs_dir = job_dir / "logs"
-            logs_dir.mkdir(parents=True, exist_ok=True)
-            log_file = logs_dir / "job.log"
-            
-            with open(log_file, 'a') as log:
-                log.write(f"[{datetime.now().isoformat()}] Starting workflow: {job.workflow_name}\n")
-                log.write(f"[{datetime.now().isoformat()}] Topic: {job.input_params.get('topic', 'N/A')}\n")
-            
-            # Compile workflow
-            compiled_workflow = self.workflow_compiler.compile_workflow(job.workflow_name)
-            
-            # Create checkpoint execution
-            checkpoint_execution = self.checkpoint_manager.start_workflow_execution(
-                correlation_id=job.correlation_id,
-                workflow_name=job.workflow_name,
-                initial_data=job.input_params
-            )
-            
-            # Execute workflow with control checks
-            config = {"configurable": {"thread_id": job.job_id}}
-            
-            # Stream execution to handle pause/resume
-            step_count = 0
-            for chunk in compiled_workflow.stream(job.state, config=config):
-                # Check for control requests
-                if self._check_control_requests(job):
-                    break
-                
-                # Log step progress
-                if log_file and job.state and job.state.current_step:
-                    step_count += 1
-                    with open(log_file, 'a') as log:
-                        log.write(f"[{datetime.now().isoformat()}] Step {step_count}: {job.state.current_step}\n")
-                
-                # Update progress
-                self._update_job_progress(job, chunk)
-            
-            # Check final status
-            if not self._cancel_requests.get(job.job_id, False):
-                if job.state and not job.state.error:
-                    self._update_job_status(job, JobStatus.COMPLETED)
-                    job.output_data = job.state.step_outputs.copy()
+            jobs = self.storage.list_jobs()
+            for metadata in jobs:
+                job_state = self.storage.load_job(metadata.job_id)
+                if job_state:
+                    self._jobs[metadata.job_id] = job_state
                     
-                    # Create artifacts from workflow outputs
-                    try:
-                        job_dir = self.storage_dir / job.job_id
-                        artifacts_dir = job_dir / "artifacts"
-                        artifacts_dir.mkdir(parents=True, exist_ok=True)
-                        
-                        # Also create artifacts in the configured output directory
-                        output_dir = Path(job.input_params.get('output_dir', './output'))
-                        output_dir.mkdir(parents=True, exist_ok=True)
-                        
-                        topic = job.input_params.get('topic', 'Generated_Content')
-                        safe_topic = topic.replace(' ', '_').replace('/', '_')
-                        
-                        # Check if there's actual content to save
-                        content_saved = False
-                        
-                        # Look for content in step outputs
-                        for step_id, step_output in job.state.step_outputs.items():
-                            if isinstance(step_output, dict):
-                                # Check for markdown content
-                                if 'content' in step_output and isinstance(step_output['content'], str):
-                                    # Save to artifacts directory
-                                    artifact_file = artifacts_dir / f"{safe_topic}_output.md"
-                                    with open(artifact_file, 'w') as f:
-                                        f.write(step_output['content'])
-                                    
-                                    # Also save to output directory
-                                    output_file = output_dir / f"{safe_topic}.md"
-                                    with open(output_file, 'w') as f:
-                                        f.write(step_output['content'])
-                                    
-                                    content_saved = True
-                                    logger.info(f"Created artifact: {artifact_file.name} (also saved to {output_file})")
-                                    break
-                                
-                                # Check for markdown field
-                                elif 'markdown' in step_output and isinstance(step_output['markdown'], str):
-                                    # Save to artifacts directory
-                                    artifact_file = artifacts_dir / f"{safe_topic}_output.md"
-                                    with open(artifact_file, 'w') as f:
-                                        f.write(step_output['markdown'])
-                                    
-                                    # Also save to output directory
-                                    output_file = output_dir / f"{safe_topic}.md"
-                                    with open(output_file, 'w') as f:
-                                        f.write(step_output['markdown'])
-                                    
-                                    content_saved = True
-                                    logger.info(f"Created artifact: {artifact_file.name} (also saved to {output_file})")
-                                    break
-                        
-                        # If no content found, create a summary artifact
-                        if not content_saved:
-                            summary_file = artifacts_dir / f"{safe_topic}_summary.json"
-                            import json
-                            with open(summary_file, 'w') as f:
-                                json.dump({
-                                    'job_id': job.job_id,
-                                    'topic': topic,
-                                    'workflow': job.workflow_name,
-                                    'completed_at': datetime.now(timezone.utc).isoformat(),
-                                    'steps_completed': list(job.state.step_outputs.keys()),
-                                    'note': 'Content artifacts would be generated by actual agent execution'
-                                }, f, indent=2)
-                            logger.info(f"Created summary artifact: {summary_file.name}")
-                    
-                    except Exception as e:
-                        logger.error(f"Failed to create artifacts: {e}")
-                    
-                    # Log completion
-                    if log_file:
-                        with open(log_file, 'a') as log:
-                            log.write(f"[{datetime.now().isoformat()}] Workflow completed successfully\n")
-                else:
-                    self._update_job_status(job, JobStatus.FAILED)
-                    job.error_message = job.state.error if job.state else "Unknown error"
-                    
-                    # Log failure
-                    if log_file:
-                        with open(log_file, 'a') as log:
-                            log.write(f"[{datetime.now().isoformat()}] ERROR: {job.error_message}\n")
-                
-                job.completed_at = datetime.now(timezone.utc).isoformat()
-            else:
-                # Job was cancelled
-                if log_file:
-                    with open(log_file, 'a') as log:
-                        log.write(f"[{datetime.now().isoformat()}] Job cancelled by user\n")
+                    # Re-queue pending jobs
+                    if metadata.status == JobStatus.PENDING:
+                        self._pending_jobs.add(metadata.job_id)
+                        self._job_queue.put(metadata.job_id)
             
+<<<<<<< Updated upstream
         except Exception as e:
             logger.error(f"Job execution failed: {job.job_id}: {e}")
             self._update_job_status(job, JobStatus.FAILED)
@@ -954,79 +523,893 @@ class JobExecutionEngine:
                         logger.error(f"Failed to migrate job from {job_file}: {e}")
             
             logger.info(f"Loaded {len(self._jobs)} persisted jobs")
+=======
+            logger.info(f"Loaded {len(jobs)} persisted jobs")
+>>>>>>> Stashed changes
             
         except Exception as e:
             logger.error(f"Failed to load persisted jobs: {e}")
     
-    def get_engine_stats(self) -> Dict[str, Any]:
-        """Get execution engine statistics."""
-        with self._lock:
-            stats = {
-                "total_jobs": len(self._jobs),
-                "running_jobs": len([j for j in self._jobs.values() if j.status == JobStatus.RUNNING]),
-                "paused_jobs": len([j for j in self._jobs.values() if j.status == JobStatus.PAUSED]),
-                "completed_jobs": len([j for j in self._jobs.values() if j.status == JobStatus.COMPLETED]),
-                "failed_jobs": len([j for j in self._jobs.values() if j.status == JobStatus.FAILED]),
-                "cancelled_jobs": len([j for j in self._jobs.values() if j.status == JobStatus.CANCELLED]),
-                "monitor_running": self._monitor_running,
-                "registered_callbacks": {
-                    "status": len(self._status_callbacks),
-                    "progress": len(self._progress_callbacks)
-                }
-            }
-            return stats
+    def start(self) -> None:
+        """Start the execution engine and worker threads."""
+        if self._running:
+            logger.warning("Engine already running")
+            return
+        
+        self._running = True
+        
+        # Start worker threads
+        for i in range(self.max_concurrent_jobs):
+            thread = threading.Thread(
+                target=self._worker_loop,
+                name=f"JobWorker-{i}",
+                daemon=True
+            )
+            thread.start()
+            self._worker_threads.append(thread)
+        
+        logger.info(f"Started {self.max_concurrent_jobs} job workers")
     
-    def submit_batch(self, 
-                    batch_config: List[Dict[str, Any]],
-                    batch_group_id: str = None) -> List[str]:
-        """Submit multiple jobs as a batch."""
+    def stop(self, timeout: float = 30.0) -> None:
+        """Stop the execution engine.
         
-        if batch_group_id is None:
-            batch_group_id = f"batch-{uuid.uuid4()}"
+        Args:
+            timeout: Timeout for waiting for workers to finish
+        """
+        logger.info("Stopping job execution engine...")
+        self._running = False
         
-        job_ids = []
+        # Wait for workers to finish
+        for thread in self._worker_threads:
+            thread.join(timeout=timeout / len(self._worker_threads))
         
-        logger.info(f"Submitting batch {batch_group_id}: {len(batch_config)} jobs")
+        self._worker_threads.clear()
+        logger.info("Job execution engine stopped")
+    
+    def _worker_loop(self) -> None:
+        """Worker thread main loop."""
+        while self._running:
+            try:
+                # Get job from queue with timeout
+                try:
+                    job_id = self._job_queue.get(timeout=1.0)
+                except queue.Empty:
+                    continue
+                
+                # Remove from pending set
+                with self._lock:
+                    self._pending_jobs.discard(job_id)
+                
+                # Execute job
+                try:
+                    self._execute_job(job_id)
+                except Exception as e:
+                    logger.error(f"Error executing job {job_id}: {e}", exc_info=True)
+                    self._mark_job_failed(job_id, str(e))
+                finally:
+                    self._job_queue.task_done()
+                    
+            except Exception as e:
+                logger.error(f"Worker error: {e}", exc_info=True)
+    
+    def submit_job(
+        self,
+        workflow_id: str,
+        inputs: Dict[str, Any],
+        correlation_id: Optional[str] = None
+    ) -> str:
+        """Submit a new job for execution.
         
-        for job_spec in batch_config:
-            job_id = self.submit_job(
-                workflow_name=job_spec['workflow'],
-                input_params=job_spec.get('params', {})
+        Args:
+            workflow_id: Workflow identifier to execute
+            inputs: Input parameters for the workflow
+            correlation_id: Optional correlation ID for tracking
+            
+        Returns:
+            Job ID (UUID)
+        """
+        job_id = str(uuid.uuid4())
+        
+        # Compile workflow
+        try:
+            plan = self.compiler.compile(workflow_id)
+        except Exception as e:
+            logger.error(f"Failed to compile workflow {workflow_id}: {e}")
+            raise
+        
+        # Create job metadata
+        metadata = JobMetadata(
+            job_id=job_id,
+            workflow_id=workflow_id,
+            status=JobStatus.PENDING,
+            created_at=datetime.now(),
+            total_steps=len(plan.steps),
+            correlation_id=correlation_id or job_id
+        )
+        
+        # Create job state
+        job_state = JobState(
+            metadata=metadata,
+            inputs=inputs,
+            context={'execution_plan': plan.to_dict()}
+        )
+        
+        # Initialize step executions
+        for step in plan.steps:
+            job_state.steps[step.agent_id] = StepExecution(agent_id=step.agent_id)
+        
+        # Store job
+        with self._lock:
+            self._jobs[job_id] = job_state
+            self._pending_jobs.add(job_id)
+        
+        # Persist to disk
+        self.storage.save_job(job_state)
+        
+        # Emit event
+        self.event_bus.publish(AgentEvent(
+            event_type="JobSubmitted",
+            source_agent="JobExecutionEngine",
+            correlation_id=job_state.metadata.correlation_id,
+            data={
+                'job_id': job_id,
+                'workflow_id': workflow_id,
+                'correlation_id': metadata.correlation_id
+            }
+        ))
+        
+        # Queue for execution
+        self._job_queue.put(job_id)
+        
+        logger.info(f"Submitted job {job_id} for workflow {workflow_id}")
+        
+        return job_id
+    
+    def _execute_job(self, job_id: str) -> None:
+        """Execute a job.
+        
+        Args:
+            job_id: Job identifier
+        """
+        with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                logger.error(f"Job {job_id} not found")
+                return
+            
+            # Mark as running
+            job_state.metadata.status = JobStatus.RUNNING
+            job_state.metadata.started_at = datetime.now()
+        
+        # Save state
+        self.storage.save_job(job_state)
+        
+        # Emit event
+        self.event_bus.publish(AgentEvent(
+            event_type="JobStarted",
+            source_agent="JobExecutionEngine",
+            correlation_id=job_state.metadata.correlation_id,
+            data={
+                'job_id': job_id,
+                'workflow_id': job_state.metadata.workflow_id
+            }
+        ))
+        
+        logger.info(f"Started executing job {job_id}")
+        
+        try:
+            # Get execution plan
+            plan_dict = job_state.context.get('execution_plan', {})
+            plan = ExecutionPlan.from_dict(plan_dict)
+            
+            # Execute steps
+            completed_steps = set()
+            
+            for step in plan.steps:
+                # Check for pause
+                if self._check_pause(job_id):
+                    logger.info(f"Job {job_id} paused")
+                    return
+                
+                # Check for cancel
+                if self._check_cancel(job_id):
+                    logger.info(f"Job {job_id} cancelled")
+                    self._mark_job_cancelled(job_id)
+                    return
+                
+                # Check if dependencies are completed
+                if not all(dep in completed_steps for dep in step.dependencies):
+                    logger.warning(f"Dependencies not met for step {step.agent_id}")
+                    continue
+                
+                # Evaluate condition
+                if step.condition and not step.evaluate_condition(job_state.outputs):
+                    logger.info(f"Skipping step {step.agent_id} due to condition")
+                    job_state.mark_step_skipped(step.agent_id)
+                    completed_steps.add(step.agent_id)
+                    continue
+                
+                # Execute step
+                success = self._execute_step(job_id, job_state, step)
+                
+                if success:
+                    completed_steps.add(step.agent_id)
+                    
+                    # Save checkpoint after successful step
+                    self._save_checkpoint(job_id, job_state, step.agent_id, completed_steps)
+                else:
+                    # Handle failure based on configuration
+                    if step.metadata.get('critical', False):
+                        logger.error(f"Critical step {step.agent_id} failed, aborting job")
+                        self._mark_job_failed(job_id, f"Critical step {step.agent_id} failed")
+                        return
+                    else:
+                        logger.warning(f"Non-critical step {step.agent_id} failed, continuing")
+                        completed_steps.add(step.agent_id)
+                
+                # Save state after each step
+                self.storage.save_job(job_state)
+            
+            # Mark job as completed
+            self._mark_job_completed(job_id)
+            
+        except Exception as e:
+            logger.error(f"Job {job_id} execution failed: {e}", exc_info=True)
+            self._mark_job_failed(job_id, str(e))
+    
+    def _execute_step(
+        self,
+        job_id: str,
+        job_state: JobState,
+        step: ExecutionStep
+    ) -> bool:
+        """Execute a single workflow step.
+        
+        Args:
+            job_id: Job identifier
+            job_state: Current job state
+            step: Step to execute
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        agent_id = step.agent_id
+        
+        # Mark step as started
+        job_state.mark_step_started(agent_id)
+        
+        # Emit event
+        self.event_bus.publish(AgentEvent(
+            event_type="StepStarted",
+            source_agent=agent_id,
+            correlation_id=job_state.metadata.correlation_id,
+            data={
+                'job_id': job_id,
+                'agent_id': agent_id
+            }
+        ))
+        
+        logger.info(f"Executing step {agent_id} for job {job_id}")
+        
+        try:
+            # Get agent from registry
+            agent = self.registry.get_agent(
+                agent_id,
+                config=self.config,
+                event_bus=self.event_bus
             )
             
-            # Associate with batch
-            with self._lock:
-                job = self._jobs.get(job_id)
-                if job:
-                    job.batch_group_id = batch_group_id
-                    job_ids.append(job_id)
-        
-        logger.info(f"Batch {batch_group_id} submitted: {len(job_ids)} jobs")
-        return job_ids
+            if not agent:
+                raise ValueError(f"Agent {agent_id} not found in registry")
+            
+            # Prepare agent inputs
+            agent_inputs = self._prepare_agent_inputs(job_state, step)
+            
+            # Execute agent with timeout
+            start_time = time.time()
+            
+            try:
+                # Call agent
+                if hasattr(agent, 'run'):
+                    result = agent.run(**agent_inputs)
+                elif hasattr(agent, 'execute'):
+                    result = agent.execute(**agent_inputs)
+                else:
+                    raise AttributeError(f"Agent {agent_id} has no run() or execute() method")
+                
+                elapsed = time.time() - start_time
+                
+                # Check timeout
+                if step.timeout > 0 and elapsed > step.timeout:
+                    raise TimeoutError(f"Step exceeded timeout of {step.timeout}s")
+                
+                # Store result in outputs
+                if isinstance(result, dict):
+                    job_state.outputs.update(result)
+                else:
+                    job_state.outputs[agent_id] = result
+                
+                # Mark step as completed
+                job_state.mark_step_completed(agent_id, result if isinstance(result, dict) else {'result': result})
+                
+                # Emit event
+                self.event_bus.publish(AgentEvent(
+                    event_type="StepCompleted",
+                    source_agent=agent_id,
+                    correlation_id=job_state.metadata.correlation_id,
+                    data={
+                        'job_id': job_id,
+                        'agent_id': agent_id,
+                        'duration': elapsed
+                    }
+                ))
+                
+                logger.info(f"Step {agent_id} completed in {elapsed:.2f}s")
+                
+                return True
+                
+            except TimeoutError as e:
+                logger.error(f"Step {agent_id} timed out: {e}")
+                job_state.mark_step_failed(agent_id, str(e))
+                return False
+                
+        except Exception as e:
+            logger.error(f"Step {agent_id} failed: {e}", exc_info=True)
+            job_state.mark_step_failed(agent_id, str(e))
+            
+            # Emit event
+            self.event_bus.publish(AgentEvent(
+                event_type="StepFailed",
+                source_agent=agent_id,
+                correlation_id=job_state.metadata.correlation_id,
+                data={
+                    'job_id': job_id,
+                    'agent_id': agent_id,
+                    'error': str(e)
+                }
+            ))
+            
+            # Check if retry is possible
+            step_execution = job_state.steps.get(agent_id)
+            if step_execution and step_execution.retry_count < step.retry:
+                logger.info(f"Retrying step {agent_id} (attempt {step_execution.retry_count + 1}/{step.retry})")
+                step_execution.retry_count += 1
+                step_execution.status = StepStatus.PENDING
+                return self._execute_step(job_id, job_state, step)
+            
+            return False
     
-    def get_batch_status(self, batch_group_id: str) -> Dict[str, Any]:
-        """Get status of all jobs in a batch."""
-        with self._lock:
-            batch_jobs = [
-                job for job in self._jobs.values()
-                if job.batch_group_id == batch_group_id
-            ]
+    def _prepare_agent_inputs(
+        self,
+        job_state: JobState,
+        step: ExecutionStep
+    ) -> Dict[str, Any]:
+        """Prepare inputs for agent execution.
         
-        if not batch_jobs:
-            return {
-                "batch_id": batch_group_id,
-                "found": False,
-                "total_jobs": 0
+        Args:
+            job_state: Current job state
+            step: Step being executed
+            
+        Returns:
+            Dictionary of agent inputs
+        """
+        inputs = {
+            'config': self.config,
+            **job_state.inputs,
+            **job_state.outputs
+        }
+        
+        # Add step-specific metadata
+        inputs['_job_id'] = job_state.metadata.job_id
+        inputs['_workflow_id'] = job_state.metadata.workflow_id
+        inputs['_agent_id'] = step.agent_id
+        
+        return inputs
+    
+    def _save_checkpoint(
+        self,
+        job_id: str,
+        job_state: JobState,
+        step_name: str,
+        completed_steps: Set[str]
+    ) -> None:
+        """Save checkpoint after step completion.
+        
+        Args:
+            job_id: Job identifier
+            job_state: Current job state
+            step_name: Name of completed step
+            completed_steps: Set of completed step IDs
+        """
+        try:
+            # Prepare checkpoint state
+            checkpoint_state = {
+                'workflow_id': job_state.metadata.workflow_id,
+                'workflow_name': job_state.metadata.workflow_id,
+                'current_step': len(completed_steps),
+                'completed_steps': list(completed_steps),
+                'inputs': job_state.inputs,
+                'outputs': job_state.outputs,
+                'context': job_state.context,
+                'steps': {
+                    step_id: {
+                        'status': step_exec.status.value,
+                        'output': step_exec.output,
+                        'started_at': step_exec.started_at.isoformat() if step_exec.started_at else None,
+                        'completed_at': step_exec.completed_at.isoformat() if step_exec.completed_at else None,
+                        'error': step_exec.error,
+                        'retry_count': step_exec.retry_count
+                    }
+                    for step_id, step_exec in job_state.steps.items()
+                },
+                'metadata': {
+                    'job_id': job_id,
+                    'created_at': job_state.metadata.created_at.isoformat(),
+                    'started_at': job_state.metadata.started_at.isoformat() if job_state.metadata.started_at else None,
+                    'correlation_id': job_state.metadata.correlation_id
+                }
             }
+            
+            # Save checkpoint
+            checkpoint_id = self.checkpoint_manager.save(job_id, step_name, checkpoint_state)
+            logger.debug(f"Checkpoint saved: {checkpoint_id} for job {job_id} at step {step_name}")
+            
+            # Cleanup old checkpoints
+            self.checkpoint_manager.cleanup(job_id, keep_last=self.checkpoint_keep_last)
+            
+        except Exception as e:
+            logger.error(f"Failed to save checkpoint for job {job_id}: {e}")
+    
+    def restore_from_checkpoint(self, job_id: str, checkpoint_id: Optional[str] = None) -> bool:
+        """Restore a job from checkpoint and resume execution.
+        
+        Args:
+            job_id: Job identifier
+            checkpoint_id: Specific checkpoint ID to restore, or None for latest
+            
+        Returns:
+            True if restored successfully, False otherwise
+        """
+        try:
+            # Get checkpoint ID
+            if not checkpoint_id:
+                checkpoint_id = self.checkpoint_manager.get_latest_checkpoint(job_id)
+                if not checkpoint_id:
+                    logger.error(f"No checkpoints found for job {job_id}")
+                    return False
+            
+            # Restore checkpoint state
+            checkpoint_state = self.checkpoint_manager.restore(job_id, checkpoint_id)
+            
+            # Recreate job state from checkpoint
+            workflow_id = checkpoint_state.get('workflow_id')
+            
+            # Compile workflow
+            plan = self.compiler.compile(workflow_id)
+            
+            # Create job metadata
+            metadata = JobMetadata(
+                job_id=job_id,
+                workflow_id=workflow_id,
+                status=JobStatus.PENDING,
+                created_at=datetime.fromisoformat(checkpoint_state['metadata']['created_at']),
+                total_steps=len(plan.steps),
+                correlation_id=checkpoint_state['metadata']['correlation_id']
+            )
+            
+            # Create job state
+            job_state = JobState(
+                metadata=metadata,
+                inputs=checkpoint_state.get('inputs', {}),
+                outputs=checkpoint_state.get('outputs', {}),
+                context={
+                    **checkpoint_state.get('context', {}),
+                    'execution_plan': plan.to_dict(),
+                    'restored_from_checkpoint': checkpoint_id,
+                    'completed_steps': checkpoint_state.get('completed_steps', [])
+                }
+            )
+            
+            # Restore step executions
+            steps_data = checkpoint_state.get('steps', {})
+            for step_id, step_data in steps_data.items():
+                step_exec = StepExecution(agent_id=step_id)
+                step_exec.status = StepStatus(step_data.get('status', 'pending'))
+                step_exec.output = step_data.get('output')
+                step_exec.error = step_data.get('error')
+                step_exec.retry_count = step_data.get('retry_count', 0)
+                if step_data.get('started_at'):
+                    step_exec.started_at = datetime.fromisoformat(step_data['started_at'])
+                if step_data.get('completed_at'):
+                    step_exec.completed_at = datetime.fromisoformat(step_data['completed_at'])
+                job_state.steps[step_id] = step_exec
+            
+            # Add any missing steps from plan
+            for step in plan.steps:
+                if step.agent_id not in job_state.steps:
+                    job_state.steps[step.agent_id] = StepExecution(agent_id=step.agent_id)
+            
+            # Store job
+            with self._lock:
+                self._jobs[job_id] = job_state
+                self._pending_jobs.add(job_id)
+            
+            # Persist to disk
+            self.storage.save_job(job_state)
+            
+            # Queue for execution
+            self._job_queue.put(job_id)
+            
+            logger.info(f"Job {job_id} restored from checkpoint {checkpoint_id}")
+            
+            # Emit event
+            self.event_bus.publish(AgentEvent(
+                event_type="JobRestored",
+                source_agent="JobExecutionEngine",
+                correlation_id=job_state.metadata.correlation_id,
+                data={
+                    'job_id': job_id,
+                    'checkpoint_id': checkpoint_id,
+                    'workflow_id': workflow_id
+                }
+            ))
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to restore job {job_id} from checkpoint: {e}", exc_info=True)
+            return False
+    
+    def _check_pause(self, job_id: str) -> bool:
+        """Check if job is paused.
+        
+        Args:
+            job_id: Job identifier
+            
+        Returns:
+            True if paused, False otherwise
+        """
+        with self._lock:
+            if self._pause_requested.get(job_id, False):
+                job_state = self._jobs.get(job_id)
+                if job_state:
+                    job_state.metadata.status = JobStatus.PAUSED
+                    self.storage.save_job(job_state)
+                    
+                    # Save checkpoint on pause
+                    completed_steps = {
+                        step_id for step_id, step_exec in job_state.steps.items()
+                        if step_exec.status == StepStatus.COMPLETED
+                    }
+                    self._save_checkpoint(job_id, job_state, 'paused', completed_steps)
+                return True
+        return False
+    
+    def _check_cancel(self, job_id: str) -> bool:
+        """Check if job cancellation is requested.
+        
+        Args:
+            job_id: Job identifier
+            
+        Returns:
+            True if cancelled, False otherwise
+        """
+        with self._lock:
+            return self._cancel_requested.get(job_id, False)
+    
+    def _mark_job_completed(self, job_id: str) -> None:
+        """Mark job as completed.
+        
+        Args:
+            job_id: Job identifier
+        """
+        with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                return
+            
+            job_state.metadata.status = JobStatus.COMPLETED
+            job_state.metadata.completed_at = datetime.now()
+            job_state.metadata.progress = 1.0
+        
+        # Save state
+        self.storage.save_job(job_state)
+        
+        # Handle checkpoint cleanup based on configuration
+        if self.checkpoint_auto_cleanup:
+            if self.checkpoint_keep_after_completion > 0:
+                # Keep last N checkpoints after completion
+                self.checkpoint_manager.cleanup(job_id, keep_last=self.checkpoint_keep_after_completion)
+                logger.debug(f"Kept last {self.checkpoint_keep_after_completion} checkpoints for completed job {job_id}")
+            else:
+                # Delete all checkpoints
+                self.checkpoint_manager.cleanup_job(job_id)
+                logger.debug(f"Deleted all checkpoints for completed job {job_id}")
+        
+        # Emit event
+        self.event_bus.publish(AgentEvent(
+            event_type="JobCompleted",
+            source_agent="JobExecutionEngine",
+            correlation_id=job_state.metadata.correlation_id,
+            data={
+                'job_id': job_id,
+                'workflow_id': job_state.metadata.workflow_id,
+                'duration': (
+                    job_state.metadata.completed_at - job_state.metadata.started_at
+                ).total_seconds() if job_state.metadata.started_at else 0
+            }
+        ))
+        
+        logger.info(f"Job {job_id} completed successfully")
+    
+    def _mark_job_failed(self, job_id: str, error: str) -> None:
+        """Mark job as failed.
+        
+        Args:
+            job_id: Job identifier
+            error: Error message
+        """
+        with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                return
+            
+            job_state.metadata.status = JobStatus.FAILED
+            job_state.metadata.completed_at = datetime.now()
+            job_state.metadata.error_message = error
+        
+        # Save state
+        self.storage.save_job(job_state)
+        
+        # Emit event
+        self.event_bus.publish(AgentEvent(
+            event_type="JobFailed",
+            source_agent="JobExecutionEngine",
+            correlation_id=job_state.metadata.correlation_id,
+            data={
+                'job_id': job_id,
+                'workflow_id': job_state.metadata.workflow_id,
+                'error': error
+            }
+        ))
+        
+        logger.error(f"Job {job_id} failed: {error}")
+    
+    def _mark_job_cancelled(self, job_id: str) -> None:
+        """Mark job as cancelled.
+        
+        Args:
+            job_id: Job identifier
+        """
+        with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                return
+            
+            # Save checkpoint before cancellation
+            completed_steps = {
+                step_id for step_id, step_exec in job_state.steps.items()
+                if step_exec.status == StepStatus.COMPLETED
+            }
+            if completed_steps:
+                self._save_checkpoint(job_id, job_state, 'cancelled', completed_steps)
+            
+            job_state.metadata.status = JobStatus.CANCELLED
+            job_state.metadata.completed_at = datetime.now()
+            
+            # Clear cancel flag
+            self._cancel_requested.pop(job_id, None)
+        
+        # Save state
+        self.storage.save_job(job_state)
+        
+        # Emit event
+        self.event_bus.publish(AgentEvent(
+            event_type="JobCancelled",
+            source_agent="JobExecutionEngine",
+            correlation_id=job_state.metadata.correlation_id,
+            data={
+                'job_id': job_id,
+                'workflow_id': job_state.metadata.workflow_id
+            }
+        ))
+        
+        logger.info(f"Job {job_id} cancelled")
+    
+    def get_job_status(self, job_id: str) -> Optional[JobMetadata]:
+        """Get current status of a job.
+        
+        Args:
+            job_id: Job identifier
+            
+        Returns:
+            JobMetadata if found, None otherwise
+        """
+        with self._lock:
+            job_state = self._jobs.get(job_id)
+            if job_state:
+                return job_state.metadata
+        
+        # Try loading from storage
+        job_state = self.storage.load_job(job_id)
+        if job_state:
+            with self._lock:
+                self._jobs[job_id] = job_state
+            return job_state.metadata
+        
+        return None
+    
+    def get_job_state(self, job_id: str) -> Optional[JobState]:
+        """Get complete job state.
+        
+        Args:
+            job_id: Job identifier
+            
+        Returns:
+            JobState if found, None otherwise
+        """
+        with self._lock:
+            job_state = self._jobs.get(job_id)
+            if job_state:
+                return job_state
+        
+        # Try loading from storage
+        return self.storage.load_job(job_id)
+    
+    def pause_job(self, job_id: str) -> bool:
+        """Pause a running job.
+        
+        Args:
+            job_id: Job identifier
+            
+        Returns:
+            True if pause requested, False if job not found or already completed
+        """
+        with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                logger.warning(f"Job {job_id} not found")
+                return False
+            
+            if job_state.metadata.status not in [JobStatus.RUNNING, JobStatus.PENDING]:
+                logger.warning(f"Cannot pause job {job_id} in state {job_state.metadata.status}")
+                return False
+            
+            self._pause_requested[job_id] = True
+        
+        logger.info(f"Pause requested for job {job_id}")
+        return True
+    
+    def resume_job(self, job_id: str) -> bool:
+        """Resume a paused job.
+        
+        Args:
+            job_id: Job identifier
+            
+        Returns:
+            True if resumed, False if job not found or not paused
+        """
+        with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                logger.warning(f"Job {job_id} not found")
+                return False
+            
+            if job_state.metadata.status != JobStatus.PAUSED:
+                logger.warning(f"Cannot resume job {job_id} in state {job_state.metadata.status}")
+                return False
+            
+            # Clear pause flag
+            self._pause_requested.pop(job_id, None)
+            
+            # Mark as pending and re-queue
+            job_state.metadata.status = JobStatus.PENDING
+            self._pending_jobs.add(job_id)
+        
+        # Save state
+        self.storage.save_job(job_state)
+        
+        # Re-queue for execution
+        self._job_queue.put(job_id)
+        
+        logger.info(f"Resumed job {job_id}")
+        return True
+    
+    def cancel_job(self, job_id: str) -> bool:
+        """Cancel a job.
+        
+        Args:
+            job_id: Job identifier
+            
+        Returns:
+            True if cancellation requested, False if job not found or already completed
+        """
+        with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                logger.warning(f"Job {job_id} not found")
+                return False
+            
+            if job_state.metadata.status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
+                logger.warning(f"Cannot cancel job {job_id} in state {job_state.metadata.status}")
+                return False
+            
+            if job_state.metadata.status == JobStatus.PENDING:
+                # Remove from queue if not started
+                self._pending_jobs.discard(job_id)
+                self._mark_job_cancelled(job_id)
+                return True
+            
+            self._cancel_requested[job_id] = True
+        
+        logger.info(f"Cancellation requested for job {job_id}")
+        return True
+    
+    def list_jobs(
+        self,
+        status: Optional[JobStatus] = None,
+        limit: Optional[int] = None
+    ) -> List[JobMetadata]:
+        """List jobs, optionally filtered by status.
+        
+        Args:
+            status: Optional status filter
+            limit: Optional limit on results
+            
+        Returns:
+            List of job metadata
+        """
+        return self.storage.list_jobs(status=status, limit=limit)
+    
+    def delete_job(self, job_id: str) -> bool:
+        """Delete a job from storage.
+        
+        Args:
+            job_id: Job identifier
+            
+        Returns:
+            True if deleted, False otherwise
+        """
+        with self._lock:
+            # Remove from memory
+            self._jobs.pop(job_id, None)
+            self._pending_jobs.discard(job_id)
+            self._pause_requested.pop(job_id, None)
+            self._cancel_requested.pop(job_id, None)
+        
+        # Delete from storage
+        return self.storage.delete_job(job_id)
+    
+    def get_engine_stats(self) -> Dict[str, Any]:
+        """Get engine statistics.
+        
+        Returns:
+            Dictionary with engine stats
+        """
+        with self._lock:
+            pending_count = len([
+                j for j in self._jobs.values()
+                if j.metadata.status == JobStatus.PENDING
+            ])
+            running_count = len([
+                j for j in self._jobs.values()
+                if j.metadata.status == JobStatus.RUNNING
+            ])
+            paused_count = len([
+                j for j in self._jobs.values()
+                if j.metadata.status == JobStatus.PAUSED
+            ])
+        
+        storage_stats = self.storage.get_storage_stats()
         
         return {
-            "batch_id": batch_group_id,
-            "found": True,
-            "total_jobs": len(batch_jobs),
-            "completed": sum(1 for j in batch_jobs if j.status == JobStatus.COMPLETED),
-            "failed": sum(1 for j in batch_jobs if j.status == JobStatus.FAILED),
-            "running": sum(1 for j in batch_jobs if j.status == JobStatus.RUNNING),
-            "paused": sum(1 for j in batch_jobs if j.status == JobStatus.PAUSED),
-            "cancelled": sum(1 for j in batch_jobs if j.status == JobStatus.CANCELLED),
-            "jobs": [j.to_dict() for j in batch_jobs]
+            'running': self._running,
+            'max_concurrent_jobs': self.max_concurrent_jobs,
+            'worker_threads': len(self._worker_threads),
+            'jobs_in_memory': len(self._jobs),
+            'pending_jobs': pending_count,
+            'running_jobs': running_count,
+            'paused_jobs': paused_count,
+            'queue_size': self._job_queue.qsize(),
+            'storage': storage_stats
         }

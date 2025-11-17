@@ -1,0 +1,103 @@
+# Validation Rules Configuration
+# Controls content quality checks and quality gate thresholds
+
+content_validation:
+  # Content length requirements
+  length:
+    min_words: 300
+    max_words: 3000
+    strict: false  # If true, fail on violation; if false, warn only
+  
+  # Keyword density checks
+  keyword_density:
+    min_density: 0.01  # 1% minimum
+    max_density: 0.05  # 5% maximum
+    target_density: 0.03  # 3% target
+    strict: true
+  
+  # Code syntax validation
+  code_syntax:
+    enabled: true
+    languages:
+      - python
+      - csharp
+      - java
+      - javascript
+    strict: true
+  
+  # Link validation
+  link_validation:
+    enabled: true
+    check_404: true
+    timeout: 5  # seconds
+    max_links_to_check: 50
+    strict: false  # Warn on broken links but don't fail
+  
+  # Frontmatter requirements
+  frontmatter:
+    required_fields:
+      - title
+      - description
+      - date
+      - author
+    optional_fields:
+      - tags
+      - categories
+      - image
+    strict: true
+  
+  # SEO requirements
+  seo:
+    title:
+      min_length: 30
+      max_length: 60
+      strict: true
+    description:
+      min_length: 120
+      max_length: 160
+      strict: true
+    keywords:
+      required: true
+      min_keywords: 3
+      max_keywords: 10
+      strict: false
+
+quality_gate:
+  # Quality gate thresholds
+  thresholds:
+    critical_failures: 0  # Max critical failures allowed
+    warnings: 5  # Max warnings allowed
+  
+  # Failure severity levels
+  severity_weights:
+    critical: 1.0
+    high: 0.75
+    medium: 0.5
+    low: 0.25
+  
+  # Check categories and their severity
+  check_severity:
+    content_length: medium
+    keyword_density: high
+    code_syntax: critical
+    link_validation: low
+    frontmatter: critical
+    seo_title: high
+    seo_description: high
+    seo_keywords: medium
+  
+  # Auto-fix options
+  auto_fix:
+    enabled: false  # Whether to attempt auto-fixes
+    max_attempts: 3  # Max auto-fix attempts
+    
+# Logging and reporting
+logging:
+  log_all_checks: true
+  log_passed_checks: false
+  log_level: INFO
+  
+reporting:
+  include_suggestions: true
+  include_examples: true
+  detailed_errors: true

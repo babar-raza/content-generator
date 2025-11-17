@@ -1,6 +1,7 @@
 """
 Ollama Model Router Service
 Intelligently routes tasks to the most appropriate Ollama model
+Integrates with ModelMapper for cross-provider model mapping
 """
 
 import subprocess

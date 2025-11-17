@@ -1,4 +1,28 @@
-"""Configuration Schemas - Authoritative validation rules"""
+"""DOCGEN:LLM-FIRST@v2
+
+Module overview
+- Purpose: Defines JSON schemas for validating configuration files in the application, ensuring structured and type-safe configuration data for agents, performance settings, tone controls, and main pipeline definitions.
+- Lifecycle: Imported by config.validator and other modules during configuration loading and validation processes.
+- Collaborators: config.validator.ConfigValidator, config.validator.load_validated_config
+- Key inputs: None (static schema definitions)
+- Key outputs: Dictionary representations of JSON schemas for validation
+
+Public API Catalog
+| Symbol | Kind | Defined in | Purpose | Inputs | Outputs | Raises | Notes |
+|-------:|:-----|:-----------|:--------|:-------|:--------|:-------|:------|
+| AGENT_SCHEMA | Constant | config.schemas | JSON schema for agent configuration validation | None | Dict[str, Any] | None | Validates agent metadata, capabilities, and resources |
+| PERF_SCHEMA | Constant | config.schemas | JSON schema for performance configuration validation | None | Dict[str, Any] | None | Defines validation rules for timeouts, limits, and batch settings |
+| TONE_SCHEMA | Constant | config.schemas | JSON schema for tone and voice configuration validation | None | Dict[str, Any] | None | Validates POV, formality, and personality settings |
+| MAIN_SCHEMA | Constant | config.schemas | JSON schema for main pipeline configuration validation | None | Dict[str, Any] | None | Validates pipeline steps, workflows, and dependencies |
+
+Design notes
+- Contracts & invariants: Schemas enforce required fields and type constraints as defined; no runtime invariants beyond JSON schema validation.
+- Error surface: No exceptions raised; validation errors occur in consuming modules.
+- Concurrency: No concurrency mechanisms; schemas are immutable constants.
+- I/O & performance: No I/O operations; schemas are in-memory dictionaries with negligible performance impact.
+- Configuration map: Maps configuration sections to structured validation rules (agents, performance, tone, main).
+- External deps: None (pure Python dictionaries)
+"""
 
 AGENT_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -99,3 +123,4 @@ MAIN_SCHEMA = {
         "dependencies": {"type": "object"}
     }
 }
+# DOCGEN:LLM-FIRST@v4

@@ -46,3 +46,4 @@ def slugify(text: str) -> str:
     text = text.strip('-')
     
     return text
+# DOCGEN:LLM-FIRST@v4

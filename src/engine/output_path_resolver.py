@@ -43,3 +43,4 @@ def resolve_output_path(
     else:
         # Non-blog: single file
         return output_dir / f"{slug}.md"
+# DOCGEN:LLM-FIRST@v4

@@ -185,3 +185,4 @@ class MCPComplianceAdapter:
         except Exception as e:
             logger.error(f"Failed to export contracts: {e}")
             return False
+# DOCGEN:LLM-FIRST@v4

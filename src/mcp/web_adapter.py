@@ -111,8 +111,22 @@ async def mcp_request(request: MCPRequest):
             result = await handle_workflow_reset(params)
         elif method == "agents/list":
             result = await handle_agents_list(params)
+        elif method == "agents/invoke":
+            result = await handle_agents_invoke(params)
         elif method == "agents/status":
             result = await handle_agents_status(params)
+        elif method == "ingest/kb":
+            result = await handle_ingest_kb_web(params)
+        elif method == "ingest/docs":
+            result = await handle_ingest_docs_web(params)
+        elif method == "ingest/api":
+            result = await handle_ingest_api_web(params)
+        elif method == "ingest/blog":
+            result = await handle_ingest_blog_web(params)
+        elif method == "ingest/tutorial":
+            result = await handle_ingest_tutorial_web(params)
+        elif method == "topics/discover":
+            result = await handle_topics_discover_web(params)
         elif method == "flows/realtime":
             result = await handle_flows_realtime(params)
         elif method == "flows/history":
@@ -325,7 +339,64 @@ async def handle_agents_list(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+async def handle_agents_invoke(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle agent invocation via MCP protocol.
+    
+    Delegates to the MCP handlers module for actual agent execution.
+    Ensures proper error handling and MCP protocol compliance.
+    """
+    from src.mcp.handlers import handle_agent_invoke
+    
+    # Delegate to MCP handler
+    result = await handle_agent_invoke(params)
+    return result
+
+
+async def handle_ingest_kb_web(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle KB ingestion via MCP protocol."""
+    from src.mcp.handlers import handle_ingest_kb
+    result = await handle_ingest_kb(params)
+    return result
+
+
+async def handle_ingest_docs_web(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle docs ingestion via MCP protocol."""
+    from src.mcp.handlers import handle_ingest_docs
+    result = await handle_ingest_docs(params)
+    return result
+
+
+async def handle_ingest_api_web(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle API docs ingestion via MCP protocol."""
+    from src.mcp.handlers import handle_ingest_api
+    result = await handle_ingest_api(params)
+    return result
+
+
+async def handle_ingest_blog_web(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle blog ingestion via MCP protocol."""
+    from src.mcp.handlers import handle_ingest_blog
+    result = await handle_ingest_blog(params)
+    return result
+
+
+async def handle_ingest_tutorial_web(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle tutorial ingestion via MCP protocol."""
+    from src.mcp.handlers import handle_ingest_tutorial
+    result = await handle_ingest_tutorial(params)
+    return result
+
+
+
 # Visualization handlers
+
+
+
+async def handle_topics_discover_web(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle topic discovery via MCP protocol."""
+    from src.mcp.handlers import handle_topics_discover
+    result = await handle_topics_discover(params)
+    return result
 
 async def handle_workflow_profiles(params: Dict[str, Any]) -> Dict[str, Any]:
     """Handle workflow profiles listing."""
@@ -931,3 +1002,243 @@ async def get_perf_config_rest():
         "tuning": config.perf_config.get('tuning', {})
     }
 
+# DOCGEN:LLM-FIRST@v4
+
+
+@router.get("/methods")
+async def list_mcp_methods():
+    """List all available MCP methods.
+    
+    Returns:
+        List of supported MCP methods with descriptions
+    """
+    return {
+        "methods": [
+            {
+                "name": "jobs/create",
+                "description": "Create a new job",
+                "params": {
+                    "workflow_name": "string (required)",
+                    "input_data": "object (required)",
+                    "params": "object (optional)",
+                    "blog_mode": "boolean (optional)",
+                    "title": "string (optional)"
+                }
+            },
+            {
+                "name": "jobs/list",
+                "description": "List all jobs",
+                "params": {}
+            },
+            {
+                "name": "jobs/get",
+                "description": "Get job details",
+                "params": {
+                    "job_id": "string (required)"
+                }
+            },
+            {
+                "name": "jobs/pause",
+                "description": "Pause a job",
+                "params": {
+                    "job_id": "string (required)"
+                }
+            },
+            {
+                "name": "jobs/resume",
+                "description": "Resume a paused job",
+                "params": {
+                    "job_id": "string (required)"
+                }
+            },
+            {
+                "name": "jobs/cancel",
+                "description": "Cancel a job",
+                "params": {
+                    "job_id": "string (required)"
+                }
+            },
+            {
+                "name": "workflows/list",
+                "description": "List all workflows",
+                "params": {}
+            },
+            {
+                "name": "workflows/visual",
+                "description": "Get workflow visualization",
+                "params": {
+                    "profile_name": "string (required)"
+                }
+            },
+            {
+                "name": "workflows/profiles",
+                "description": "List workflow profiles",
+                "params": {}
+            },
+            {
+                "name": "workflows/metrics",
+                "description": "Get workflow metrics",
+                "params": {
+                    "profile_name": "string (required)"
+                }
+            },
+            {
+                "name": "workflows/reset",
+                "description": "Reset workflow state",
+                "params": {
+                    "profile_name": "string (required)"
+                }
+            },
+            {
+                "name": "agents/list",
+                "description": "List all agents",
+                "params": {}
+            },
+            {
+                "name": "agents/status",
+                "description": "Get agent status",
+                "params": {}
+            },
+            {
+                "name": "ingest/kb",
+                "description": "Ingest KB articles",
+                "params": {
+                    "kb_path": "string (required)"
+                }
+            },
+            {
+                "name": "ingest/docs",
+                "description": "Ingest documentation",
+                "params": {
+                    "docs_path": "string (required)"
+                }
+            },
+            {
+                "name": "ingest/api",
+                "description": "Ingest API reference",
+                "params": {
+                    "api_path": "string (required)"
+                }
+            },
+            {
+                "name": "ingest/blog",
+                "description": "Ingest blog posts",
+                "params": {
+                    "blog_path": "string (required)"
+                }
+            },
+            {
+                "name": "ingest/tutorial",
+                "description": "Ingest tutorials",
+                "params": {
+                    "tutorial_path": "string (required)"
+                }
+            },
+            {
+                "name": "topics/discover",
+                "description": "Discover topics from directories",
+                "params": {
+                    "kb_path": "string (optional)",
+                    "docs_path": "string (optional)",
+                    "max_topics": "integer (optional, default: 50)"
+                }
+            },
+            {
+                "name": "flows/realtime",
+                "description": "Get realtime flows",
+                "params": {}
+            },
+            {
+                "name": "flows/history",
+                "description": "Get flow history",
+                "params": {
+                    "correlation_id": "string (required)"
+                }
+            },
+            {
+                "name": "flows/bottlenecks",
+                "description": "Detect bottlenecks",
+                "params": {}
+            },
+            {
+                "name": "debug/sessions/create",
+                "description": "Create debug session",
+                "params": {
+                    "correlation_id": "string (required)"
+                }
+            },
+            {
+                "name": "debug/sessions/get",
+                "description": "Get debug session",
+                "params": {
+                    "session_id": "string (required)"
+                }
+            },
+            {
+                "name": "debug/breakpoints/add",
+                "description": "Add breakpoint",
+                "params": {
+                    "session_id": "string (required)",
+                    "agent_id": "string (required)",
+                    "event_type": "string (required)",
+                    "condition": "string (optional)",
+                    "max_hits": "integer (optional)"
+                }
+            },
+            {
+                "name": "debug/breakpoints/remove",
+                "description": "Remove breakpoint",
+                "params": {
+                    "session_id": "string (required)",
+                    "breakpoint_id": "string (required)"
+                }
+            },
+            {
+                "name": "debug/step",
+                "description": "Step through debug session",
+                "params": {
+                    "session_id": "string (required)"
+                }
+            },
+            {
+                "name": "debug/continue",
+                "description": "Continue debug session",
+                "params": {
+                    "session_id": "string (required)"
+                }
+            },
+            {
+                "name": "debug/trace",
+                "description": "Get execution trace",
+                "params": {
+                    "workflow_id": "string (required)"
+                }
+            }
+        ]
+    }
+
+
+@router.get("/status")
+async def mcp_status():
+    """Check MCP adapter status.
+    
+    Returns:
+        Status information including executor and config availability
+    """
+    executor_status = _executor is not None
+    config_status = _config_snapshot is not None
+    
+    status = {
+        "status": "ready" if executor_status else "not_ready",
+        "executor_initialized": executor_status,
+        "config_initialized": config_status,
+        "endpoints_available": 31  # Updated count including /methods and /status
+    }
+    
+    if executor_status and hasattr(_executor, 'job_engine'):
+        status["job_engine_connected"] = _executor.job_engine is not None
+    
+    if config_status:
+        status["config_hash"] = _config_snapshot.config_hash[:8] if hasattr(_config_snapshot, 'config_hash') else 'unknown'
+    
+    return status

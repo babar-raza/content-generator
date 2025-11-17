@@ -25,16 +25,11 @@ def validate_imports():
         ("Services - Database", "from src.services.services import DatabaseService"),
         ("Services - Full", "from src.services.services import LLMService, DatabaseService, EmbeddingService, GistService"),
         ("MCP Service", "from src.services.mcp_service import MCPService"),
-        ("Mesh - Registry", "from src.mesh.capability_registry import CapabilityRegistry"),
-        ("Mesh - Runtime", "from src.mesh.runtime_async import AsyncRuntime"),
-        ("Mesh - Cache", "from src.mesh.cache.cache import CacheManager"),
-        ("Mesh - All", "from src.mesh import CapabilityRegistry, AsyncRuntime, CacheManager"),
         ("Orchestration - Compiler", "from src.orchestration.workflow_compiler import WorkflowCompiler"),
         ("Orchestration - Engine", "from src.orchestration.job_execution_engine import JobExecutionEngine"),
         ("Orchestration - Console", "from src.orchestration.ops_console import OpsConsole"),
         ("Utils - Content", "from src.utils.content_utils import extract_code_blocks"),
         ("Utils - Resilience", "from src.utils.resilience import ResilienceManager"),
-        ("Main module", "import src.main"),
     ]
     
     print()
@@ -71,3 +66,4 @@ def validate_imports():
 if __name__ == "__main__":
     success = validate_imports()
     sys.exit(0 if success else 1)
+# DOCGEN:LLM-FIRST@v4

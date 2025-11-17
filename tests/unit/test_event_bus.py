@@ -104,7 +104,7 @@ class TestEventBus:
         self.bus.unsubscribe("test_event", handler2)
 
         # Publish event - only handler1 should be called
-        event = AgentEvent(event_type="test_event", agent_id="test_agent")
+        event = AgentEvent(event_type="test_event", source_agent="test_agent", correlation_id="test-corr", data={})
         self.bus.publish(event)
 
         handler1.assert_called_once_with(event)
@@ -120,7 +120,7 @@ class TestEventBus:
         self.bus.subscribe("event_b", handler2)
 
         # Publish to event_a
-        event_a = AgentEvent(event_type="event_a", agent_id="agent1")
+        event_a = AgentEvent(event_type="event_a", source_agent="agent1", correlation_id="corr-a", data={})
         self.bus.publish(event_a)
 
         # Only handler1 should be called
@@ -128,7 +128,7 @@ class TestEventBus:
         handler2.assert_not_called()
 
         # Publish to event_b
-        event_b = AgentEvent(event_type="event_b", agent_id="agent2")
+        event_b = AgentEvent(event_type="event_b", source_agent="agent2", correlation_id="corr-b", data={})
         self.bus.publish(event_b)
 
         # Now handler2 should be called too
@@ -139,7 +139,8 @@ class TestEventBus:
         """Test publishing to event with no subscribers doesn't error."""
         event = AgentEvent(
             event_type="no_subscribers",
-            agent_id="test_agent",
+            source_agent="test_agent",
+            correlation_id="test-corr",
             data={"test": "data"}
         )
 
@@ -158,7 +159,7 @@ class TestEventBus:
         self.bus.subscribe("test_event", handler3)
 
         # Publish event
-        event = AgentEvent(event_type="test_event", agent_id="test_agent")
+        event = AgentEvent(event_type="test_event", source_agent="test_agent", correlation_id="test-corr", data={})
         self.bus.publish(event)
 
         # All handlers should be called despite handler1's exception
@@ -169,9 +170,9 @@ class TestEventBus:
     def test_event_history(self):
         """Test event history tracking."""
         # Create and publish events
-        event1 = AgentEvent(event_type="event1", agent_id="agent1")
-        event2 = AgentEvent(event_type="event2", agent_id="agent2")
-        event3 = AgentEvent(event_type="event1", agent_id="agent3")
+        event1 = AgentEvent(event_type="event1", source_agent="agent1", correlation_id="corr-1", data={})
+        event2 = AgentEvent(event_type="event2", source_agent="agent2", correlation_id="corr-2", data={})
+        event3 = AgentEvent(event_type="event1", source_agent="agent3", correlation_id="corr-3", data={})
 
         self.bus.publish(event1)
         self.bus.publish(event2)
@@ -197,7 +198,7 @@ class TestEventBus:
 
         # Publish 3 events
         for i in range(3):
-            event = AgentEvent(event_type=f"event{i}", agent_id=f"agent{i}")
+            event = AgentEvent(event_type=f"event{i}", source_agent=f"agent{i}", correlation_id=f"corr-{i}", data={})
             self.bus.publish(event)
 
         # Should only keep last 2
@@ -209,7 +210,7 @@ class TestEventBus:
     def test_clear_history(self):
         """Test clearing event history."""
         # Add some events
-        self.bus.publish(AgentEvent(event_type="test", agent_id="agent"))
+        self.bus.publish(AgentEvent(event_type="test", source_agent="agent", correlation_id="corr-test", data={}))
         assert len(self.bus.get_history()) == 1
 
         # Clear history
@@ -249,7 +250,7 @@ class TestEventBus:
 
         def publish_event(event_type, event_id):
             try:
-                event = AgentEvent(event_type=event_type, agent_id=f"agent_{event_id}")
+                event = AgentEvent(event_type=event_type, source_agent=f"agent_{event_id}", correlation_id=f"corr-{event_id}", data={})
                 self.bus.publish(event)
                 results.append(f"published_{event_id}")
             except Exception as e:

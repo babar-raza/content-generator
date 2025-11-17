@@ -23,3 +23,4 @@ __all__ = [
     'MCPComplianceAdapter',
     'ConfigAwareMCPExecutor'
 ]
+# DOCGEN:LLM-FIRST@v4

@@ -7,3 +7,4 @@ __all__ = [
     'get_ws_manager', 'EventType', 'CommandType', 'WebSocketManager',
     'JobController', 'get_controller'
 ]
+# DOCGEN:LLM-FIRST@v4

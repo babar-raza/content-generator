@@ -1,4 +1,19 @@
-"""JSON Repair Utility - Fixes common JSON parsing errors from LLM responses"""
+"""JSON Repair Utility - Fixes common JSON parsing errors from LLM responses
+
+This module repairs malformed JSON from LLM outputs by handling:
+- Trailing commas
+- Unquoted keys
+- Single quotes instead of double quotes
+- Missing brackets/braces
+- Unterminated strings
+
+Example:
+    >>> from json_repair import JSONRepair, safe_json_loads
+    >>> malformed = "{'key': 'value', trailing: 'comma',}"
+    >>> result = JSONRepair.repair(malformed)
+    >>> print(result)
+    {'key': 'value', 'trailing': 'comma'}
+"""
 
 import json
 import re
@@ -25,6 +40,16 @@ class JSONRepair:
             
         Raises:
             json.JSONDecodeError: If all repair attempts fail
+            
+        Example:
+            >>> JSONRepair.repair('{"key": "value",}')
+            {'key': 'value'}
+            
+            >>> JSONRepair.repair("{'key': 'value'}")
+            {'key': 'value'}
+            
+            >>> JSONRepair.repair('{key: "value"}')
+            {'key': 'value'}
         """
         if not json_str:
             return {}
@@ -55,9 +80,9 @@ class JSONRepair:
                         result = JSONRepair._aggressive_repair(json_str)
                         logger.info("JSON repaired using aggressive method")
                         return result
-                    except:
+                    except (json.JSONDecodeError, ValueError, KeyError) as final_error:
                         # Return a safe default
-                        logger.warning("All repair attempts failed, returning default")
+                        logger.warning(f"All repair attempts failed: {final_error}, returning default")
                         return JSONRepair._safe_default(json_str)
         
         return {}
@@ -87,6 +112,12 @@ class JSONRepair:
                     json_str = json_str[first_brace:]
                 else:
                     json_str = json_str[min(first_brace, first_bracket):]
+            
+            # Convert single quotes to double quotes (but not inside strings)
+            json_str = JSONRepair._fix_quotes(json_str)
+            
+            # Fix unquoted keys
+            json_str = JSONRepair._fix_unquoted_keys(json_str)
         
         # Level 1: Fix common syntax errors
         if level >= 1:
@@ -106,6 +137,56 @@ class JSONRepair:
         if level >= 2:
             json_str = JSONRepair._balance_brackets(json_str)
         
+        return json_str
+    
+    @staticmethod
+    def _fix_quotes(json_str: str) -> str:
+        """Convert single quotes to double quotes while preserving escaped quotes."""
+        # Replace single quotes with double quotes, but not escaped ones
+        # This is a simple approach - more sophisticated parsing would be needed for edge cases
+        result = []
+        in_string = False
+        escape_next = False
+        quote_char = None
+        
+        for i, char in enumerate(json_str):
+            if escape_next:
+                result.append(char)
+                escape_next = False
+                continue
+            
+            if char == '\\':
+                result.append(char)
+                escape_next = True
+                continue
+            
+            if char in ('"', "'"):
+                if not in_string:
+                    # Starting a string
+                    in_string = True
+                    quote_char = char
+                    result.append('"')  # Always use double quotes
+                elif char == quote_char:
+                    # Ending a string
+                    in_string = False
+                    quote_char = None
+                    result.append('"')
+                else:
+                    # Quote of different type inside string - keep as is
+                    result.append(char)
+            else:
+                result.append(char)
+        
+        return ''.join(result)
+    
+    @staticmethod
+    def _fix_unquoted_keys(json_str: str) -> str:
+        """Add quotes around unquoted keys in objects."""
+        # Match unquoted keys before colons
+        # Pattern: word characters at the start of a key position
+        # This handles: {key: "value"} -> {"key": "value"}
+        pattern = r'([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:'
+        json_str = re.sub(pattern, r'\1"\2":', json_str)
         return json_str
     
     @staticmethod
@@ -170,7 +251,7 @@ class JSONRepair:
                     cleaned = match.strip()
                     cleaned = re.sub(r',\s*[}\]]', lambda m: m.group(0)[1:], cleaned)
                     return json.loads(cleaned)
-                except:
+                except (json.JSONDecodeError, ValueError):
                     continue
         
         # Try to build a valid structure from key-value pairs
@@ -193,7 +274,7 @@ class JSONRepair:
         for key, value in matches:
             try:
                 result[key] = float(value) if '.' in value else int(value)
-            except:
+            except (ValueError, TypeError):
                 result[key] = value
         
         # Look for "key": boolean patterns
@@ -215,7 +296,7 @@ class JSONRepair:
                 # Try to parse the array
                 array_str = f'[{value}]'
                 result[key] = json.loads(array_str)
-            except:
+            except (json.JSONDecodeError, ValueError):
                 # Split by comma and clean
                 items = [item.strip().strip('"') for item in value.split(',') if item.strip()]
                 result[key] = items
@@ -267,6 +348,13 @@ def safe_json_loads(json_str: str, default: Optional[Any] = None) -> Any:
         
     Returns:
         Parsed JSON or default value
+        
+    Example:
+        >>> safe_json_loads('{"key": "value"}')
+        {'key': 'value'}
+        
+        >>> safe_json_loads('invalid json', default={'fallback': True})
+        {'fallback': True}
     """
     try:
         return JSONRepair.repair(json_str)

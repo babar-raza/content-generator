@@ -23,3 +23,4 @@ class APIValidationError(EngineError):
 class ContextMergeError(EngineError):
     """Context merging failed."""
     pass
+# DOCGEN:LLM-FIRST@v4

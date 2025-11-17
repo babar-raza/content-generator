@@ -328,6 +328,50 @@ def load_schemas(config: Config):
         SCHEMAS = {}
 
 
+def load_config(config_file: Optional[str] = None) -> Config:
+    """Load configuration from environment and optional config file.
+
+    Args:
+        config_file: Optional path to config file (e.g., 'config/main.yaml').
+
+    Returns:
+        Config instance with loaded settings.
+
+    Raises:
+        None.
+
+    Preconditions:
+        None.
+
+    Postconditions:
+        Config instance initialized and loaded from environment.
+
+    Side Effects:
+        SCHEMAS may be loaded if agents.yaml exists.
+
+    I/O schema:
+        - Input shape: config_file (str, optional).
+        - Output shape: Config.
+
+    Concurrency & performance:
+        - Thread-safe: No shared state.
+        - Performance: Environment variable access and optional file reads.
+
+    Configuration:
+        - Environment variables for config.
+        - config_file for config directory override.
+
+    External interactions:
+        - File system reads for schemas.
+    """
+    config = Config()
+    if config_file:
+        config.config_dir = Path(config_file).parent
+    config.load_from_env()
+    load_schemas(config)
+    return config
+
+
 # ============================================================================
 # CONSTANTS (from v5_1)
 # ============================================================================
@@ -359,5 +403,6 @@ FAILURE_STRATEGIES = {
 
 __all__ = [
     'Config', 'LLMConfig', 'DatabaseConfig', 'MeshConfig', 'OrchestrationConfig',
-    'SCHEMAS', 'load_schemas', 'PROMPTS', 'CSHARP_LICENSE_HEADER', 'FAILURE_STRATEGIES'
+    'SCHEMAS', 'load_schemas', 'load_config', 'PROMPTS', 'CSHARP_LICENSE_HEADER', 'FAILURE_STRATEGIES'
 ]
+# DOCGEN:LLM-FIRST@v4

@@ -1,0 +1,152 @@
+UCOP Web API Runbook - Visualization Features
+==============================================
+
+Quick Start
+-----------
+1. Start web server:
+   python start_web.py
+
+2. Verify server is running:
+   curl http://127.0.0.1:8000/health
+
+3. Access API documentation:
+   http://127.0.0.1:8000/docs
+
+
+Verification Commands
+--------------------
+
+1. List available workflows:
+   curl http://127.0.0.1:8000/api/visualization/workflows
+
+   Expected: JSON with list of workflows
+
+2. Get workflow graph:
+   curl http://127.0.0.1:8000/api/visualization/workflows/fast-draft
+
+   Expected: JSON with nodes and edges
+
+3. Get agent metrics:
+   curl http://127.0.0.1:8000/api/monitoring/agents
+
+   Expected: JSON with agent metrics (empty list if no agents active)
+
+4. Get system metrics:
+   curl http://127.0.0.1:8000/api/monitoring/system
+
+   Expected: JSON with CPU, memory, uptime
+
+5. Create debug breakpoint:
+   curl -X POST http://127.0.0.1:8000/api/debug/breakpoints \
+     -H "Content-Type: application/json" \
+     -d '{"agent_id": "test", "event_type": "start", "correlation_id": "test"}'
+
+   Expected: JSON with breakpoint_id and session_id
+
+6. List breakpoints:
+   curl http://127.0.0.1:8000/api/debug/breakpoints
+
+   Expected: JSON with list of breakpoints
+
+7. Test WebSocket monitoring:
+   wscat -c ws://127.0.0.1:8000/ws/monitoring
+   (or use browser console WebSocket)
+
+   Expected: Connection message, then pong responses to ping
+
+
+Run Tests
+---------
+pytest tests/web/test_visualization_api.py -v
+
+Expected: All tests pass
+
+
+Troubleshooting
+--------------
+
+Note: React UI source in src/web/static/src/. Backend provides MCP endpoints listed below.
+
+Issue: 404 on visualization endpoints
+Solution: Ensure routes are properly included in app.py
+
+Issue: 503 Service Unavailable
+Solution: Check executor is initialized in start_web.py
+
+Issue: Workflow not found
+Solution: Verify templates/workflows.yaml exists with valid workflows
+
+Issue: WebSocket connection fails
+Solution: Check firewall/CORS settings, verify port 8000 is open
+
+Issue: Agent metrics empty
+Solution: Normal if no agents have executed yet. Run a job first.
+
+
+Architecture Notes
+-----------------
+
+Visualization Routes:
+- src/web/routes/visualization.py - Workflow viz and monitoring
+- src/web/routes/debug.py - Debugging and breakpoints
+
+Models:
+- src/web/models.py - Pydantic models for all endpoints
+
+Visualization Modules:
+- src/visualization/workflow_visualizer.py - Graph generation
+- src/visualization/agent_flow_monitor.py - Flow tracking
+- src/visualization/monitor.py - System monitoring
+- src/visualization/workflow_debugger.py - Debugging features
+
+Integration Points:
+- WebSocket: connection_manager.py for real-time updates
+- Executor: Injected via app.create_app(executor, config)
+- Workflows: Loaded from templates/workflows.yaml
+
+
+File Changes
+-----------
+NEW: src/web/routes/visualization.py
+NEW: src/web/routes/debug.py
+NEW: tests/web/test_visualization_api.py
+NEW: docs/api/VISUALIZATION_API.md
+
+MODIFIED: src/web/app.py (added router includes)
+MODIFIED: src/web/models.py (added visualization models)
+MODIFIED: src/visualization/agent_flow_monitor.py (added get_flow_monitor)
+
+
+End-to-End Test
+--------------
+1. Start server:
+   python start_web.py
+
+2. In another terminal, run:
+   # List workflows
+   curl http://127.0.0.1:8000/api/visualization/workflows
+   
+   # Get first workflow (usually 'fast-draft')
+   curl http://127.0.0.1:8000/api/visualization/workflows/fast-draft
+   
+   # Check system metrics
+   curl http://127.0.0.1:8000/api/monitoring/system
+   
+   # Create breakpoint
+   curl -X POST http://127.0.0.1:8000/api/debug/breakpoints \
+     -H "Content-Type: application/json" \
+     -d '{"agent_id":"test","event_type":"start","correlation_id":"test"}'
+   
+   # List breakpoints
+   curl http://127.0.0.1:8000/api/debug/breakpoints
+
+3. All commands should return valid JSON with status 200
+
+
+Maintenance
+----------
+- Breakpoint data is in-memory only (resets on restart)
+- Agent metrics accumulate in memory (no persistence)
+- System metrics are real-time snapshots
+- WebSocket connections auto-cleanup on disconnect
+- Workflows loaded from templates/ directory at startup

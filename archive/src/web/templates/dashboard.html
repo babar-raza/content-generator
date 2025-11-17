@@ -1,0 +1,222 @@
+<!-- ARCHIVED: 2025-11-13 | Reason: React UI is primary interface | Replacement: React components in src/web/static/src/ | Historical: Jinja2 templates for server-side rendering -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UCOP Dashboard</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 UCOP Dashboard</h1>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-dot healthy"></div>
+                    <span>System Running</span>
+                </div>
+                <div class="status-item">
+                    <span id="agent-count">Agents: 0</span>
+                </div>
+                <div class="status-item">
+                    <span id="job-count">Jobs: 0</span>
+                </div>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab active" data-tab="jobs">Jobs</button>
+            <button class="tab" data-tab="agents">Agents</button>
+            <button class="tab" data-tab="workflows">Workflows</button>
+        </nav>
+
+        <!-- Jobs Tab -->
+        <div id="jobs-tab" class="tab-content active">
+            <div class="section">
+                <div class="section-header">
+                    <h2>📋 Active Jobs</h2>
+                    <button class="btn btn-primary" onclick="startNewJob()">+ New Job</button>
+                </div>
+                <table class="jobs-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Topic</th>
+                            <th>Status</th>
+                            <th>Progress</th>
+                            <th>Started</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobs-list">
+                        <tr>
+                            <td colspan="6" class="no-data">No jobs running. Click "New Job" to start.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Agents Tab -->
+        <div id="agents-tab" class="tab-content">
+            <div class="section">
+                <h2>🤖 Registered Agents</h2>
+                <div class="agents-grid" id="agents-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Workflows Tab -->
+        <div id="workflows-tab" class="tab-content">
+            <div class="section">
+                <h2>📊 Workflows</h2>
+                <div id="workflows-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Job Modal -->
+    <div id="new-job-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <h2>Start New Job</h2>
+            <form id="new-job-form">
+                <!-- Template Selection - Full Width -->
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Template: *</label>
+                    <select id="job-template" required style="width: 100%;">
+                        <option value="">Select template...</option>
+                        <optgroup label="Blog Templates">
+                            <option value="blog_default">Blog - Default</option>
+                            <option value="blog_tutorial">Blog - Tutorial</option>
+                            <option value="blog_quickstart">Blog - Quick Start</option>
+                            <option value="blog_technical">Blog - Technical Deep Dive</option>
+                        </optgroup>
+                        <optgroup label="Code Templates">
+                            <option value="code_api">Code - API Documentation</option>
+                            <option value="code_example">Code - Example</option>
+                            <option value="code_library">Code - Library Guide</option>
+                        </optgroup>
+                        <optgroup label="KB Templates">
+                            <option value="kb_howto">KB - How-To Article</option>
+                            <option value="kb_tutorial">KB - Tutorial</option>
+                            <option value="kb_quickstart">KB - Quick Start</option>
+                        </optgroup>
+                        <optgroup label="Docs Templates">
+                            <option value="docs_api">Docs - API Reference</option>
+                            <option value="docs_guide">Docs - Guide</option>
+                            <option value="docs_reference">Docs - Reference</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <!-- Topic Input - Full Width -->
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Topic:</label>
+                    <input type="text" id="job-topic" placeholder="e.g., Python asyncio patterns" style="width: 100%;">
+                    <div class="checkbox-group" style="margin-top: 8px;">
+                        <input type="checkbox" id="job-auto-topic">
+                        <label for="job-auto-topic" style="display: inline; margin-left: 4px; font-weight: normal;">Auto-derive topic from context</label>
+                    </div>
+                </div>
+
+                <!-- Context Sources - 2 Column Layout -->
+                <fieldset class="form-group" style="border: 1px solid #ddd; padding: 16px; margin-bottom: 20px;">
+                    <legend style="font-weight: bold; padding: 0 8px;">Context Sources (optional)</legend>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <!-- Left Column -->
+                        <div>
+                            <div class="form-group" style="margin-bottom: 12px;">
+                                <label style="display: block; margin-bottom: 4px;">Knowledge Base:</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="job-kb-path" placeholder="Path or upload files" style="flex: 1;">
+                                    <input type="file" id="job-kb-files" multiple accept=".md,.txt,.json" style="display: none;">
+                                    <button type="button" class="btn btn-sm" onclick="document.getElementById('job-kb-files').click()" style="white-space: nowrap;">Upload</button>
+                                    <button type="button" class="btn btn-sm browse-btn" data-target="job-kb-path" style="white-space: nowrap;">Browse</button>
+                                </div>
+                                <div id="kb-files-list" class="file-chips"></div>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 12px;">
+                                <label style="display: block; margin-bottom: 4px;">Documentation:</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="job-docs-path" placeholder="Path or upload files" style="flex: 1;">
+                                    <input type="file" id="job-docs-files" multiple accept=".md,.txt,.json" style="display: none;">
+                                    <button type="button" class="btn btn-sm" onclick="document.getElementById('job-docs-files').click()" style="white-space: nowrap;">Upload</button>
+                                    <button type="button" class="btn btn-sm browse-btn" data-target="job-docs-path" style="white-space: nowrap;">Browse</button>
+                                </div>
+                                <div id="docs-files-list" class="file-chips"></div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 4px;">Blog Posts:</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="job-blog-path" placeholder="Path or upload files" style="flex: 1;">
+                                    <input type="file" id="job-blog-files" multiple accept=".md,.txt" style="display: none;">
+                                    <button type="button" class="btn btn-sm" onclick="document.getElementById('job-blog-files').click()" style="white-space: nowrap;">Upload</button>
+                                    <button type="button" class="btn btn-sm browse-btn" data-target="job-blog-path" style="white-space: nowrap;">Browse</button>
+                                </div>
+                                <div id="blog-files-list" class="file-chips"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column -->
+                        <div>
+                            <div class="form-group" style="margin-bottom: 12px;">
+                                <label style="display: block; margin-bottom: 4px;">API Reference:</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="job-api-path" placeholder="Path or upload files" style="flex: 1;">
+                                    <input type="file" id="job-api-files" multiple accept=".md,.txt,.json" style="display: none;">
+                                    <button type="button" class="btn btn-sm" onclick="document.getElementById('job-api-files').click()" style="white-space: nowrap;">Upload</button>
+                                    <button type="button" class="btn btn-sm browse-btn" data-target="job-api-path" style="white-space: nowrap;">Browse</button>
+                                </div>
+                                <div id="api-files-list" class="file-chips"></div>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 12px;">
+                                <label style="display: block; margin-bottom: 4px;">Tutorials:</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="job-tutorial-path" placeholder="Path or upload files" style="flex: 1;">
+                                    <input type="file" id="job-tutorial-files" multiple accept=".md,.txt" style="display: none;">
+                                    <button type="button" class="btn btn-sm" onclick="document.getElementById('job-tutorial-files').click()" style="white-space: nowrap;">Upload</button>
+                                    <button type="button" class="btn btn-sm browse-btn" data-target="job-tutorial-path" style="white-space: nowrap;">Browse</button>
+                                </div>
+                                <div id="tutorial-files-list" class="file-chips"></div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 4px;">Output Directory:</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="job-output-dir" value="./output" required style="flex: 1;">
+                                    <button type="button" class="btn btn-sm browse-btn" data-target="job-output-dir" style="white-space: nowrap;">Browse</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Workflow - Full Width -->
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Workflow:</label>
+                    <select id="job-workflow" style="width: 100%;">
+                        <option value="blog_generation_fast-draft">Fast Draft (No Code)</option>
+                        <option value="blog_generation_full">Full Pipeline (With Code)</option>
+                    </select>
+                </div>
+
+                <!-- Actions -->
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Start Job</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

@@ -106,3 +106,4 @@ def check_ollama_health():
 
 if __name__ == "__main__":
     check_ollama_health()
+# DOCGEN:LLM-FIRST@v4

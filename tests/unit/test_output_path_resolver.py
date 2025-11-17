@@ -47,3 +47,4 @@ class TestOutputPathResolver:
         """Test custom output directory."""
         path = resolve_output_path("blog", "test", Path("/custom/output"))
         assert path == Path("/custom/output/test/index.md")
+# DOCGEN:LLM-FIRST@v4

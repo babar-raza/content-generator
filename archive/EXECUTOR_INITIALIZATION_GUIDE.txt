@@ -1,0 +1,102 @@
+"""
+Executor Initialization Diagnostic Guide
+=========================================
+
+PROBLEM: The server logs show "503: Executor not initialized"
+This means create_app() is being called without an executor.
+
+DIAGNOSIS:
+----------
+Your start_web.py is likely calling:
+    app = create_app()  # ← NO executor passed
+
+Instead of:
+    app = create_app(executor=executor, config_snapshot=config)
+
+
+SOLUTION OPTIONS:
+-----------------
+
+Option 1: Run without executor (UI-only mode)
+----------------------------------------------
+If you only need the React UI and config endpoints to work, the current
+setup is OK. The executor is only needed for actual job execution.
+
+Config endpoints will return "unavailable" status which is expected.
+✓ React UI will load
+✓ Config endpoints are accessible
+✗ Cannot create or run jobs
+
+
+Option 2: Initialize a mock executor for testing
+-------------------------------------------------
+Add this to your start_web.py before create_app():
+
+    from unittest.mock import Mock
+    
+    # Create mock executor for testing
+    mock_executor = Mock()
+    mock_executor.job_engine = Mock()
+    mock_executor.job_engine._jobs = {}
+    
+    app = create_app(executor=mock_executor, config_snapshot=None)
+
+✓ All endpoints work
+✓ No 503 errors
+✗ Jobs won't actually execute (mock only)
+
+
+Option 3: Use real executor (full functionality)
+-------------------------------------------------
+If you have an actual executor setup, pass it to create_app():
+
+    from src.engine.executor import UnifiedExecutor  # or your executor
+    from src.config.loader import load_config_snapshot
+    
+    # Load configuration
+    config_snapshot = load_config_snapshot()
+    
+    # Create executor
+    executor = UnifiedExecutor(config_snapshot)
+    
+    # Create app with real executor
+    app = create_app(executor=executor, config_snapshot=config_snapshot)
+
+✓ Full functionality
+✓ Jobs can be created and executed
+✓ Config endpoints return real data
+
+
+VERIFICATION:
+-------------
+After making changes, test with the fixed script:
+
+    python verify_config_endpoints_fixed.py
+
+The script will:
+1. Auto-detect localhost/127.0.0.1 (Windows compatible)
+2. Check MCP adapter status
+3. Show executor/config initialization status
+4. Test all 5 config endpoints
+
+
+EXPECTED RESULTS:
+-----------------
+
+With NO executor:
+    ✓ Config endpoints accessible (return 503 or "unavailable")
+    ✗ Job operations fail with 503
+
+With MOCK executor:
+    ✓ All endpoints return 200
+    ✓ Config endpoints return "unavailable" (no config)
+    ✓ Job endpoints work but jobs don't execute
+
+With REAL executor + config:
+    ✓ All endpoints return 200
+    ✓ Config endpoints return actual config data
+    ✓ Full job execution works
+"""
+
+if __name__ == "__main__":
+    print(__doc__)

@@ -101,6 +101,7 @@ class TestConfigPrecedence:
         os.environ['FORCE_DEVICE'] = 'cpu'
 
         config = Config()
+        config.load_from_env()
         assert config.device == "cpu"  # Should be overridden by env var
 
     def test_family_detection_from_path(self):
@@ -200,3 +201,4 @@ class TestConfigPrecedence:
         orch_config = OrchestrationConfig()
         assert orch_config.enabled == False
         assert orch_config.ops_console_port == 8080
+# DOCGEN:LLM-FIRST@v4

@@ -293,3 +293,4 @@ def get_quality_check_config(tone_config: Dict[str, Any]) -> Dict[str, Any]:
         return {}
 
     return tone_config.get('quality_checks', {})
+# DOCGEN:LLM-FIRST@v4

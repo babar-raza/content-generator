@@ -25,6 +25,39 @@ pipeline:
 
 # Pipeline variants for different workflows
 workflows:
+<<<<<<< Updated upstream
+=======
+  # Enable LangGraph-based execution (experimental)
+  # Set to true to use graph-based execution with automatic checkpointing
+  # Set to false to use traditional sequential execution
+  use_langgraph: false
+  
+  # Enable mesh orchestration mode (experimental)
+  # Set to true to use dynamic agent-to-agent routing
+  # Set to false to use predefined workflows
+  use_mesh: false
+  
+  # Enable parallel execution for independent agents
+  # Set to true to execute parallelizable agents concurrently
+  enable_parallel_execution: false
+  
+  # Maximum number of agents that can run in parallel
+  # Higher values use more CPU/memory but can reduce total execution time
+  # Recommended: 3-5 for most systems, 5-10 for high-end systems
+  max_parallel_agents: 5
+
+# Mesh orchestration configuration
+mesh:
+  enabled: false
+  max_hops: 10
+  routing_timeout_seconds: 5
+  discovery_method: "capability"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 3
+    timeout_seconds: 60
+  
+>>>>>>> Stashed changes
   default:
     name: "Full Blog Post Generation"
     steps:

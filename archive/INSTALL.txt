@@ -1,0 +1,40 @@
+TASK-P0-002: Add Ingestion MCP Methods
+=======================================
+
+INSTALLATION:
+1. Backup your current files:
+   cp src/mcp/handlers.py src/mcp/handlers.py.backup
+   cp src/mcp/web_adapter.py src/mcp/web_adapter.py.backup
+
+2. Copy updated files:
+   cp task_p0_002/src/mcp/handlers.py src/mcp/
+   cp task_p0_002/src/mcp/web_adapter.py src/mcp/
+   cp task_p0_002/tests/integration/test_ingestion_mcp.py tests/integration/
+
+3. Verify installation:
+   python -m py_compile src/mcp/handlers.py
+   python -m py_compile src/mcp/web_adapter.py
+   python -m py_compile tests/integration/test_ingestion_mcp.py
+
+4. Test:
+   python start_web.py
+   # In another terminal:
+   curl -X POST http://127.0.0.1:8080/mcp/request \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","id":"test","method":"ingest/kb","params":{"kb_path":"/tmp/test"}}'
+
+See RUNBOOK_P0_002.md for complete verification steps.
+
+CHANGES:
+- Added 5 ingestion handlers to handlers.py
+- Added 5 ingestion routes to handlers.py
+- Added 5 web handlers to web_adapter.py  
+- Added 5 web routes to web_adapter.py
+- Created comprehensive test suite (515 lines)
+
+METHODS ADDED:
+- ingest/kb (KB articles)
+- ingest/docs (Documentation)
+- ingest/api (API reference)
+- ingest/blog (Blog posts)
+- ingest/tutorial (Tutorials)

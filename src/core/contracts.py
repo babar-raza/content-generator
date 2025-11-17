@@ -1,6 +1,47 @@
 """Unified Contract System
 
+<<<<<<< Updated upstream
 Combines contracts from v5_1 (base), v5_2 (mesh enhancements), and v-ucop (full schemas).
+=======
+Module overview
+- Purpose: Defines unified contract system for agent communication, capabilities, and mesh interactions across the content generator system.
+- Lifecycle: Imported during system startup to establish communication protocols.
+- Collaborators: Used by src.core.event_bus, src.core.agent_base, src.mesh.negotiation, and orchestration modules.
+- Key inputs: None (static definitions).
+- Key outputs: Contract classes and enums for event handling, agent capabilities, bidding, and negotiation.
+
+Public API Catalog
+| Symbol | Kind | Defined in | Purpose | Inputs | Outputs | Raises | Notes |
+|-------:|:-----|:-----------|:--------|:-------|:--------|:-------|:------|
+| AgentEvent | class | contracts | Event for agent communication | event_type: str, data: Dict[str, Any], source_agent: str, correlation_id: str, timestamp: str, metadata: Dict[str, Any] | AgentEvent instance | None | Serializable via to_dict/from_dict |
+| AgentContract | class | contracts | Contract defining agent capabilities and schemas | agent_id: str, capabilities: List[str], input_schema: Dict[str, Any], output_schema: Dict[str, Any], publishes: List[str], resource_profile: str, version: str | AgentContract instance | None | Defines agent interfaces |
+| DataContract | class | contracts | Contract for data validation and extraction | input_schema: Dict[str, Any], output_schema: Dict[str, Any] | Dict[str, Any] | None | Thread-safe with threading.Lock |
+| CapabilitySpec | class | contracts | Rich metadata for agent capabilities | name: str, input_requirements: List[str], output_guarantees: List[str], preconditions: Optional[Callable], cost_estimate: float, max_concurrency: int, confidence_threshold: float, retry_policy: Dict[str, Any] | CapabilitySpec instance | Exception | Evaluates preconditions; raises in evaluate_preconditions |
+| Bid | class | contracts | Bid for capability execution | agent_id: str, capability: str, correlation_id: str, estimated_time: float, confidence: float, priority: int, current_load: int, max_capacity: int, health_score: float, success_rate: float, additional_info: Dict[str, Any], timestamp: datetime | Bid instance | None | Has score property (weighted calculation) |
+| WorkSpec | class | contracts | Specification for work to be done | work_id: str, capability: str, correlation_id: str, input_data: Dict[str, Any], timeout: float, max_retries: int, priority: int, metadata: Dict[str, Any] | WorkSpec instance | None | Defines work requirements |
+| BidResult | class | contracts | Result of bidding process | work_spec: WorkSpec, winning_bid: Optional[Bid], all_bids: List[Bid], selection_time: datetime, strategy_used: str | BidResult instance | None | Contains bidding outcomes |
+| CapacityInfo | class | contracts | Information about agent capacity | agent_id: str, current_load: int, max_capacity: int, status: FlowControlStatus, capacity_level: CapacityLevel | CapacityInfo instance | None | Has utilization property (current_load/max_capacity) |
+| FlowControlEvent | class | contracts | Event for flow control | event_type: str, agent_id: str, capacity_info: CapacityInfo, timestamp: datetime | FlowControlEvent instance | None | For overload/throttle management |
+| CapabilityStatus | enum | contracts | Status of capability | None | CapabilityStatus | None | Values: AVAILABLE, BIDDING, EXECUTING, COMPLETED, FAILED |
+| FlowControlStatus | enum | contracts | Status of flow control | None | FlowControlStatus | None | Values: AVAILABLE, OVERLOADED, THROTTLED, UNAVAILABLE |
+| CapacityLevel | enum | contracts | Level of capacity | None | CapacityLevel | None | Values: LOW, MEDIUM, HIGH, CRITICAL |
+| NegotiationStatus | enum | contracts | Status of negotiation | None | NegotiationStatus | None | Values: REQUESTED, BIDDING, CLAIMED, EXECUTING, COMPLETED, FAILED, CANCELLED |
+| CapabilityRequest | class | contracts | Request for capability | request_id: str, requester_id: str, capability: str, correlation_id: str, input_data: Dict[str, Any], constraints: Dict[str, Any], urgency: str, deadline: Optional[datetime], dependencies: List[str], preferred_agents: List[str], excluded_agents: List[str], max_wait_time: float, timestamp: datetime | CapabilityRequest instance | None | For distributed work requests |
+| NegotiationBid | class | contracts | Bid in negotiation | request_id: str, bid_id: str, agent_id: str, capability: str, correlation_id: str, estimated_time: float, confidence: float, priority: int, conditions: Dict[str, Any], dependencies_ready: bool, can_start_immediately: bool, alternative_capability: Optional[str], timestamp: datetime | NegotiationBid instance | None | Response to capability requests |
+| CapabilityClaim | class | contracts | Claim for capability | request_id: str, claim_id: str, agent_id: str, capability: str, correlation_id: str, estimated_completion: datetime, conditions_accepted: Dict[str, Any], dependencies_tracking: List[str], timestamp: datetime | CapabilityClaim instance | None | Agent commitment to execute |
+| DependencySpec | class | contracts | Specification of dependency | dependency_id: str, required_capability: str, required_output: str, correlation_id: str, timeout: float, is_critical: bool, fallback_strategy: Optional[str], timestamp: datetime | DependencySpec instance | None | For work dependencies |
+
+Deeper dive
+- Data flow: Static definitions loaded at import → classes instantiated by event_bus, agent_base modules → contracts used for validation.
+- Invariants & contracts: All contract classes must be serializable; enums must be stable across versions; thread-safety in DataContract.
+- Preconditions: None.
+- Postconditions: All classes and enums available for import.
+- Error surface: Validation failures in DataContract methods; precondition evaluation exceptions in CapabilitySpec.
+- Concurrency & async: Thread-safe DataContract with Lock; no async.
+- I/O & performance: Lightweight dataclasses with minimal computation; thread locks in DataContract for concurrent access.
+- Configuration map: None.
+- External dependencies: typing, datetime, dataclasses, enum, logging, threading.
+>>>>>>> Stashed changes
 """
 
 from typing import Dict, List, Optional, Any, Callable
@@ -327,3 +368,4 @@ __all__ = [
     'CapabilityClaim',
     'DependencySpec',
 ]
+# DOCGEN:LLM-FIRST@v4

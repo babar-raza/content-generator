@@ -1,0 +1,99 @@
+<!-- ARCHIVED: 2025-11-13 | Reason: React UI is primary interface | Replacement: React components in src/web/static/src/ | Historical: Jinja2 templates for server-side rendering -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UCOP Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1419;
+            color: #e8eaed;
+            padding: 40px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #1a1f2e;
+            padding: 40px;
+            border-radius: 8px;
+        }
+        h1 { color: #60a5fa; margin-bottom: 20px; }
+        .status { margin: 20px 0; padding: 15px; background: #2d3748; border-radius: 6px; }
+        .success { border-left: 4px solid #10b981; }
+        .warning { border-left: 4px solid #f59e0b; }
+        a { color: #60a5fa; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        ul { margin: 15px 0; }
+        li { margin: 8px 0; }
+        code { background: #2d3748; padding: 2px 6px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ UCOP Web Server is Running!</h1>
+        
+        <div class="status success">
+            <strong>Status:</strong> Server is working correctly
+        </div>
+        
+        <h2>Available Pages:</h2>
+        <ul>
+            <li><a href="/">Dashboard</a> - Main job dashboard (may be empty)</li>
+            <li><a href="/docs">API Documentation</a> - Interactive API docs</li>
+            <li><a href="/health">Health Check</a> - Server health status</li>
+            <li><a href="/api/status">API Status</a> - Feature availability</li>
+        </ul>
+        
+        <h2>Why is the dashboard empty?</h2>
+        <div class="status warning">
+            <p><strong>Job execution is disabled</strong> because:</p>
+            <ul>
+                <li>Missing dependency: <code>mcp_compliance</code></li>
+                <li>This is expected - the orchestration layer is optional</li>
+                <li>The UI framework is working correctly</li>
+            </ul>
+        </div>
+        
+        <h2>What works:</h2>
+        <ul>
+            <li>✅ Web server (you're seeing this page!)</li>
+            <li>✅ Dashboard UI (loads but empty)</li>
+            <li>✅ API endpoints (check /docs)</li>
+            <li>✅ Static file serving</li>
+        </ul>
+        
+        <h2>What doesn't work:</h2>
+        <ul>
+            <li>❌ Job creation (requires orchestration)</li>
+            <li>❌ Job execution (requires orchestration)</li>
+            <li>❌ CLI integration (requires orchestration)</li>
+        </ul>
+        
+        <h2>To enable full functionality:</h2>
+        <ol>
+            <li>The <code>mcp_compliance</code> module needs to be available</li>
+            <li>Or the code needs to be updated to work without it</li>
+            <li>For now, this provides the UI framework</li>
+        </ol>
+        
+        <h2>Quick Links:</h2>
+        <ul>
+            <li><a href="/docs">View API Documentation</a></li>
+            <li><a href="/health">Check Server Health</a></li>
+            <li><a href="/">Try the Dashboard</a> (will show "No jobs running")</li>
+        </ul>
+        
+        <p style="margin-top: 30px; color: #9ca3af;">
+            <strong>Server Address:</strong> http://localhost:8080<br>
+            <strong>Started:</strong> <span id="time"></span>
+        </p>
+    </div>
+    
+    <script>
+        document.getElementById('time').textContent = new Date().toLocaleString();
+    </script>
+</body>
+</html>

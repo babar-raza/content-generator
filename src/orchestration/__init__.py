@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 """Orchestration Layer (v-ucop)
 
 Provides workflow compilation, job execution, monitoring, and control.
@@ -82,3 +83,5 @@ if EnhancedRegistry:
     __all__.append('EnhancedRegistry')
 
 __version__ = '1.0.0'
+=======
+>>>>>>> Stashed changes

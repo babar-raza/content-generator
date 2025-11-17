@@ -1,105 +1,129 @@
-version: 1
+---
+# Workflow Templates Configuration
+# Defines reusable workflow patterns for agent orchestration
 
-# Authoritative capability dependencies (DAG)
-dependencies:
-  ingest_kb: []
-  identify_blog_topics: ["kb_article_loaded"]
-  check_duplication: ["topics_identified"]
-  gather_rag_kb: ["topic_approved"]
-  gather_rag_blog: ["topic_approved"]
-  create_outline: ["gather_rag_kb", "gather_rag_blog"]
-  write_introduction: ["create_outline"]
-  write_sections: ["create_outline", "write_introduction"]
-  write_conclusion: ["write_sections"]
-  generate_supplementary: ["write_sections"]
-  assemble_content: ["write_conclusion", "generate_supplementary"]
-  inject_api_links: ["assemble_content", "gather_rag_api"]
-  gather_rag_api: ["topic_approved"]
-  generate_code: ["gather_rag_api"]
-  extract_code: ["assemble_content"]
-  inject_license: ["generate_code"]
-  validate_code: ["inject_license"]
-  split_code: ["validate_code"]
-  generate_seo: ["assemble_content"]
-  extract_keywords: ["assemble_content"]
-  inject_keywords: ["generate_seo", "extract_keywords"]
-  create_gist_readme: ["split_code"]
-  upload_gist: ["create_gist_readme"]
-  validate_links: ["upload_gist"]
-  add_frontmatter: ["inject_keywords"]
-  write_file: ["add_frontmatter"]
+workflows:
+  # Blog generation workflow
+  blog_workflow:
+    name: "Blog Generation Workflow"
+    description: "Generate SEO-optimized blog posts from knowledge base articles"
+    steps:
+      - agent: research_agent
+        action: gather_sources
+        inputs:
+          - topic
+        outputs:
+          - research_data
+      - agent: content_agent
+        action: create_outline
+        inputs:
+          - research_data
+        outputs:
+          - outline
+      - agent: content_agent
+        action: write_content
+        inputs:
+          - outline
+          - research_data
+        outputs:
+          - draft_content
+      - agent: seo_agent
+        action: optimize_content
+        inputs:
+          - draft_content
+        outputs:
+          - final_content
+    metadata:
+      category: content_generation
+      version: "1.0"
+      author: ucop_system
 
-profiles:
-  fast-draft:
-    # Deterministic, quick path — prose first
-    deterministic: true
-    warnings_as_errors: true
-    max_retries: 2
-    llm: { temperature: 0.0, top_p: 1.0 }
-    order:
-      - ingest_kb
-      - identify_blog_topics
-      - check_duplication
-      - gather_rag_kb
-      - gather_rag_blog
-      - create_outline
-      - write_introduction
-      - write_sections
-      - write_conclusion
-      - generate_supplementary
-      - assemble_content
-      - inject_api_links
-      - generate_seo
-      - extract_keywords
-      - inject_keywords
-      - add_frontmatter
-      - write_file
-    skip:
-      - gather_rag_api
-      - generate_code
-      - extract_code
-      - inject_license
-      - validate_code
-      - split_code
-      - create_gist_readme
-      - upload_gist
-      - validate_links
-    disabled_agents:
-      - ModelSelectionAgent
-    agent_overrides: {}
+  # Content enhancement workflow
+  enhancement_workflow:
+    name: "Content Enhancement Workflow"
+    description: "Enhance existing content with SEO and quality improvements"
+    steps:
+      - agent: content_agent
+        action: analyze_content
+        inputs:
+          - source_content
+        outputs:
+          - content_analysis
+      - agent: seo_agent
+        action: keyword_research
+        inputs:
+          - content_analysis
+        outputs:
+          - keywords
+      - agent: content_agent
+        action: enhance_content
+        inputs:
+          - source_content
+          - keywords
+        outputs:
+          - enhanced_content
+    metadata:
+      category: content_optimization
+      version: "1.0"
 
-  full:
-    # Everything on; softer constraints
-    deterministic: false
-    warnings_as_errors: false
-    max_retries: 5
-    llm: { temperature: 0.2, top_p: 1.0 }
-    order:
-      - ingest_kb
-      - identify_blog_topics
-      - check_duplication
-      - gather_rag_kb
-      - gather_rag_blog
-      - create_outline
-      - write_introduction
-      - write_sections
-      - write_conclusion
-      - generate_supplementary
-      - assemble_content
-      - inject_api_links
-      - gather_rag_api
-      - generate_code
-      - inject_license
-      - validate_code
-      - split_code
-      - create_gist_readme
-      - upload_gist
-      - validate_links
-      - generate_seo
-      - extract_keywords
-      - inject_keywords
-      - add_frontmatter
-      - extract_code
-      - write_file
-    disabled_agents: []
-    agent_overrides: {}
+  # Research and analysis workflow
+  research_workflow:
+    name: "Research Workflow"
+    description: "Deep research and analysis on a topic"
+    steps:
+      - agent: research_agent
+        action: web_search
+        inputs:
+          - query
+        outputs:
+          - search_results
+      - agent: research_agent
+        action: analyze_sources
+        inputs:
+          - search_results
+        outputs:
+          - analysis
+      - agent: research_agent
+        action: synthesize_findings
+        inputs:
+          - analysis
+        outputs:
+          - report
+    metadata:
+      category: research
+      version: "1.0"
+
+  # Publishing workflow
+  publishing_workflow:
+    name: "Publishing Workflow"
+    description: "Prepare and publish content to multiple platforms"
+    steps:
+      - agent: publishing_agent
+        action: validate_content
+        inputs:
+          - content
+        outputs:
+          - validation_result
+      - agent: publishing_agent
+        action: format_for_platform
+        inputs:
+          - content
+          - platform
+        outputs:
+          - formatted_content
+      - agent: publishing_agent
+        action: publish
+        inputs:
+          - formatted_content
+        outputs:
+          - publish_result
+    metadata:
+      category: publishing
+      version: "1.0"
+
+# Global workflow settings
+settings:
+  default_timeout: 300  # seconds
+  max_retries: 3
+  enable_caching: true
+  log_level: info

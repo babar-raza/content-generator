@@ -1,0 +1,178 @@
+UTILS MODULE - INCLUDED FILES
+==============================
+
+This zip contains the complete utils module implementation with stdlib-only utilities.
+
+DIRECTORY STRUCTURE
+-------------------
+
+src/utils/
+  ├── __init__.py             [MODIFIED] - Comprehensive exports for all utilities
+  ├── path_utils.py           [NEW] - Safe path operations and slug generation
+  ├── retry.py                [NEW] - Retry decorators with exponential backoff
+  ├── validators.py           [NEW] - Input validation helpers
+  ├── learning.py             [EXISTING] - PerformanceTracker (already exists)
+  └── json_repair.py          [EXISTING] - JSON repair utilities (already exists)
+
+tests/unit/
+  └── test_utils.py           [NEW] - Comprehensive test suite (60+ test cases)
+
+Documentation/
+  ├── UTILS_DESIGN.md         [NEW] - Architecture and design overview
+  ├── UTILS_RUNBOOK.md        [NEW] - Complete usage guide with examples
+  └── UTILS_COMPLETION_SUMMARY.md [NEW] - Implementation summary
+
+Scripts/
+  └── verify_utils.py         [NEW] - Automated verification script
+
+FILES INCLUDED (10 total)
+--------------------------
+
+1. src/utils/__init__.py (modified)
+   - Exports all utilities from all modules
+   - Graceful fallback for missing dependencies
+   - Convenience functions
+
+2. src/utils/path_utils.py (260 lines, NEW)
+   - safe_path() - Path traversal prevention
+   - generate_slug() - URL-safe slug generation
+   - ensure_directory() - Thread-safe directory creation
+   - get_safe_filename() - Filesystem-safe filenames
+   - is_safe_path() - Path safety validation
+   - normalize_path() - Path normalization
+
+3. src/utils/retry.py (370 lines, NEW)
+   - @retry_with_backoff - Exponential backoff decorator
+   - @retry_on_condition - Retry based on return value
+   - @retry_with_timeout - Combined timeout and retry
+   - RetryContext - Manual retry control
+
+4. src/utils/validators.py (460 lines, NEW)
+   - validate_config() - Configuration validation
+   - validate_input() - Comprehensive input validation
+   - validate_url() - URL format validation
+   - validate_email() - Email validation
+   - validate_port() - Port number validation
+   - validate_ipv4() - IPv4 address validation
+   - validate_range() - Range validation
+   - validate_dict_structure() - Dictionary structure validation
+
+5. src/utils/learning.py (existing)
+   - PerformanceTracker class with sliding window
+   - Thread-safe performance tracking
+   - Agent-specific execution tracking
+
+6. src/utils/json_repair.py (existing)
+   - JSONRepair.repair() - Fix malformed JSON
+   - Handles: trailing commas, unquoted keys, single quotes
+
+7. tests/unit/test_utils.py (580 lines, NEW)
+   - 60+ test cases covering all utilities
+   - TestPerformanceTracker (12 tests)
+   - TestJSONRepair (7 tests)
+   - TestPathUtils (9 tests)
+   - TestRetryDecorators (8 tests)
+   - TestValidators (24 tests)
+
+8. UTILS_DESIGN.md (NEW)
+   - Architecture for each utility
+   - Implementation details
+   - Usage patterns
+   - Testing strategy
+
+9. UTILS_RUNBOOK.md (NEW)
+   - Quick verification steps
+   - Detailed usage examples
+   - Combined workflow examples
+   - Troubleshooting guide
+   - Best practices
+
+10. verify_utils.py (NEW)
+    - Automated verification of all utilities
+    - Tests imports and basic functionality
+    - Clear pass/fail output
+
+11. UTILS_COMPLETION_SUMMARY.md (NEW)
+    - Self-review checklist (all YES)
+    - Architecture highlights
+    - Test coverage breakdown
+    - Acceptance criteria verification
+
+QUICK START
+-----------
+
+1. Extract the zip file:
+   unzip utils_module_updated.zip
+
+2. Verify installation:
+   python verify_utils.py
+
+3. Test imports:
+   python -c "from src.utils import PerformanceTracker; pt = PerformanceTracker(); print('OK')"
+
+4. Run test suite:
+   pytest tests/unit/test_utils.py -v
+
+FEATURES
+--------
+
+✅ PerformanceTracker with sliding window metrics
+✅ JSON repair for malformed LLM responses
+✅ Safe path operations (traversal prevention)
+✅ URL-safe slug generation
+✅ Retry decorators with exponential backoff
+✅ Comprehensive input validation
+✅ Thread-safe operations
+✅ 60+ test cases
+✅ Complete documentation
+✅ No external dependencies (stdlib only!)
+
+ACCEPTANCE CRITERIA
+-------------------
+
+✅ from src.utils.learning import PerformanceTracker works
+✅ PerformanceTracker tracks execution time over sliding window
+✅ json_repair fixes common LLM JSON errors (trailing commas, missing quotes)
+✅ pytest tests/unit/test_utils.py -v (all green)
+
+SELF-REVIEW CHECKLIST
+---------------------
+
+✅ All utilities implemented and tested
+✅ PerformanceTracker thread-safe
+✅ JSON repair handles edge cases
+✅ Tests cover error paths
+✅ Type hints on all functions
+✅ Docstrings with examples
+✅ No external dependencies
+
+DEPENDENCIES
+------------
+
+None! Uses only Python standard library:
+- collections.deque
+- threading.Lock
+- pathlib.Path
+- re
+- json
+- time
+- functools
+- logging
+- urllib.parse
+- typing
+
+PERFORMANCE
+-----------
+
+- PerformanceTracker.record(): O(1)
+- PerformanceTracker.get_stats(): O(n)
+- JSON repair: O(n)
+- Path operations: O(1)
+- Slug generation: O(n)
+- Retry decorator: O(1) overhead
+- Validators: O(1) to O(n)
+
+For detailed usage examples and troubleshooting, see:
+- UTILS_DESIGN.md - Technical architecture
+- UTILS_RUNBOOK.md - Usage guide
+- UTILS_COMPLETION_SUMMARY.md - Implementation details

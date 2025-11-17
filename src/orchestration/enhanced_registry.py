@@ -468,6 +468,7 @@ class RegistryAPI:
     def __init__(self, registry: EnhancedAgentRegistry):
         self.registry = registry
     
+<<<<<<< Updated upstream
     def get_agents(self) -> Dict[str, Any]:
         """GET /registry/agents - List all agents."""
         agents = self.registry.get_all_agents()
@@ -497,3 +498,10 @@ class RegistryAPI:
     def get_registry_status(self) -> Dict[str, Any]:
         """GET /registry/status - Get registry status."""
         return self.registry.get_registry_status()
+=======
+    with _registry_lock:
+        if _registry_instance is None:
+            _registry_instance = EnhancedAgentRegistry(agents_dir, config_dir)
+        return _registry_instance
+# DOCGEN:LLM-FIRST@v4
+>>>>>>> Stashed changes

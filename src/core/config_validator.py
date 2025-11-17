@@ -268,3 +268,4 @@ def get_config() -> Dict[str, Dict[str, Any]]:
         >>> tone_voice = config['tone']['global_voice']
     """
     return get_config_validator().get_validated_configs()
+# DOCGEN:LLM-FIRST@v4

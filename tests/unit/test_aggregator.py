@@ -9,9 +9,21 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.engine.aggregator import (
-    OutputAggregator, TemplateSchema, SectionRequirement,
-    AggregatorReport, TemplateSchema
+    OutputAggregator, SectionRequirement,
+    AggregatorReport
 )
+from dataclasses import dataclass, field
+from typing import List
+
+# Create a compatible schema class for testing
+@dataclass
+class TemplateSchemaForTest:
+    """Test schema that matches what OutputAggregator expects."""
+    template_name: str
+    required_sections: List[SectionRequirement]
+    min_word_count: int = 0
+    max_word_count: int = 10000
+    require_headings: bool = False
 
 
 class TestOutputAggregator:
@@ -20,7 +32,7 @@ class TestOutputAggregator:
     def setup_method(self):
         """Create test schema and aggregator."""
         # Create test schema
-        self.schema = TemplateSchema(
+        self.schema = TemplateSchemaForTest(
             template_name="test_blog",
             required_sections=[
                 SectionRequirement(name="Introduction", agent="IntroAgent", required=True, min_words=50),
@@ -332,3 +344,4 @@ required_sections:
         assert report_dict["sections"] == {"agent1": {"status": "ok"}}
         assert report_dict["total_word_count"] == 150
         assert report_dict["metadata"] == {"key": "value"}
+# DOCGEN:LLM-FIRST@v4

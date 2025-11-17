@@ -24,6 +24,7 @@ from src.core import EventBus, AgentEvent, Agent, Config
 from src.services.services import LLMService, DatabaseService, EmbeddingService, GistService, LinkChecker, TrendsService
 from src.services.services_fixes import NoMockGate, apply_llm_service_fixes
 from .checkpoint_manager import CheckpointManager
+from .mesh_executor import MeshExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,27 @@ class ProductionExecutionEngine:
         # Checkpoint manager
         self.checkpoint_manager = CheckpointManager(Path(config.checkpoint_dir))
         
+        # Mesh executor (optional)
+        self.mesh_executor = None
+        mesh_config = getattr(config, 'mesh', {})
+        if isinstance(mesh_config, dict) and mesh_config.get('enabled', False):
+            max_hops = mesh_config.get('max_hops', 10)
+            routing_timeout = mesh_config.get('routing_timeout_seconds', 5)
+            circuit_breaker_config = mesh_config.get('circuit_breaker', {})
+            enable_circuit_breaker = circuit_breaker_config.get('enabled', True) if isinstance(circuit_breaker_config, dict) else True
+            
+            self.mesh_executor = MeshExecutor(
+                config=config,
+                event_bus=self.event_bus,
+                agent_factory=self.agent_factory,
+                max_hops=max_hops,
+                routing_timeout=routing_timeout,
+                enable_circuit_breaker=enable_circuit_breaker
+            )
+            # Discover agents for mesh
+            self.mesh_executor.discover_agents()
+            logger.info(f"Mesh orchestration enabled with max_hops={max_hops}")
+        
         # Execution state
         self._execution_state: Dict[str, Any] = {}
         self._lock = threading.Lock()
@@ -264,6 +286,60 @@ class ProductionExecutionEngine:
         logger.info(f"Starting pipeline execution: {workflow_name} (job_id: {job_id})")
         logger.info(f"Total steps: {len(steps)}")
         
+        # Check if mesh mode is enabled
+        use_mesh = getattr(self.config, 'use_mesh', False) or input_data.get('execution_mode') == 'mesh'
+        
+        if use_mesh and self.mesh_executor:
+            # Mesh execution path
+            try:
+                initial_agent_type = input_data.get('initial_agent') or steps[0].get('agent', steps[0].get('id'))
+                
+                result = self.mesh_executor.execute_mesh_workflow(
+                    workflow_name=workflow_name,
+                    initial_agent_type=initial_agent_type,
+                    input_data=input_data,
+                    job_id=job_id,
+                    progress_callback=progress_callback
+                )
+                
+                # Convert mesh result to standard context format
+                return {
+                    'workflow_name': workflow_name,
+                    'job_id': job_id,
+                    'execution_mode': 'mesh',
+                    'success': result.success,
+                    'execution_time': result.execution_time,
+                    'total_hops': result.total_hops,
+                    'agents_executed': result.agents_executed,
+                    'agent_outputs': result.final_output,
+                    'shared_state': result.final_output,
+                    'execution_trace': result.execution_trace,
+                    'error': result.error,
+                    'mesh_stats': result.metadata
+                }
+            except Exception as e:
+                logger.error(f"Mesh execution failed: {e}. Falling back to sequential mode.", exc_info=True)
+                use_mesh = False
+        
+        # Check if LangGraph mode is enabled
+        use_langgraph = getattr(self.config, 'use_langgraph', False)
+        
+        if use_langgraph:
+            # LangGraph execution path
+            try:
+                return self._execute_langgraph_pipeline(
+                    workflow_name=workflow_name,
+                    steps=steps,
+                    input_data=input_data,
+                    job_id=job_id,
+                    progress_callback=progress_callback,
+                    checkpoint_callback=checkpoint_callback
+                )
+            except Exception as e:
+                logger.error(f"LangGraph execution failed: {e}. Falling back to sequential mode.")
+                # Fall back to sequential mode
+                use_langgraph = False
+        
         # Initialize execution context
         context = {
             'workflow_name': workflow_name,
@@ -285,23 +361,19 @@ class ProductionExecutionEngine:
         total_steps = len(steps)
         start_step = context.get('current_step', 0)
         
+<<<<<<< Updated upstream
+=======
+        # Check if parallel execution is enabled
+        use_parallel = self.parallel_executor is not None
+        
+>>>>>>> Stashed changes
         try:
-            # Execute each step
-            for idx, step_config in enumerate(steps[start_step:], start=start_step):
-                step_num = idx + 1
-                agent_type = step_config.get('agent', step_config.get('id'))
-                
-                logger.info(f"[{step_num}/{total_steps}] Executing agent: {agent_type}")
-                
-                # Progress update
-                progress = 10 + ((step_num - 1) / total_steps) * 85
-                if progress_callback:
-                    progress_callback(progress, f"Executing {agent_type}")
-                
-                # Execute agent
-                result = self._execute_agent(
-                    agent_type=agent_type,
+            if use_parallel:
+                # Parallel execution path
+                self._execute_parallel_pipeline(
+                    steps=steps,
                     context=context,
+<<<<<<< Updated upstream
                     step_config=step_config
                 )
                 
@@ -328,6 +400,24 @@ class ProductionExecutionEngine:
                 logger.info(
                     f"✓ Agent {agent_type} completed in {result.execution_time:.2f}s "
                     f"(LLM calls: {result.llm_calls})"
+=======
+                    job_id=job_id,
+                    total_steps=total_steps,
+                    start_step=start_step,
+                    progress_callback=progress_callback,
+                    checkpoint_callback=checkpoint_callback
+                )
+            else:
+                # Sequential execution path (original)
+                self._execute_sequential_pipeline(
+                    steps=steps,
+                    context=context,
+                    job_id=job_id,
+                    total_steps=total_steps,
+                    start_step=start_step,
+                    progress_callback=progress_callback,
+                    checkpoint_callback=checkpoint_callback
+>>>>>>> Stashed changes
                 )
             
             # Final progress
@@ -534,21 +624,59 @@ class ProductionExecutionEngine:
         
         return agent_input
     
-    def _create_checkpoint(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Create checkpoint data from context"""
-        return {
-            'workflow_name': context['workflow_name'],
-            'current_step': context.get('current_step', 0),
-            'shared_state': context['shared_state'],
-            'agent_outputs': {
-                k: {
-                    'status': v.status.value,
-                    'output_data': v.output_data,
-                    'execution_time': v.execution_time
-                }
-                for k, v in context['agent_outputs'].items()
-            },
-            'llm_calls': context['llm_calls'],
-            'tokens_used': context['tokens_used'],
-            'timestamp': datetime.now(timezone.utc).isoformat()
-        }
+    def _execute_langgraph_pipeline(
+        self,
+        workflow_name: str,
+        steps: List[Dict[str, Any]],
+        input_data: Dict[str, Any],
+        job_id: str,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
+        checkpoint_callback: Optional[Callable[[str, Dict], None]] = None
+    ) -> Dict[str, Any]:
+        """Execute pipeline using LangGraph.
+        
+        Args:
+            workflow_name: Name of workflow being executed
+            steps: List of step definitions
+            input_data: Initial input data
+            job_id: Job identifier
+            progress_callback: Callback for progress updates
+            checkpoint_callback: Callback for checkpoint creation
+            
+        Returns:
+            Final execution results
+        """
+        try:
+            from .langgraph_executor import LangGraphExecutor, LANGGRAPH_AVAILABLE
+            
+            if not LANGGRAPH_AVAILABLE:
+                raise ImportError("LangGraph not installed")
+            
+            logger.info(f"Using LangGraph execution mode for workflow: {workflow_name}")
+            
+            # Create LangGraph executor
+            executor = LangGraphExecutor(
+                config=self.config,
+                workflow_steps=steps,
+                agent_factory=self.agent_factory,
+                checkpoint_manager=self.checkpoint_manager
+            )
+            
+            # Execute workflow
+            results = executor.execute(
+                input_data=input_data,
+                job_id=job_id,
+                workflow_name=workflow_name,
+                progress_callback=progress_callback,
+                checkpoint_callback=checkpoint_callback
+            )
+            
+            logger.info(f"LangGraph execution completed for job {job_id}")
+            return results
+            
+        except ImportError as e:
+            logger.error(f"LangGraph not available: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"LangGraph execution error: {e}",             exc_info=True)
+            raise

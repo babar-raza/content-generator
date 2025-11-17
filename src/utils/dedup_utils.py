@@ -97,3 +97,4 @@ def remove_heading_from_content(content: str, heading_text: str) -> str:
         break
     
     return content
+# DOCGEN:LLM-FIRST@v4

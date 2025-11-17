@@ -244,3 +244,4 @@ class CompletenessGate:
         
         logger.info(f"✓ Content passed completeness gate: {len(content)} chars, {len(content.split())} words")
 
+# DOCGEN:LLM-FIRST@v4

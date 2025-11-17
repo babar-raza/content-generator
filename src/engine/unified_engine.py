@@ -875,3 +875,4 @@ def get_engine() -> UnifiedEngine:
     if _engine_instance is None:
         _engine_instance = UnifiedEngine()
     return _engine_instance
+# DOCGEN:LLM-FIRST@v4

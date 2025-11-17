@@ -1,0 +1,125 @@
+╔════════════════════════════════════════════════════════════════╗
+║         LANGGRAPH INTEGRATION - QUICK REFERENCE CARD          ║
+╚════════════════════════════════════════════════════════════════╝
+
+┌────────────────────────────────────────────────────────────────┐
+│ INSTALLATION                                                   │
+└────────────────────────────────────────────────────────────────┘
+1. Extract zip: unzip langgraph_integration.zip
+2. Copy files to project root:
+   cp -r langgraph_integration/src/* src/
+   cp -r langgraph_integration/config/* config/
+   cp -r langgraph_integration/tests/* tests/
+   cp langgraph_integration/test_langgraph_parity.py .
+3. Run verification: bash INSTALL_VERIFY.sh
+
+┌────────────────────────────────────────────────────────────────┐
+│ CONFIGURATION                                                  │
+└────────────────────────────────────────────────────────────────┘
+Edit config/main.yaml:
+
+workflows:
+  use_langgraph: true   # Enable LangGraph mode
+  # OR
+  use_langgraph: false  # Use sequential mode (default)
+
+┌────────────────────────────────────────────────────────────────┐
+│ TESTING                                                        │
+└────────────────────────────────────────────────────────────────┘
+# Parity test (compares both modes)
+python test_langgraph_parity.py
+
+# Unit tests
+pytest tests/test_engine_parity.py -v
+
+# Manual test - Sequential
+python ucop_cli.py generate --input test.md --output output_seq/
+
+# Manual test - LangGraph (after enabling in config)
+python ucop_cli.py generate --input test.md --output output_lg/
+
+# Compare outputs
+diff output_seq/index.md output_lg/index.md
+
+┌────────────────────────────────────────────────────────────────┐
+│ FILES MODIFIED                                                 │
+└────────────────────────────────────────────────────────────────┘
+✓ src/orchestration/production_execution_engine.py  [MODIFIED]
+  - Added mode selection logic
+  - Added _execute_langgraph_pipeline() method
+
+✓ src/orchestration/langgraph_executor.py  [NO CHANGE]
+✓ src/orchestration/langgraph_state.py     [NO CHANGE]
+✓ config/main.yaml                         [NO CHANGE]
+✓ tests/test_engine_parity.py              [NO CHANGE]
+
+┌────────────────────────────────────────────────────────────────┐
+│ VERIFICATION CHECKLIST                                         │
+└────────────────────────────────────────────────────────────────┘
+□ LangGraph package installed (pip install langgraph)
+□ Files copied to correct locations
+□ Config flag exists in config/main.yaml
+□ Imports work (python -c "from src.orchestration.langgraph_executor import LangGraphExecutor")
+□ Parity tests pass (python test_langgraph_parity.py)
+□ Unit tests pass (pytest tests/test_engine_parity.py -v)
+
+┌────────────────────────────────────────────────────────────────┐
+│ TROUBLESHOOTING                                                │
+└────────────────────────────────────────────────────────────────┘
+Issue: "LangGraph not available"
+Fix: pip install langgraph --break-system-packages
+
+Issue: "ImportError: cannot import name LangGraphExecutor"
+Fix: Check file paths, ensure src/orchestration/langgraph_executor.py exists
+
+Issue: "use_langgraph flag not found"
+Fix: Copy config/main.yaml from zip or add flag manually
+
+Issue: Mode not switching
+Fix: Check logs for "Using LangGraph execution mode" message
+
+Issue: Parity test fails
+Fix: Check checkpoint directory permissions, verify both modes execute
+
+┌────────────────────────────────────────────────────────────────┐
+│ KEY FEATURES                                                   │
+└────────────────────────────────────────────────────────────────┘
+✓ Output parity - Both modes produce identical results
+✓ Checkpoint compatibility - Same .checkpoints/ directory
+✓ Graceful fallback - Falls back to sequential on error
+✓ Type safety - TypedDict state definitions
+✓ No breaking changes - Existing code unchanged
+
+┌────────────────────────────────────────────────────────────────┐
+│ LOGS TO MONITOR                                                │
+└────────────────────────────────────────────────────────────────┘
+Sequential: "Starting pipeline execution: {name}"
+LangGraph:  "Using LangGraph execution mode for workflow: {name}"
+Fallback:   "LangGraph execution failed. Falling back to sequential mode"
+
+┌────────────────────────────────────────────────────────────────┐
+│ DOCUMENTATION                                                  │
+└────────────────────────────────────────────────────────────────┘
+LANGGRAPH_INTEGRATION.md    - Full documentation
+IMPLEMENTATION_SUMMARY.txt  - Implementation details
+INSTALL_VERIFY.sh           - Installation & verification script
+
+┌────────────────────────────────────────────────────────────────┐
+│ PERFORMANCE EXPECTATIONS                                       │
+└────────────────────────────────────────────────────────────────┘
+Sequential: ~90-120s for full pipeline (baseline)
+LangGraph:  ~90-120s for full pipeline (current, parity mode)
+Future:     ~45-60s with parallel execution (planned)
+
+┌────────────────────────────────────────────────────────────────┐
+│ SUPPORT                                                        │
+└────────────────────────────────────────────────────────────────┘
+1. Check LANGGRAPH_INTEGRATION.md for detailed info
+2. Review logs for mode confirmation
+3. Run INSTALL_VERIFY.sh for diagnostic info
+4. Check checkpoint directory: .checkpoints/
+5. Verify config flag: grep use_langgraph config/main.yaml
+
+╔════════════════════════════════════════════════════════════════╗
+║                         END OF CARD                            ║
+╚════════════════════════════════════════════════════════════════╝

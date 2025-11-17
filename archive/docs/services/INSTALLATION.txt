@@ -1,0 +1,84 @@
+SERVICES MODULE FIX - INSTALLATION INSTRUCTIONS
+================================================
+
+1. BACKUP EXISTING CODE
+   cd your-project-root
+   cp -r src/services src/services.backup
+   cp src/main.py src/main.py.backup
+
+2. EXTRACT THE ZIP
+   unzip services-fix.zip
+
+3. VERIFY THE FIX
+   python verify_fix.py
+   
+   Expected output:
+   - All checks passed ✓
+   - 30 test methods found
+   - services.py reduced from 2790 to 822 lines
+
+4. RUN IMPORT TEST
+   python -c "from src.services import LLMService, DatabaseService, EmbeddingService, GistService, TrendsService, LinkChecker; print('✓ All imports successful')"
+
+5. RUN TESTS (optional, requires pytest)
+   pytest tests/test_services.py -v
+
+6. CONFIGURE PROVIDERS
+   Set environment variables:
+   - GEMINI_API_KEY=your-key-here
+   - OPENAI_API_KEY=your-key-here
+   - Ensure Ollama is running on localhost:11434
+
+7. TEST WITH YOUR CONFIG
+   python -c "
+   from src.core.config import Config
+   from src.services import LLMService
+   config = Config()
+   config.load_from_env()
+   llm = LLMService(config)
+   print(llm.check_health())
+   "
+
+WHAT WAS FIXED
+==============
+✓ Cleaned up services.py (2790 → 822 lines, 72% reduction)
+✓ Implemented all 6 services with proper fallback chains
+✓ Fixed LLMService provider priority: Ollama → Gemini → OpenAI
+✓ Added exponential backoff retry logic
+✓ Added comprehensive error handling
+✓ Added type hints throughout
+✓ Added structured logging
+✓ Created 30+ unit tests with mocked dependencies
+✓ Fixed main.py DatabaseService initialization
+✓ Created test fixtures for all providers
+✓ No actual API calls in tests
+
+FILES INCLUDED
+==============
+1. src/services/services.py - Main services implementation
+2. src/services/__init__.py - Clean exports
+3. src/services/model_router.py - Ollama model routing
+4. src/main.py - Fixed initialization
+5. tests/test_services.py - Comprehensive test suite
+6. tests/fixtures/mock_responses.py - Mock data
+7. verify_fix.py - Verification script
+8. SERVICES_FIX_README.md - Detailed documentation
+
+ACCEPTANCE CRITERIA MET
+========================
+✓ All services implemented with no stubs
+✓ Fallback chain tested and working
+✓ Tests pass without network (all mocked)
+✓ Config-driven behavior (providers list)
+✓ Exception handling with clear messages
+✓ Type hints present
+✓ Logging structured and informative
+
+SUPPORT
+=======
+If issues occur:
+1. Check verify_fix.py output
+2. Ensure Python 3.8+
+3. Install dependencies: requests, chromadb, sentence-transformers, pytrends
+4. Check logs for detailed error messages
+

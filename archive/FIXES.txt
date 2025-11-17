@@ -1,0 +1,74 @@
+FIXES APPLIED
+=============
+
+1. Fixed config/__init__.py
+   - Removed import of non-existent 'ConfigValidator' from config.validator
+   - Updated __all__ list to remove 'ConfigValidator'
+   - Only exports: ConfigSnapshot, load_validated_config
+
+2. Created root package.json
+   - Delegates npm commands to src/web/static directory
+   - Auto-installs dependencies before build/dev
+   - Scripts: build, dev, preview
+   - Auto-removes .npmrc before install/build to prevent prefix errors
+
+3. Removed problematic .npmrc
+   - Removed .npmrc with 'prefix' setting that caused npm errors
+   - Added preinstall/prebuild hooks to auto-remove .npmrc if present
+
+4. Fixed TypeScript compilation errors
+   - Added missing types: JobUpdate, WorkflowTemplate, agent property in LogEntry
+   - Removed unused imports: React in LogViewer, WorkflowNode/WorkflowEdge in store
+   - Fixed Job.id references to Job.job_id throughout
+   - Removed unused draggedAgent variable in App.tsx
+   - Fixed sourceHandle/targetHandle null handling in utils/workflowStore
+   - Removed unused 'get' parameter in store/workflowStore
+   - Fixed Record<string, Workflow> to Workflow[] conversion in useWorkflows
+
+5. Fixed enhanced_config.py
+   - EnhancedConfigLoader.get_snapshot() now returns proper ConfigSnapshot object
+   - Eliminated warning: 'dict' object has no attribute 'config_hash'
+   - Uses load_validated_config() for consistent snapshot format
+
+6. Fixed static file serving in app.py
+   - Added StaticFiles mounting for React build assets
+   - Root endpoint (/) now serves React UI via FileResponse
+   - API moved to /api endpoint
+   - Visual Workflow Editor now accessible at http://localhost:8000/
+
+USAGE
+=====
+
+To build and run the web UI:
+
+1. npm run build      # Auto-removes .npmrc, installs deps, builds React UI
+2. python start_web.py # Start the web server
+3. Open http://localhost:8000/ in browser
+
+Or for development:
+
+npm run dev           # Auto-removes .npmrc, installs deps, starts Vite dev server
+
+VISUAL WORKFLOW EDITOR
+=======================
+
+Access at: http://localhost:8000/
+
+Features:
+- Left panel: Drag-and-drop agent palette (34 agents)
+- Center canvas: Visual workflow builder with node connections
+- Right panel: Job monitor with real-time status
+- Top toolbar: Save/Run workflow buttons
+
+API Documentation: http://localhost:8000/docs
+
+NOTES
+=====
+
+- React UI source is in src/web/static/
+- Build output goes to src/web/static/dist/
+- Dependencies auto-install on first build/dev run
+- .npmrc auto-removed if present to prevent errors
+- All TypeScript errors resolved
+- No configuration warnings
+- Visual editor fully functional

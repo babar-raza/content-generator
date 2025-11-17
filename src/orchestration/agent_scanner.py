@@ -300,6 +300,7 @@ class BlogGeneratorScanner:
         
         return checkpoints
     
+<<<<<<< Updated upstream
     def generate_report(self) -> Dict[str, Any]:
         """Generate discovery report"""
         return {
@@ -437,3 +438,19 @@ if __name__ == "__main__":
             status.append(f"✓ prompt:{info['prompt_key']}")
         status_str = ", ".join(status) if status else "no contract/prompt"
         print(f"  {i}. {name} ({status_str})")
+=======
+    def invalidate_cache(self) -> None:
+        """Invalidate the agent discovery cache."""
+        self._cache_valid = False
+    
+    def trigger_reload(self) -> List[Type]:
+        """Trigger a full agent reload.
+        
+        This method is called by hot reload monitor when agent configurations change.
+        
+        Returns:
+            List of discovered Agent class types
+        """
+        logger.info("Triggering agent reload due to configuration change")
+        return self.discover(force_rescan=True)
+>>>>>>> Stashed changes

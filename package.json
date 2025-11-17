@@ -1,0 +1,17 @@
+{
+  "name": "content-generator",
+  "version": "1.0.0",
+  "description": "Blog content generator with AI agents",
+  "private": true,
+  "scripts": {
+    "preinstall": "node -e \"try{require('fs').unlinkSync('.npmrc')}catch(e){}\"",
+    "postinstall": "cd src/web/static && npm install",
+    "prebuild": "node -e \"try{require('fs').unlinkSync('.npmrc')}catch(e){}\"",
+    "build": "cd src/web/static && npm install && npm run build",
+    "dev": "cd src/web/static && npm install && npm run dev",
+    "preview": "cd src/web/static && npm run preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

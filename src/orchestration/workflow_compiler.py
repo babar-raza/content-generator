@@ -146,11 +146,18 @@ class WorkflowCompiler:
     
     def __init__(self, registry, event_bus):
         self.registry = registry
+<<<<<<< Updated upstream
         self.event_bus = event_bus
         self._compiled_workflows: Dict[str, CompiledStateGraph] = {}
         self._workflow_definitions: Dict[str, WorkflowDefinition] = {}
         self._lock = threading.RLock()
         self.workflows = {}
+=======
+        self.workflows_path = workflows_path or Path("templates/workflows.yaml")
+        self.workflows: Dict[str, Any] = {}
+        self.dependencies: Dict[str, List[str]] = {}
+        self.conditions: Dict[str, Dict[str, Any]] = {}
+>>>>>>> Stashed changes
         
     def _convert_format(self, data: Dict) -> Dict:
         """Convert v5.1 workflow format to current format."""
@@ -193,6 +200,7 @@ class WorkflowCompiler:
             with open(workflow_file, 'r') as f:
                 data = yaml.safe_load(f)
             
+<<<<<<< Updated upstream
             # Check if v5.1 format (has 'dependencies' and 'profiles' keys)
             if 'dependencies' in data and 'profiles' in data:
                 # Convert v5.1 format to current format
@@ -202,6 +210,22 @@ class WorkflowCompiler:
                 workflows = data['workflows']
             else:
                 raise ValueError("Invalid workflow format")
+=======
+            if not data:
+                logger.warning("Empty workflows file")
+                return
+            
+            # Extract dependencies
+            self.dependencies = data.get('dependencies', {})
+            
+            # Extract workflow profiles
+            self.workflows = data.get('profiles', {})
+            
+            # Extract conditions
+            self.conditions = data.get('conditions', {})
+            
+            logger.info(f"Loaded {len(self.workflows)} workflow profiles")
+>>>>>>> Stashed changes
             
             for name, definition in workflows.items():
                 self.workflows[name] = definition
@@ -214,6 +238,7 @@ class WorkflowCompiler:
     def _parse_workflow_definition(self, name: str, config: Dict[str, Any]) -> WorkflowDefinition:
         """Parse workflow definition from YAML config."""
         steps = []
+<<<<<<< Updated upstream
         
         for step_config in config.get('steps', []):
             step = WorkflowStep(
@@ -227,6 +252,30 @@ class WorkflowCompiler:
                 timeout=step_config.get('timeout', 300),
                 approval_required=step_config.get('approval_required', False),
                 parallel_group=step_config.get('parallel_group')
+=======
+        for agent_id in active_steps:
+            # Get dependencies for this agent
+            deps = self.dependencies.get(agent_id, [])
+            
+            # Filter dependencies to only include active steps
+            active_deps = [dep for dep in deps if dep in active_steps]
+            
+            # Get condition if defined
+            condition = self.conditions.get(agent_id)
+            
+            # Create execution step
+            step = ExecutionStep(
+                agent_id=agent_id,
+                dependencies=active_deps,
+                condition=condition,
+                timeout=workflow_def.get('resources', {}).get('max_runtime_s', 300),
+                retry=workflow_def.get('max_retries', 3),
+                metadata={
+                    'workflow_id': workflow_id,
+                    'llm_settings': workflow_def.get('llm', {}),
+                    'deterministic': workflow_def.get('deterministic', False)
+                }
+>>>>>>> Stashed changes
             )
             steps.append(step)
         
@@ -455,6 +504,7 @@ workflows:
       kb_path: "required"
       output_dir: "optional"
     
+<<<<<<< Updated upstream
     steps:
       - name: ingest_kb
         agent: KBIngestionAgent
@@ -526,3 +576,29 @@ workflows:
         outputs:
           content: "kb_article_content"
 """
+=======
+    def compile_with_conditions(
+        self, 
+        workflow_id: str,
+        conditions: Dict[str, Dict[str, Any]]
+    ) -> ExecutionPlan:
+        """Compile workflow with conditional steps.
+        
+        Args:
+            workflow_id: Workflow profile ID
+            conditions: Map of agent_id to condition definitions
+            
+        Returns:
+            ExecutionPlan with conditional steps
+        """
+        # Start with basic compilation
+        plan = self.compile(workflow_id)
+        
+        # Add conditions to steps
+        for step in plan.steps:
+            if step.agent_id in conditions:
+                step.condition = conditions[step.agent_id]
+        
+        return plan
+# DOCGEN:LLM-FIRST@v4
+>>>>>>> Stashed changes

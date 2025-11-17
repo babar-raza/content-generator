@@ -122,3 +122,4 @@ class ContextMerger:
             summary["total_size"] += len(api_context)
         
         return summary
+# DOCGEN:LLM-FIRST@v4

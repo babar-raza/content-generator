@@ -47,3 +47,4 @@ class TestSlugify:
         """Test complex real-world example."""
         # Note: apostrophe becomes hyphen per spec (non-alphanumeric → -)
         assert slugify("Python's Best Practices & Tips (2024)!") == "python-s-best-practices-tips-2024"
+# DOCGEN:LLM-FIRST@v4

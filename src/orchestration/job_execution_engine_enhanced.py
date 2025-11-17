@@ -1,4 +1,8 @@
+<<<<<<< Updated upstream
 # src/orchestration/job_execution_engine_enhanced.py
+=======
+"""Async Job Execution Engine - Enhanced async version with better concurrency."""
+>>>>>>> Stashed changes
 
 """Enhanced Job Execution Engine with graceful fallbacks, durable job persistence,
 and zero-stacktrace failures when workflows are missing or empty."""
@@ -7,6 +11,7 @@ from __future__ import annotations
 
 import threading
 import uuid
+<<<<<<< Updated upstream
 import logging
 import json
 import traceback
@@ -19,10 +24,24 @@ from typing import Any, Callable, Dict, List, Optional
 # Optional imports are wrapped where used:
 # - src.engine.unified_engine (direct execution fallback)
 # - production execution engine (if present)
+=======
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, Any, Set
+
+from src.core import EventBus, AgentEvent, Config
+
+from .workflow_compiler import WorkflowCompiler
+from .execution_plan import ExecutionPlan, ExecutionStep
+from .job_state import JobState, JobMetadata, JobStatus, StepStatus, StepExecution
+from .job_storage import JobStorage
+from .enhanced_registry import EnhancedAgentRegistry
+>>>>>>> Stashed changes
 
 logger = logging.getLogger(__name__)
 
 
+<<<<<<< Updated upstream
 class JobStatus(Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -169,10 +188,179 @@ class JobExecutionEngineEnhanced:
         jl.info("=" * 80)
 
         job = JobExecution(
+=======
+class AsyncJobExecutionEngine:
+    """Async job execution engine with improved concurrency and performance."""
+    
+    def __init__(
+        self,
+        compiler: WorkflowCompiler,
+        registry: EnhancedAgentRegistry,
+        event_bus: Optional[EventBus] = None,
+        config: Optional[Config] = None,
+        max_concurrent_jobs: int = 5,
+        storage_dir: Optional[Path] = None
+    ):
+        """Initialize async job execution engine.
+        
+        Args:
+            compiler: WorkflowCompiler for creating execution plans
+            registry: EnhancedAgentRegistry for agent management
+            event_bus: Event bus for emitting job events
+            config: Configuration object
+            max_concurrent_jobs: Maximum concurrent job executions
+            storage_dir: Directory for job persistence
+        """
+        self.compiler = compiler
+        self.registry = registry
+        self.event_bus = event_bus or EventBus()
+        self.config = config or Config()
+        self.max_concurrent_jobs = max_concurrent_jobs
+        
+        # Storage
+        self.storage = JobStorage(base_dir=storage_dir)
+        
+        # Job tracking
+        self._jobs: Dict[str, JobState] = {}
+        self._lock = asyncio.Lock()
+        
+        # Job queue
+        self._job_queue: asyncio.Queue = asyncio.Queue()
+        self._pending_jobs: Set[str] = set()
+        
+        # Control events
+        self._pause_events: Dict[str, asyncio.Event] = {}
+        self._cancel_events: Dict[str, asyncio.Event] = {}
+        
+        # Worker tasks
+        self._worker_tasks: List[asyncio.Task] = []
+        self._running = False
+    
+    async def start(self) -> None:
+        """Start the async execution engine."""
+        if self._running:
+            logger.warning("Engine already running")
+            return
+        
+        self._running = True
+        
+        # Load persisted jobs
+        await self._load_persisted_jobs()
+        
+        # Start worker tasks
+        for i in range(self.max_concurrent_jobs):
+            task = asyncio.create_task(
+                self._worker_loop(),
+                name=f"AsyncJobWorker-{i}"
+            )
+            self._worker_tasks.append(task)
+        
+        logger.info(f"Started {self.max_concurrent_jobs} async job workers")
+    
+    async def stop(self, timeout: float = 30.0) -> None:
+        """Stop the execution engine.
+        
+        Args:
+            timeout: Timeout for waiting for workers to finish
+        """
+        logger.info("Stopping async job execution engine...")
+        self._running = False
+        
+        # Cancel all worker tasks
+        for task in self._worker_tasks:
+            task.cancel()
+        
+        # Wait for tasks to finish
+        if self._worker_tasks:
+            await asyncio.wait(self._worker_tasks, timeout=timeout)
+        
+        self._worker_tasks.clear()
+        logger.info("Async job execution engine stopped")
+    
+    async def _load_persisted_jobs(self) -> None:
+        """Load persisted jobs from storage."""
+        try:
+            jobs = self.storage.list_jobs()
+            for metadata in jobs:
+                job_state = self.storage.load_job(metadata.job_id)
+                if job_state:
+                    async with self._lock:
+                        self._jobs[metadata.job_id] = job_state
+                    
+                    # Re-queue pending jobs
+                    if metadata.status == JobStatus.PENDING:
+                        self._pending_jobs.add(metadata.job_id)
+                        await self._job_queue.put(metadata.job_id)
+            
+            logger.info(f"Loaded {len(jobs)} persisted jobs")
+            
+        except Exception as e:
+            logger.error(f"Failed to load persisted jobs: {e}")
+    
+    async def _worker_loop(self) -> None:
+        """Worker coroutine main loop."""
+        while self._running:
+            try:
+                # Get job from queue
+                try:
+                    job_id = await asyncio.wait_for(
+                        self._job_queue.get(),
+                        timeout=1.0
+                    )
+                except asyncio.TimeoutError:
+                    continue
+                
+                # Remove from pending set
+                async with self._lock:
+                    self._pending_jobs.discard(job_id)
+                
+                # Execute job
+                try:
+                    await self._execute_job(job_id)
+                except Exception as e:
+                    logger.error(f"Error executing job {job_id}: {e}", exc_info=True)
+                    await self._mark_job_failed(job_id, str(e))
+                finally:
+                    self._job_queue.task_done()
+                    
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Worker error: {e}", exc_info=True)
+    
+    async def submit_job(
+        self,
+        workflow_id: str,
+        inputs: Dict[str, Any],
+        correlation_id: Optional[str] = None
+    ) -> str:
+        """Submit a new job for execution.
+        
+        Args:
+            workflow_id: Workflow identifier
+            inputs: Input parameters
+            correlation_id: Optional correlation ID
+            
+        Returns:
+            Job ID
+        """
+        job_id = str(uuid.uuid4())
+        
+        # Compile workflow
+        try:
+            plan = self.compiler.compile(workflow_id)
+        except Exception as e:
+            logger.error(f"Failed to compile workflow {workflow_id}: {e}")
+            raise
+        
+        # Create job metadata
+        metadata = JobMetadata(
+>>>>>>> Stashed changes
             job_id=job_id,
             workflow_name=workflow_name,
             correlation_id=f"wf_{workflow_name}_{job_id[:8]}",
             status=JobStatus.PENDING,
+<<<<<<< Updated upstream
             started_at=datetime.now(timezone.utc).isoformat(),
             input_params=input_params,
             metadata={
@@ -563,3 +751,485 @@ def get_enhanced_engine(workflow_compiler=None, checkpoint_manager=None,
         _engine_instance = JobExecutionEngineEnhanced(workflow_compiler, checkpoint_manager, verbose=verbose, debug=debug)
         _engine_instance.load_persisted_jobs()
     return _engine_instance
+=======
+            created_at=datetime.now(),
+            total_steps=len(plan.steps),
+            correlation_id=correlation_id or job_id
+        )
+        
+        # Create job state
+        job_state = JobState(
+            metadata=metadata,
+            inputs=inputs,
+            context={'execution_plan': plan.to_dict()}
+        )
+        
+        # Initialize steps
+        for step in plan.steps:
+            job_state.steps[step.agent_id] = StepExecution(agent_id=step.agent_id)
+        
+        # Store job
+        async with self._lock:
+            self._jobs[job_id] = job_state
+            self._pending_jobs.add(job_id)
+        
+        # Persist
+        self.storage.save_job(job_state)
+        
+        # Emit event
+        self.event_bus.publish(AgentEvent(
+            event_type="JobSubmitted",
+            source_agent="AsyncJobExecutionEngine",
+            correlation_id=job_state.metadata.correlation_id if "job_state" in locals() else job_id,
+            data={
+                'job_id': job_id,
+                'workflow_id': workflow_id,
+                'correlation_id': metadata.correlation_id
+            }
+        ))
+        
+        # Queue
+        await self._job_queue.put(job_id)
+        
+        logger.info(f"Submitted async job {job_id} for workflow {workflow_id}")
+        
+        return job_id
+    
+    async def _execute_job(self, job_id: str) -> None:
+        """Execute a job asynchronously.
+        
+        Args:
+            job_id: Job identifier
+        """
+        async with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                logger.error(f"Job {job_id} not found")
+                return
+            
+            # Mark as running
+            job_state.metadata.status = JobStatus.RUNNING
+            job_state.metadata.started_at = datetime.now()
+            
+            # Create control events
+            self._pause_events[job_id] = asyncio.Event()
+            self._cancel_events[job_id] = asyncio.Event()
+        
+        # Save state
+        self.storage.save_job(job_state)
+        
+        # Emit event
+        self.event_bus.publish(AgentEvent(
+            event_type="JobStarted",
+            source_agent="AsyncJobExecutionEngine",
+            correlation_id=job_state.metadata.correlation_id if "job_state" in locals() else job_id,
+            data={
+                'job_id': job_id,
+                'workflow_id': job_state.metadata.workflow_id
+            }
+        ))
+        
+        logger.info(f"Started executing async job {job_id}")
+        
+        try:
+            # Get execution plan
+            plan_dict = job_state.context.get('execution_plan', {})
+            plan = ExecutionPlan.from_dict(plan_dict)
+            
+            # Execute steps
+            completed_steps = set()
+            
+            for step in plan.steps:
+                # Check for pause
+                if self._pause_events[job_id].is_set():
+                    logger.info(f"Job {job_id} paused")
+                    await self._mark_job_paused(job_id)
+                    return
+                
+                # Check for cancel
+                if self._cancel_events[job_id].is_set():
+                    logger.info(f"Job {job_id} cancelled")
+                    await self._mark_job_cancelled(job_id)
+                    return
+                
+                # Check dependencies
+                if not all(dep in completed_steps for dep in step.dependencies):
+                    logger.warning(f"Dependencies not met for step {step.agent_id}")
+                    continue
+                
+                # Evaluate condition
+                if step.condition and not step.evaluate_condition(job_state.outputs):
+                    logger.info(f"Skipping step {step.agent_id} due to condition")
+                    job_state.mark_step_skipped(step.agent_id)
+                    completed_steps.add(step.agent_id)
+                    continue
+                
+                # Execute step
+                success = await self._execute_step(job_id, job_state, step)
+                
+                if success:
+                    completed_steps.add(step.agent_id)
+                else:
+                    if step.metadata.get('critical', False):
+                        logger.error(f"Critical step {step.agent_id} failed")
+                        await self._mark_job_failed(job_id, f"Critical step {step.agent_id} failed")
+                        return
+                    else:
+                        logger.warning(f"Non-critical step {step.agent_id} failed, continuing")
+                        completed_steps.add(step.agent_id)
+                
+                # Save state
+                self.storage.save_job(job_state)
+            
+            # Mark completed
+            await self._mark_job_completed(job_id)
+            
+        except Exception as e:
+            logger.error(f"Job {job_id} execution failed: {e}", exc_info=True)
+            await self._mark_job_failed(job_id, str(e))
+        finally:
+            # Cleanup control events
+            async with self._lock:
+                self._pause_events.pop(job_id, None)
+                self._cancel_events.pop(job_id, None)
+    
+    async def _execute_step(
+        self,
+        job_id: str,
+        job_state: JobState,
+        step: ExecutionStep
+    ) -> bool:
+        """Execute a single step asynchronously.
+        
+        Args:
+            job_id: Job identifier
+            job_state: Job state
+            step: Step to execute
+            
+        Returns:
+            True if successful
+        """
+        agent_id = step.agent_id
+        
+        # Mark started
+        job_state.mark_step_started(agent_id)
+        
+        # Emit event
+        self.event_bus.publish(AgentEvent(
+            event_type="StepStarted",
+            source_agent=agent_id,
+            correlation_id=job_state.metadata.correlation_id if "job_state" in locals() else job_id,
+            data={'job_id': job_id, 'agent_id': agent_id}
+        ))
+        
+        logger.info(f"Executing async step {agent_id} for job {job_id}")
+        
+        try:
+            # Get agent
+            agent = self.registry.get_agent(
+                agent_id,
+                config=self.config,
+                event_bus=self.event_bus
+            )
+            
+            if not agent:
+                raise ValueError(f"Agent {agent_id} not found")
+            
+            # Prepare inputs
+            agent_inputs = self._prepare_agent_inputs(job_state, step)
+            
+            # Execute
+            start_time = asyncio.get_event_loop().time()
+            
+            try:
+                # Call agent (sync for now, can be made async)
+                if hasattr(agent, 'run'):
+                    result = agent.run(**agent_inputs)
+                elif hasattr(agent, 'execute'):
+                    result = agent.execute(**agent_inputs)
+                else:
+                    raise AttributeError(f"Agent {agent_id} has no run() or execute() method")
+                
+                elapsed = asyncio.get_event_loop().time() - start_time
+                
+                # Check timeout
+                if step.timeout > 0 and elapsed > step.timeout:
+                    raise TimeoutError(f"Step exceeded timeout of {step.timeout}s")
+                
+                # Store result
+                if isinstance(result, dict):
+                    job_state.outputs.update(result)
+                else:
+                    job_state.outputs[agent_id] = result
+                
+                # Mark completed
+                job_state.mark_step_completed(
+                    agent_id,
+                    result if isinstance(result, dict) else {'result': result}
+                )
+                
+                # Emit event
+                self.event_bus.publish(AgentEvent(
+                    event_type="StepCompleted",
+                    source_agent=agent_id,
+                    correlation_id=job_state.metadata.correlation_id if "job_state" in locals() else job_id,
+                    data={'job_id': job_id, 'agent_id': agent_id, 'duration': elapsed}
+                ))
+                
+                logger.info(f"Async step {agent_id} completed in {elapsed:.2f}s")
+                
+                return True
+                
+            except TimeoutError as e:
+                logger.error(f"Step {agent_id} timed out: {e}")
+                job_state.mark_step_failed(agent_id, str(e))
+                return False
+                
+        except Exception as e:
+            logger.error(f"Step {agent_id} failed: {e}", exc_info=True)
+            job_state.mark_step_failed(agent_id, str(e))
+            
+            # Emit event
+            self.event_bus.publish(AgentEvent(
+                event_type="StepFailed",
+                source_agent=agent_id,
+                correlation_id=job_state.metadata.correlation_id if "job_state" in locals() else job_id,
+                data={'job_id': job_id, 'agent_id': agent_id, 'error': str(e)}
+            ))
+            
+            # Retry logic
+            step_execution = job_state.steps.get(agent_id)
+            if step_execution and step_execution.retry_count < step.retry:
+                logger.info(f"Retrying step {agent_id} (attempt {step_execution.retry_count + 1}/{step.retry})")
+                step_execution.retry_count += 1
+                step_execution.status = StepStatus.PENDING
+                return await self._execute_step(job_id, job_state, step)
+            
+            return False
+    
+    def _prepare_agent_inputs(
+        self,
+        job_state: JobState,
+        step: ExecutionStep
+    ) -> Dict[str, Any]:
+        """Prepare agent inputs."""
+        inputs = {
+            'config': self.config,
+            **job_state.inputs,
+            **job_state.outputs
+        }
+        
+        inputs['_job_id'] = job_state.metadata.job_id
+        inputs['_workflow_id'] = job_state.metadata.workflow_id
+        inputs['_agent_id'] = step.agent_id
+        
+        return inputs
+    
+    async def _mark_job_completed(self, job_id: str) -> None:
+        """Mark job as completed."""
+        async with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                return
+            
+            job_state.metadata.status = JobStatus.COMPLETED
+            job_state.metadata.completed_at = datetime.now()
+            job_state.metadata.progress = 1.0
+        
+        self.storage.save_job(job_state)
+        
+        self.event_bus.publish(AgentEvent(
+            event_type="JobCompleted",
+            source_agent="AsyncJobExecutionEngine",
+            correlation_id=job_state.metadata.correlation_id if "job_state" in locals() else job_id,
+            data={
+                'job_id': job_id,
+                'workflow_id': job_state.metadata.workflow_id,
+                'duration': (
+                    job_state.metadata.completed_at - job_state.metadata.started_at
+                ).total_seconds() if job_state.metadata.started_at else 0
+            }
+        ))
+        
+        logger.info(f"Async job {job_id} completed")
+    
+    async def _mark_job_failed(self, job_id: str, error: str) -> None:
+        """Mark job as failed."""
+        async with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                return
+            
+            job_state.metadata.status = JobStatus.FAILED
+            job_state.metadata.completed_at = datetime.now()
+            job_state.metadata.error_message = error
+        
+        self.storage.save_job(job_state)
+        
+        self.event_bus.publish(AgentEvent(
+            event_type="JobFailed",
+            source_agent="AsyncJobExecutionEngine",
+            correlation_id=job_state.metadata.correlation_id if "job_state" in locals() else job_id,
+            data={
+                'job_id': job_id,
+                'workflow_id': job_state.metadata.workflow_id,
+                'error': error
+            }
+        ))
+        
+        logger.error(f"Async job {job_id} failed: {error}")
+    
+    async def _mark_job_cancelled(self, job_id: str) -> None:
+        """Mark job as cancelled."""
+        async with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                return
+            
+            job_state.metadata.status = JobStatus.CANCELLED
+            job_state.metadata.completed_at = datetime.now()
+        
+        self.storage.save_job(job_state)
+        
+        self.event_bus.publish(AgentEvent(
+            event_type="JobCancelled",
+            source_agent="AsyncJobExecutionEngine",
+            correlation_id=job_state.metadata.correlation_id if "job_state" in locals() else job_id,
+            data={'job_id': job_id, 'workflow_id': job_state.metadata.workflow_id}
+        ))
+        
+        logger.info(f"Async job {job_id} cancelled")
+    
+    async def _mark_job_paused(self, job_id: str) -> None:
+        """Mark job as paused."""
+        async with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                return
+            
+            job_state.metadata.status = JobStatus.PAUSED
+        
+        self.storage.save_job(job_state)
+        logger.info(f"Async job {job_id} paused")
+    
+    async def get_job_status(self, job_id: str) -> Optional[JobMetadata]:
+        """Get job status."""
+        async with self._lock:
+            job_state = self._jobs.get(job_id)
+            if job_state:
+                return job_state.metadata
+        
+        job_state = self.storage.load_job(job_id)
+        if job_state:
+            async with self._lock:
+                self._jobs[job_id] = job_state
+            return job_state.metadata
+        
+        return None
+    
+    async def pause_job(self, job_id: str) -> bool:
+        """Pause a job."""
+        async with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                return False
+            
+            if job_state.metadata.status != JobStatus.RUNNING:
+                return False
+            
+            # Set pause event
+            if job_id in self._pause_events:
+                self._pause_events[job_id].set()
+                return True
+        
+        return False
+    
+    async def resume_job(self, job_id: str) -> bool:
+        """Resume a paused job."""
+        async with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                return False
+            
+            if job_state.metadata.status != JobStatus.PAUSED:
+                return False
+            
+            job_state.metadata.status = JobStatus.PENDING
+            self._pending_jobs.add(job_id)
+        
+        self.storage.save_job(job_state)
+        await self._job_queue.put(job_id)
+        
+        logger.info(f"Resumed async job {job_id}")
+        return True
+    
+    async def cancel_job(self, job_id: str) -> bool:
+        """Cancel a job."""
+        async with self._lock:
+            job_state = self._jobs.get(job_id)
+            if not job_state:
+                return False
+            
+            if job_state.metadata.status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
+                return False
+            
+            if job_state.metadata.status == JobStatus.PENDING:
+                self._pending_jobs.discard(job_id)
+                await self._mark_job_cancelled(job_id)
+                return True
+            
+            # Set cancel event
+            if job_id in self._cancel_events:
+                self._cancel_events[job_id].set()
+                return True
+        
+        return False
+    
+    def list_jobs(
+        self,
+        status: Optional[JobStatus] = None,
+        limit: Optional[int] = None
+    ) -> List[JobMetadata]:
+        """List jobs."""
+        return self.storage.list_jobs(status=status, limit=limit)
+    
+    async def delete_job(self, job_id: str) -> bool:
+        """Delete a job."""
+        async with self._lock:
+            self._jobs.pop(job_id, None)
+            self._pending_jobs.discard(job_id)
+            self._pause_events.pop(job_id, None)
+            self._cancel_events.pop(job_id, None)
+        
+        return self.storage.delete_job(job_id)
+    
+    async def get_engine_stats(self) -> Dict[str, Any]:
+        """Get engine statistics."""
+        async with self._lock:
+            pending_count = len([
+                j for j in self._jobs.values()
+                if j.metadata.status == JobStatus.PENDING
+            ])
+            running_count = len([
+                j for j in self._jobs.values()
+                if j.metadata.status == JobStatus.RUNNING
+            ])
+            paused_count = len([
+                j for j in self._jobs.values()
+                if j.metadata.status == JobStatus.PAUSED
+            ])
+        
+        storage_stats = self.storage.get_storage_stats()
+        
+        return {
+            'running': self._running,
+            'max_concurrent_jobs': self.max_concurrent_jobs,
+            'worker_tasks': len(self._worker_tasks),
+            'jobs_in_memory': len(self._jobs),
+            'pending_jobs': pending_count,
+            'running_jobs': running_count,
+            'paused_jobs': paused_count,
+            'queue_size': self._job_queue.qsize(),
+            'storage': storage_stats
+        }
+>>>>>>> Stashed changes

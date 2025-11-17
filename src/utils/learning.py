@@ -1,11 +1,19 @@
 """Self-learning capabilities and performance tracking for agents.
 
-Implements PerformanceTracker, SelfCorrectingAgent mixin, and help request broker."""
+Implements PerformanceTracker, SelfCorrectingAgent mixin, and help request broker.
+
+Example:
+    >>> tracker = PerformanceTracker(window_size=20)
+    >>> tracker.record_execution("agent_1", "generate_content", True, latency_ms=150)
+    >>> success_rate = tracker.get_success_rate("agent_1", "generate_content")
+    >>> health = tracker.get_agent_health("agent_1")
+"""
 
 from typing import Dict, List, Optional, Any, Tuple
 from collections import defaultdict, deque
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
+import threading
 from dataclasses import dataclass, field
 from src.core.contracts import AgentEvent
 from src.core.config import Config, FAILURE_STRATEGIES
@@ -24,18 +32,24 @@ class ExecutionRecord:
     latency_ms: float = 0.0
 
 class PerformanceTracker:
-    """Tracks agent performance and identifies failure patterns."""
+    """Thread-safe tracker for agent performance and failure patterns."""
 
     def __init__(self, window_size: int = 20):
         """Initialize performance tracker.
 
         Args:
-            window_size: Size of rolling window for metrics"""
+            window_size: Size of rolling window for metrics
+            
+        Example:
+            >>> tracker = PerformanceTracker(window_size=50)
+            >>> tracker.record_execution("agent_1", "task", True)
+        """
         self.window_size = window_size
         self.records: Dict[Tuple[str, str], deque] = defaultdict(
             lambda: deque(maxlen=window_size)
         )
         self.failure_counts: Dict[Tuple[str, str, str], int] = defaultdict(int)
+        self._lock = threading.Lock()
 
     def record_execution(
         self,
@@ -45,17 +59,21 @@ class PerformanceTracker:
         error_type: Optional[str] = None,
         latency_ms: float = 0.0
     ):
-        """Record an execution result.
+        """Record an execution result (thread-safe).
 
         Args:
             agent_id: ID of the agent
             capability: Capability being executed
             success: Whether execution was successful
             error_type: Type of error if failed
-            latency_ms: Execution latency in milliseconds"""
+            latency_ms: Execution latency in milliseconds
+            
+        Example:
+            >>> tracker.record_execution("agent_1", "generate", True, latency_ms=250)
+        """
         key = (agent_id, capability)
         record = ExecutionRecord(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             agent_id=agent_id,
             capability=capability,
             success=success,
@@ -63,11 +81,12 @@ class PerformanceTracker:
             latency_ms=latency_ms
         )
 
-        self.records[key].append(record)
+        with self._lock:
+            self.records[key].append(record)
 
-        if not success and error_type:
-            failure_key = (agent_id, capability, error_type)
-            self.failure_counts[failure_key] += 1
+            if not success and error_type:
+                failure_key = (agent_id, capability, error_type)
+                self.failure_counts[failure_key] += 1
 
         logger.debug(
             f"Recorded execution: {agent_id}/{capability} "
@@ -82,9 +101,16 @@ class PerformanceTracker:
             capability: Capability to check
 
         Returns:
-            Success rate (0.0 to 1.0)"""
+            Success rate (0.0 to 1.0)
+            
+        Example:
+            >>> rate = tracker.get_success_rate("agent_1", "generate")
+            >>> print(f"Success rate: {rate * 100:.1f}%")
+        """
         key = (agent_id, capability)
-        records = self.records.get(key, [])
+        
+        with self._lock:
+            records = list(self.records.get(key, []))
 
         if not records:
             return 1.0  # Assume healthy if no history
@@ -100,9 +126,16 @@ class PerformanceTracker:
             capability: Capability to check
 
         Returns:
-            Average latency in milliseconds"""
+            Average latency in milliseconds
+            
+        Example:
+            >>> latency = tracker.get_average_latency("agent_1", "generate")
+            >>> print(f"Average latency: {latency:.2f}ms")
+        """
         key = (agent_id, capability)
-        records = self.records.get(key, [])
+        
+        with self._lock:
+            records = list(self.records.get(key, []))
 
         if not records:
             return 0.0
@@ -124,13 +157,20 @@ class PerformanceTracker:
             top_n: Number of top failures to return
 
         Returns:
-            List of (error_type, count) tuples"""
+            List of (error_type, count) tuples
+            
+        Example:
+            >>> failures = tracker.get_common_failures("agent_1", "generate", top_n=5)
+            >>> for error_type, count in failures:
+            ...     print(f"{error_type}: {count} occurrences")
+        """
         # Get all failure counts for this agent/capability
-        relevant_failures = [
-            (error_type, count)
-            for (aid, cap, error_type), count in self.failure_counts.items()
-            if aid == agent_id and cap == capability
-        ]
+        with self._lock:
+            relevant_failures = [
+                (error_type, count)
+                for (aid, cap, error_type), count in self.failure_counts.items()
+                if aid == agent_id and cap == capability
+            ]
 
         # Sort by count descending
         relevant_failures.sort(key=lambda x: x[1], reverse=True)
@@ -144,10 +184,17 @@ class PerformanceTracker:
             agent_id: ID of the agent
 
         Returns:
-            Health metrics dictionary"""
-        capabilities = set(
-            cap for (aid, cap) in self.records.keys() if aid == agent_id
-        )
+            Health metrics dictionary
+            
+        Example:
+            >>> health = tracker.get_agent_health("agent_1")
+            >>> for cap, metrics in health["capabilities"].items():
+            ...     print(f"{cap}: {metrics['success_rate']:.2%}")
+        """
+        with self._lock:
+            capabilities = set(
+                cap for (aid, cap) in self.records.keys() if aid == agent_id
+            )
 
         health = {
             "agent_id": agent_id,
@@ -162,4 +209,3 @@ class PerformanceTracker:
             }
 
         return health
-

@@ -374,6 +374,7 @@ class CheckpointManager:
                     
             logger.info(f"Loaded {len(self._executions)} persisted executions")
             
+<<<<<<< Updated upstream
         except Exception as e:
             logger.error(f"Failed to load persisted executions: {e}")
     
@@ -450,3 +451,11 @@ def enhance_planner_with_checkpoints(planner, checkpoint_manager: CheckpointMana
     planner.checkpoint_manager = checkpoint_manager
     
     return planner
+=======
+        Returns:
+            checkpoint_id of the latest checkpoint, or None if no checkpoints exist
+        """
+        checkpoints = self.list(job_id)
+        return checkpoints[0].checkpoint_id if checkpoints else None
+# DOCGEN:LLM-FIRST@v4
+>>>>>>> Stashed changes

@@ -14,6 +14,451 @@ from src.engine.engine import get_engine, RunSpec, JobStatus
 from src.core.template_registry import list_templates
 
 
+<<<<<<< Updated upstream
+=======
+
+
+# MCP Agent Command Handlers
+
+def cmd_invoke_agent(args):
+    """Invoke a specific agent directly via MCP."""
+    from src.mcp.handlers import handle_agent_invoke
+    import asyncio
+    
+    # Parse input JSON
+    try:
+        agent_input = json.loads(args.input) if args.input else {}
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON input: {e}")
+        return 1
+    
+    # Invoke via MCP
+    params = {
+        "agent_id": args.agent_id,
+        "input": agent_input,
+        "context": {}
+    }
+    
+    result = asyncio.run(handle_agent_invoke(params))
+    
+    # Output result
+    if args.format == 'json':
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"Agent: {result.get('agent_id', args.agent_id)}")
+        print(f"Status: {result.get('status', 'unknown')}")
+        if result.get('status') == 'completed':
+            print(f"Executed at: {result.get('executed_at', 'N/A')}")
+            if result.get('output'):
+                print(f"\nOutput:")
+                print(json.dumps(result['output'], indent=2))
+        elif result.get('status') == 'failed':
+            print(f"Error: {result.get('error', 'Unknown error')}")
+    
+    return 0
+
+
+def cmd_ingest(args):
+    """Ingest content from directories."""
+    from src.mcp.handlers import (
+        handle_ingest_kb,
+        handle_ingest_docs,
+        handle_ingest_api,
+        handle_ingest_blog,
+        handle_ingest_tutorial
+    )
+    import asyncio
+    
+    # Determine handler and path parameter
+    handlers = {
+        'kb': (handle_ingest_kb, 'kb_path'),
+        'docs': (handle_ingest_docs, 'docs_path'),
+        'api': (handle_ingest_api, 'api_path'),
+        'blog': (handle_ingest_blog, 'blog_path'),
+        'tutorial': (handle_ingest_tutorial, 'tutorial_path')
+    }
+    
+    handler, path_param = handlers[args.type]
+    
+    # Invoke via MCP
+    result = asyncio.run(handler({path_param: args.path}))
+    
+    # Output result
+    if args.format == 'json':
+        print(json.dumps(result, indent=2))
+    else:
+        status = result.get('status', 'unknown')
+        print(f"\nIngestion completed: {args.type}")
+        print(f"Status: {status}")
+        print(f"Path: {args.path}")
+        
+        if status == 'completed':
+            result_data = result.get('result', {})
+            if isinstance(result_data, dict):
+                meta = result_data.get('kb_meta') or result_data.get('docs_meta') or result_data.get('api_meta', {})
+                if isinstance(meta, dict):
+                    print(f"Files processed: {meta.get('files_processed', 0)}")
+                    print(f"Files skipped: {meta.get('files_skipped', 0)}")
+        elif status == 'failed':
+            print(f"Error: {result.get('error', 'Unknown error')}")
+    
+    return 0
+
+
+def cmd_discover_topics(args):
+    """Discover topics from KB directory."""
+    from src.mcp.handlers import handle_topics_discover
+    import asyncio
+    
+    # Invoke topic discovery via MCP
+    params = {
+        "kb_path": args.kb_dir,
+        "max_topics": args.max
+    }
+    
+    result = asyncio.run(handle_topics_discover(params))
+    
+    # Output result
+    if args.format == 'json':
+        print(json.dumps(result, indent=2))
+    else:
+        status = result.get('status', 'unknown')
+        print(f"\nTopic Discovery: {status}")
+        print("=" * 60)
+        
+        if status == 'completed':
+            topics = result.get('topics', [])
+            total = result.get('total_discovered', 0)
+            dedup = result.get('after_dedup', 0)
+            
+            print(f"Total discovered: {total}")
+            print(f"After deduplication: {dedup}")
+            print(f"Returned (limited to {args.max}): {len(topics)}")
+            
+            print("\nTop Topics:")
+            for i, topic in enumerate(topics[:10], 1):
+                if isinstance(topic, dict):
+                    title = topic.get('title', 'Untitled')
+                    priority = topic.get('priority', 'N/A')
+                    source = topic.get('source_file', 'N/A')
+                    print(f"{i}. {title}")
+                    print(f"   Priority: {priority}")
+                    print(f"   Source: {source}")
+                else:
+                    print(f"{i}. {topic}")
+        elif status == 'failed':
+            print(f"Error: {result.get('error', 'Unknown error')}")
+    
+    return 0
+
+
+def cmd_list_agents(args):
+    """List all available agents."""
+    from src.mcp.handlers import handle_agent_list
+    import asyncio
+    
+    # Get agents via MCP
+    params = {}
+    if args.category:
+        params['category'] = args.category
+    
+    result = asyncio.run(handle_agent_list(params))
+    
+    # Output result
+    if args.format == 'json':
+        print(json.dumps(result, indent=2))
+    else:
+        agents = result.get('agents', [])
+        total = result.get('total', len(agents))
+        
+        print(f"\nFound {total} agents")
+        
+        if args.category:
+            print(f"Category filter: {args.category}")
+        
+        # Group by category
+        by_category = {}
+        for agent in agents:
+            cat = agent.get('category', 'other')
+            if cat not in by_category:
+                by_category[cat] = []
+            by_category[cat].append(agent)
+        
+        for category, agent_list in sorted(by_category.items()):
+            print(f"\n{category.upper()} ({len(agent_list)}):")
+            for agent in agent_list:
+                agent_id = agent.get('id', 'unknown')
+                name = agent.get('name', 'N/A')
+                status = agent.get('status', 'unknown')
+                print(f"  - {agent_id}: {name} ({status})")
+    
+    return 0
+
+# Checkpoint command handlers
+
+
+# Ingestion command handlers
+
+def cmd_ingest(args):
+    """Ingest content from directories."""
+    from src.mcp.handlers import (
+        handle_ingest_kb,
+        handle_ingest_docs,
+        handle_ingest_api,
+        handle_ingest_blog,
+        handle_ingest_tutorial
+    )
+    import asyncio
+
+    results = []
+
+    async def run_ingestion():
+        if args.kb:
+            print(f"Ingesting KB from: {args.kb}")
+            result = await handle_ingest_kb({"kb_path": args.kb})
+            results.append(("KB", result))
+
+        if args.docs:
+            print(f"Ingesting Docs from: {args.docs}")
+            result = await handle_ingest_docs({"docs_path": args.docs})
+            results.append(("Docs", result))
+
+        if args.api:
+            print(f"Ingesting API from: {args.api}")
+            result = await handle_ingest_api({"api_path": args.api})
+            results.append(("API", result))
+
+        if args.blog:
+            print(f"Ingesting Blog from: {args.blog}")
+            result = await handle_ingest_blog({"blog_path": args.blog})
+            results.append(("Blog", result))
+
+        if args.tutorial:
+            print(f"Ingesting Tutorial from: {args.tutorial}")
+            result = await handle_ingest_tutorial({"tutorial_path": args.tutorial})
+            results.append(("Tutorial", result))
+
+    # Run async function
+    asyncio.run(run_ingestion())
+
+    # Print results
+    if args.json:
+        print(json.dumps([{"type": t, "result": r} for t, r in results], indent=2))
+    else:
+        print("\nIngestion Results:")
+        print("=" * 60)
+        for content_type, result in results:
+            status = result.get("status", "unknown")
+            print(f"\n{content_type}: {status}")
+            if status == "completed":
+                print(f"  Completed at: {result.get('completed_at', 'N/A')}")
+            elif status == "failed":
+                print(f"  Error: {result.get('error', 'Unknown error')}")
+
+    return 0
+
+
+def cmd_discover_topics(args):
+    """Discover topics from directories."""
+    from src.mcp.handlers import handle_topics_discover
+    import asyncio
+
+    params = {
+        "max_topics": args.max_topics
+    }
+
+    if args.kb:
+        params["kb_path"] = args.kb
+    if args.docs:
+        params["docs_path"] = args.docs
+
+    if not args.kb and not args.docs:
+        print("Error: At least one of --kb or --docs is required")
+        return 1
+
+    # Run async function
+    result = asyncio.run(handle_topics_discover(params))
+
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        status = result.get("status", "unknown")
+        print(f"\nTopic Discovery: {status}")
+        print("=" * 60)
+
+        if status == "completed":
+            topics = result.get("topics", [])
+            total = result.get("total_discovered", 0)
+            dedup = result.get("after_dedup", 0)
+
+            print(f"Total discovered: {total}")
+            print(f"After deduplication: {dedup}")
+            print(f"Returned (limited to {args.max_topics}): {len(topics)}")
+            print("\nTopics:")
+            for i, topic in enumerate(topics, 1):
+                if isinstance(topic, dict):
+                    title = topic.get("title", "Untitled")
+                    desc = topic.get("description", "")
+                    print(f"\n  {i}. {title}")
+                    if desc:
+                        print(f"     {desc[:100]}...")
+                else:
+                    print(f"\n  {i}. {topic}")
+        elif status == "failed":
+            print(f"Error: {result.get('error', 'Unknown error')}")
+
+    return 0
+
+
+def cmd_invoke_agent(args):
+    """Invoke an agent directly."""
+    from src.mcp.handlers import handle_agent_invoke
+    import asyncio
+
+    # Parse input JSON
+    try:
+        if args.input:
+            agent_input = json.loads(args.input)
+        else:
+            agent_input = {}
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON input: {e}")
+        return 1
+
+    params = {
+        "agent_id": args.agent_id,
+        "input": agent_input,
+        "context": {}
+    }
+
+    # Run async function
+    result = asyncio.run(handle_agent_invoke(params))
+
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        status = result.get("status", "unknown")
+        agent_id = result.get("agent_id", args.agent_id)
+        print(f"\nAgent Invocation: {agent_id}")
+        print("=" * 60)
+        print(f"Status: {status}")
+
+        if status == "completed":
+            print(f"Executed at: {result.get('executed_at', 'N/A')}")
+            print("\nOutput:")
+            output = result.get("output", {})
+            print(json.dumps(output, indent=2))
+        elif status == "failed":
+            print(f"Error: {result.get('error', 'Unknown error')}")
+
+    return 0
+
+
+def cmd_checkpoint_list(args):
+    """List checkpoints for a job."""
+    from src.orchestration.checkpoint_manager import CheckpointManager
+    
+    checkpoint_dir = Path(args.checkpoint_dir) if args.checkpoint_dir else Path(".checkpoints")
+    manager = CheckpointManager(storage_path=checkpoint_dir)
+    
+    checkpoints = manager.list(args.job_id)
+    
+    if args.json:
+        print(json.dumps([cp.to_dict() for cp in checkpoints], indent=2))
+    else:
+        if not checkpoints:
+            print(f"\n📦 No checkpoints found for job: {args.job_id}")
+            return 0
+        
+        print(f"\n📦 Checkpoints for job: {args.job_id} ({len(checkpoints)})")
+        print("="*80)
+        for idx, cp in enumerate(checkpoints, 1):
+            print(f"\n  {idx}. {cp.checkpoint_id}")
+            print(f"     Step: {cp.step_name}")
+            print(f"     Time: {cp.timestamp}")
+            print(f"     Version: {cp.workflow_version}")
+    
+    return 0
+
+
+def cmd_checkpoint_restore(args):
+    """Restore a job from checkpoint."""
+    from src.orchestration.checkpoint_manager import CheckpointManager
+    
+    checkpoint_dir = Path(args.checkpoint_dir) if args.checkpoint_dir else Path(".checkpoints")
+    manager = CheckpointManager(storage_path=checkpoint_dir)
+    
+    # If 'latest' is specified, get the latest checkpoint
+    checkpoint_id = args.checkpoint_id
+    if checkpoint_id.lower() == 'latest':
+        checkpoint_id = manager.get_latest_checkpoint(args.job_id)
+        if not checkpoint_id:
+            print(f"❌ No checkpoints found for job: {args.job_id}")
+            return 1
+        print(f"📦 Using latest checkpoint: {checkpoint_id}")
+    
+    try:
+        state = manager.restore(args.job_id, checkpoint_id)
+        
+        if args.json:
+            print(json.dumps(state, indent=2))
+        else:
+            print(f"\n✓ Checkpoint restored: {checkpoint_id}")
+            print("="*80)
+            print(f"Workflow: {state.get('workflow_name', 'N/A')}")
+            print(f"Step: {state.get('current_step', 0)}")
+            print(f"LLM calls: {state.get('llm_calls', 0)}")
+            print(f"Tokens used: {state.get('tokens_used', 0)}")
+            
+            if args.resume:
+                print("\n🔄 Resuming job execution...")
+                # TODO: Implement resume execution
+                print("⚠️  Resume functionality requires integration with job execution engine")
+        
+        return 0
+    except FileNotFoundError:
+        print(f"❌ Checkpoint not found: {checkpoint_id}")
+        return 1
+    except ValueError as e:
+        print(f"❌ Checkpoint error: {e}")
+        return 1
+
+
+def cmd_checkpoint_delete(args):
+    """Delete a checkpoint."""
+    from src.orchestration.checkpoint_manager import CheckpointManager
+    
+    checkpoint_dir = Path(args.checkpoint_dir) if args.checkpoint_dir else Path(".checkpoints")
+    manager = CheckpointManager(storage_path=checkpoint_dir)
+    
+    try:
+        manager.delete(args.job_id, args.checkpoint_id)
+        print(f"✓ Checkpoint deleted: {args.checkpoint_id}")
+        return 0
+    except Exception as e:
+        print(f"❌ Failed to delete checkpoint: {e}")
+        return 1
+
+
+def cmd_checkpoint_cleanup(args):
+    """Cleanup old checkpoints for a job."""
+    from src.orchestration.checkpoint_manager import CheckpointManager
+    
+    checkpoint_dir = Path(args.checkpoint_dir) if args.checkpoint_dir else Path(".checkpoints")
+    manager = CheckpointManager(storage_path=checkpoint_dir)
+    
+    keep_last = args.keep if args.keep else 10
+    
+    try:
+        manager.cleanup(args.job_id, keep_last=keep_last)
+        print(f"✓ Cleaned up old checkpoints, keeping last {keep_last}")
+        return 0
+    except Exception as e:
+        print(f"❌ Failed to cleanup checkpoints: {e}")
+        return 1
+
+
+>>>>>>> Stashed changes
 # Visualization command handlers
 
 def cmd_viz_workflows(args):
@@ -704,6 +1149,430 @@ def cmd_config_performance(args):
         return 1
 
 
+def cmd_job_pause(args):
+    """Pause a running job."""
+    from src.orchestration.job_execution_engine import JobExecutionEngine
+    from src.orchestration.workflow_compiler import WorkflowCompiler
+    from src.orchestration.enhanced_registry import EnhancedAgentRegistry
+    from src.core import EventBus, Config
+    
+    try:
+        compiler = WorkflowCompiler()
+        registry = EnhancedAgentRegistry()
+        event_bus = EventBus()
+        config = Config()
+        
+        engine = JobExecutionEngine(
+            compiler=compiler,
+            registry=registry,
+            event_bus=event_bus,
+            config=config
+        )
+        
+        result = engine.pause_job(args.job_id)
+        
+        if result:
+            print(f"⏸️  Job paused: {args.job_id}")
+            return 0
+        else:
+            print(f"❌ Could not pause job: {args.job_id}")
+            return 1
+    
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return 1
+
+
+def cmd_job_resume(args):
+    """Resume a paused job."""
+    from src.orchestration.job_execution_engine import JobExecutionEngine
+    from src.orchestration.workflow_compiler import WorkflowCompiler
+    from src.orchestration.enhanced_registry import EnhancedAgentRegistry
+    from src.core import EventBus, Config
+    
+    try:
+        compiler = WorkflowCompiler()
+        registry = EnhancedAgentRegistry()
+        event_bus = EventBus()
+        config = Config()
+        
+        engine = JobExecutionEngine(
+            compiler=compiler,
+            registry=registry,
+            event_bus=event_bus,
+            config=config
+        )
+        
+        result = engine.resume_job(args.job_id)
+        
+        if result:
+            print(f"▶️  Job resumed: {args.job_id}")
+            return 0
+        else:
+            print(f"❌ Could not resume job: {args.job_id}")
+            return 1
+    
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return 1
+
+
+def cmd_job_cancel(args):
+    """Cancel a running job."""
+    from src.orchestration.job_execution_engine import JobExecutionEngine
+    from src.orchestration.workflow_compiler import WorkflowCompiler
+    from src.orchestration.enhanced_registry import EnhancedAgentRegistry
+    from src.core import EventBus, Config
+    
+    try:
+        compiler = WorkflowCompiler()
+        registry = EnhancedAgentRegistry()
+        event_bus = EventBus()
+        config = Config()
+        
+        engine = JobExecutionEngine(
+            compiler=compiler,
+            registry=registry,
+            event_bus=event_bus,
+            config=config
+        )
+        
+        result = engine.cancel_job(args.job_id)
+        
+        if result:
+            print(f"🚫 Job cancelled: {args.job_id}")
+            return 0
+        else:
+            print(f"❌ Could not cancel job: {args.job_id}")
+            return 1
+    
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return 1
+
+
+def cmd_agent_health(args):
+    """Get agent health status."""
+    from src.orchestration.enhanced_registry import EnhancedAgentRegistry
+    
+    try:
+        registry = EnhancedAgentRegistry()
+        
+        if args.agent_id:
+            # Get specific agent health
+            health = registry.get_agent_health(args.agent_id)
+            
+            if not health:
+                print(f"❌ Agent not found: {args.agent_id}")
+                return 1
+            
+            if args.json:
+                print(json.dumps(health, indent=2))
+            else:
+                print(f"\n🏥 Agent Health: {args.agent_id}")
+                print("="*80)
+                print(f"  Status: {health.get('status', 'unknown')}")
+                print(f"  Total Executions: {health.get('total_executions', 0)}")
+                print(f"  Failures: {health.get('failures', 0)}")
+                print(f"  Success Rate: {health.get('success_rate', 0):.1f}%")
+                print(f"  Avg Latency: {health.get('avg_latency_ms', 0):.2f}ms")
+                
+                if health.get('last_execution'):
+                    print(f"  Last Execution: {health.get('last_execution')}")
+        else:
+            # Get all agents health
+            agents = registry.get_all_agents()
+            
+            if args.json:
+                health_data = {}
+                for agent_id in agents.keys():
+                    health_data[agent_id] = registry.get_agent_health(agent_id)
+                print(json.dumps(health_data, indent=2))
+            else:
+                print(f"\n🏥 Agent Health Summary ({len(agents)} agents)")
+                print("="*80)
+                
+                for agent_id in agents.keys():
+                    health = registry.get_agent_health(agent_id)
+                    status = health.get('status', 'unknown')
+                    failures = health.get('failures', 0)
+                    
+                    status_icon = "✓" if status == 'healthy' else "⚠" if status == 'degraded' else "✗"
+                    print(f"  {status_icon} {agent_id}: {status} (failures: {failures})")
+        
+        return 0
+    
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return 1
+
+
+def cmd_agent_failures(args):
+    """View agent failure history."""
+    from src.orchestration.enhanced_registry import EnhancedAgentRegistry
+    
+    try:
+        registry = EnhancedAgentRegistry()
+        failures = registry.get_agent_failures(args.agent_id)
+        
+        if not failures:
+            print(f"✓ No failures recorded for agent: {args.agent_id}")
+            return 0
+        
+        if args.json:
+            print(json.dumps(failures, indent=2))
+        else:
+            print(f"\n⚠️  Failure History: {args.agent_id} ({len(failures)} failures)")
+            print("="*80)
+            
+            for idx, failure in enumerate(failures[:args.limit], 1):
+                print(f"\n  {idx}. {failure.get('timestamp', 'N/A')}")
+                print(f"     Error: {failure.get('error', 'Unknown')}")
+                print(f"     Job ID: {failure.get('job_id', 'N/A')}")
+                
+                if failure.get('context'):
+                    print(f"     Context: {failure.get('context')}")
+        
+        return 0
+    
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return 1
+
+
+def cmd_agent_logs(args):
+    """View agent logs."""
+    from src.orchestration.enhanced_registry import EnhancedAgentRegistry
+    
+    try:
+        registry = EnhancedAgentRegistry()
+        
+        if args.job_id:
+            # Get logs for specific job
+            logs = registry.get_agent_logs(args.agent_id, job_id=args.job_id)
+        else:
+            # Get all logs for agent
+            logs = registry.get_agent_logs(args.agent_id, limit=args.limit)
+        
+        if not logs:
+            print(f"📭 No logs found for agent: {args.agent_id}")
+            return 0
+        
+        if args.json:
+            print(json.dumps(logs, indent=2))
+        else:
+            print(f"\n📋 Agent Logs: {args.agent_id} ({len(logs)} entries)")
+            print("="*80)
+            
+            for log in logs:
+                timestamp = log.get('timestamp', 'N/A')
+                level = log.get('level', 'INFO')
+                message = log.get('message', '')
+                
+                level_icon = {
+                    'ERROR': '❌',
+                    'WARNING': '⚠️',
+                    'INFO': 'ℹ️',
+                    'DEBUG': '🔍'
+                }.get(level, '•')
+                
+                print(f"{level_icon} [{timestamp}] {level}: {message}")
+        
+        return 0
+    
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return 1
+
+
+def cmd_agent_reset_health(args):
+    """Reset agent health status."""
+    from src.orchestration.enhanced_registry import EnhancedAgentRegistry
+    
+    try:
+        registry = EnhancedAgentRegistry()
+        
+        if not args.force:
+            response = input(f"⚠️  Are you sure you want to reset health for {args.agent_id}? (y/N): ")
+            if response.lower() != 'y':
+                print("Cancelled.")
+                return 0
+        
+        result = registry.reset_agent_health(args.agent_id)
+        
+        if result:
+            print(f"✓ Agent health reset: {args.agent_id}")
+            return 0
+        else:
+            print(f"❌ Could not reset health for agent: {args.agent_id}")
+            return 1
+    
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return 1
+
+
+
+
+# Mesh orchestration commands
+def cmd_mesh_discover(args):
+    """Discover agents for mesh orchestration."""
+    from src.core.config import Config
+    from src.orchestration.production_execution_engine import ProductionExecutionEngine
+    
+    config = Config()
+    engine = ProductionExecutionEngine(config)
+    
+    if not engine.mesh_executor:
+        print("Error: Mesh orchestration is not enabled")
+        print("Enable it in config/main.yaml: mesh.enabled = true")
+        return 1
+    
+    print("Discovering agents for mesh orchestration...")
+    agents = engine.mesh_executor.discover_agents()
+    
+    if args.format == 'json':
+        print(json.dumps(agents, indent=2))
+    else:
+        print(f"\nDiscovered {len(agents)} agents:")
+        print("=" * 80)
+        for agent in agents:
+            print(f"\nAgent: {agent['agent_type']}")
+            print(f"  ID: {agent['agent_id']}")
+            print(f"  Capabilities: {', '.join(agent['capabilities'])}")
+    
+    return 0
+
+
+def cmd_mesh_execute(args):
+    """Execute mesh workflow."""
+    from src.core.config import Config
+    from src.orchestration.production_execution_engine import ProductionExecutionEngine
+    import uuid
+    
+    config = Config()
+    engine = ProductionExecutionEngine(config)
+    
+    if not engine.mesh_executor:
+        print("Error: Mesh orchestration is not enabled")
+        print("Enable it in config/main.yaml: mesh.enabled = true")
+        return 1
+    
+    # Prepare input data
+    input_data = {}
+    if args.input:
+        try:
+            with open(args.input, 'r', encoding='utf-8') as f:
+                input_data['content'] = f.read()
+        except Exception as e:
+            print(f"Error reading input file: {e}")
+            return 1
+    
+    job_id = f"mesh_{uuid.uuid4().hex[:8]}"
+    
+    print(f"Starting mesh workflow (job_id: {job_id})...")
+    print(f"Initial agent: {args.initial_agent}")
+    
+    try:
+        result = engine.mesh_executor.execute_mesh_workflow(
+            workflow_name="mesh_workflow",
+            initial_agent_type=args.initial_agent,
+            input_data=input_data,
+            job_id=job_id,
+            progress_callback=lambda p, m: print(f"[{p:.1f}%] {m}")
+        )
+        
+        if args.format == 'json':
+            print(json.dumps(result.to_dict(), indent=2))
+        else:
+            print("\n" + "=" * 80)
+            print(f"Mesh Workflow Result")
+            print("=" * 80)
+            print(f"Success: {result.success}")
+            print(f"Execution time: {result.execution_time:.2f}s")
+            print(f"Total hops: {result.total_hops}")
+            print(f"Agents executed: {', '.join(result.agents_executed)}")
+            
+            if result.error:
+                print(f"\nError: {result.error}")
+            else:
+                print(f"\nFinal output keys: {', '.join(result.final_output.keys())}")
+        
+        return 0 if result.success else 1
+        
+    except Exception as e:
+        print(f"Error executing mesh workflow: {e}")
+        return 1
+
+
+def cmd_mesh_list(args):
+    """List registered mesh agents."""
+    from src.core.config import Config
+    from src.orchestration.production_execution_engine import ProductionExecutionEngine
+    
+    config = Config()
+    engine = ProductionExecutionEngine(config)
+    
+    if not engine.mesh_executor:
+        print("Error: Mesh orchestration is not enabled")
+        return 1
+    
+    agents = engine.mesh_executor.list_agents()
+    
+    if args.format == 'json':
+        print(json.dumps(agents, indent=2))
+    else:
+        print(f"\nRegistered Mesh Agents: {len(agents)}")
+        print("=" * 80)
+        for agent in agents:
+            print(f"\n{agent['agent_type']}")
+            print(f"  ID: {agent['agent_id']}")
+            print(f"  Health: {agent['health']}")
+            print(f"  Load: {agent['load']}/{agent['max_capacity']}")
+            print(f"  Capabilities: {', '.join(agent['capabilities'])}")
+    
+    return 0
+
+
+def cmd_mesh_stats(args):
+    """Get mesh orchestration statistics."""
+    from src.core.config import Config
+    from src.orchestration.production_execution_engine import ProductionExecutionEngine
+    
+    config = Config()
+    engine = ProductionExecutionEngine(config)
+    
+    if not engine.mesh_executor:
+        print("Error: Mesh orchestration is not enabled")
+        return 1
+    
+    stats = engine.mesh_executor.get_stats()
+    
+    if args.format == 'json':
+        print(json.dumps(stats, indent=2))
+    else:
+        print("\nMesh Orchestration Statistics")
+        print("=" * 80)
+        
+        registry_stats = stats.get('registry_stats', {})
+        print(f"\nAgent Registry:")
+        print(f"  Total agents: {registry_stats.get('total_agents', 0)}")
+        print(f"  Healthy agents: {registry_stats.get('healthy_agents', 0)}")
+        print(f"  Degraded agents: {registry_stats.get('degraded_agents', 0)}")
+        print(f"  Total capabilities: {registry_stats.get('total_capabilities', 0)}")
+        print(f"  Average load: {registry_stats.get('avg_load', 0):.2f}")
+        
+        router_stats = stats.get('router_stats', {})
+        print(f"\nRouter:")
+        print(f"  Current hop count: {router_stats.get('current_hop_count', 0)}")
+        print(f"  Max hops: {router_stats.get('max_hops', 0)}")
+        print(f"  Circuit breaker: {'enabled' if router_stats.get('circuit_breaker_enabled') else 'disabled'}")
+        
+        print(f"\nActive contexts: {stats.get('active_contexts', 0)}")
+    
+    return 0
+
+
 def main():
     """Main CLI entry point."""
     
@@ -775,7 +1644,7 @@ Examples:
     val_parser = subparsers.add_parser('validate', help='Validate configuration')
     val_parser.set_defaults(func=cmd_validate)
     
-    # List jobs command (parity with web UI)
+# List jobs command (parity with web UI)
     jobs_parser = subparsers.add_parser('list-jobs', help='List all jobs')
     jobs_parser.add_argument('--json', action='store_true', help='Output as JSON')
     jobs_parser.set_defaults(func=cmd_list_jobs)
@@ -786,6 +1655,77 @@ Examples:
     job_parser.add_argument('--json', action='store_true', help='Output as JSON')
     job_parser.add_argument('--show-logs', action='store_true', help='Show agent logs')
     job_parser.set_defaults(func=cmd_get_job)
+    
+    # Job control commands
+    pause_parser = subparsers.add_parser('pause-job', help='Pause a running job')
+    pause_parser.add_argument('job_id', help='Job ID')
+    pause_parser.set_defaults(func=cmd_job_pause)
+    
+    resume_parser = subparsers.add_parser('resume-job', help='Resume a paused job')
+    resume_parser.add_argument('job_id', help='Job ID')
+    resume_parser.set_defaults(func=cmd_job_resume)
+    
+    cancel_parser = subparsers.add_parser('cancel-job', help='Cancel a running job')
+    cancel_parser.add_argument('job_id', help='Job ID')
+    cancel_parser.set_defaults(func=cmd_job_cancel)
+    
+    # Agent commands
+    agent_parser = subparsers.add_parser('agent', help='Agent management commands')
+    agent_subparsers = agent_parser.add_subparsers(dest='agent_command', help='Agent subcommands')
+    
+    # agent health
+    agent_health_parser = agent_subparsers.add_parser('health', help='Get agent health status')
+    agent_health_parser.add_argument('--agent-id', help='Agent ID (omit for all agents)')
+    agent_health_parser.add_argument('--json', action='store_true', help='Output as JSON')
+    agent_health_parser.set_defaults(func=cmd_agent_health)
+    
+    # agent failures
+    agent_failures_parser = agent_subparsers.add_parser('failures', help='View agent failure history')
+    agent_failures_parser.add_argument('agent_id', help='Agent ID')
+    agent_failures_parser.add_argument('--limit', type=int, default=10, help='Limit number of failures shown')
+    agent_failures_parser.add_argument('--json', action='store_true', help='Output as JSON')
+    agent_failures_parser.set_defaults(func=cmd_agent_failures)
+    
+    # agent logs
+    agent_logs_parser = agent_subparsers.add_parser('logs', help='View agent logs')
+    agent_logs_parser.add_argument('agent_id', help='Agent ID')
+    agent_logs_parser.add_argument('--job-id', help='Filter by job ID')
+    agent_logs_parser.add_argument('--limit', type=int, default=50, help='Limit number of log entries')
+    agent_logs_parser.add_argument('--json', action='store_true', help='Output as JSON')
+    agent_logs_parser.set_defaults(func=cmd_agent_logs)
+    
+    # agent reset-health
+    agent_reset_parser = agent_subparsers.add_parser('reset-health', help='Reset agent health status')
+    agent_reset_parser.add_argument('agent_id', help='Agent ID')
+    agent_reset_parser.add_argument('--force', action='store_true', help='Skip confirmation')
+    agent_reset_parser.set_defaults(func=cmd_agent_reset_health)
+    
+    
+    # Mesh orchestration commands
+    mesh_parser = subparsers.add_parser('mesh', help='Mesh orchestration commands')
+    mesh_subparsers = mesh_parser.add_subparsers(dest='mesh_command', help='Mesh subcommands')
+    
+    # mesh discover-agents
+    mesh_discover_parser = mesh_subparsers.add_parser('discover-agents', help='Discover available agents')
+    mesh_discover_parser.add_argument('--format', choices=['text', 'json'], default='text', help='Output format')
+    mesh_discover_parser.set_defaults(func=cmd_mesh_discover)
+    
+    # mesh execute
+    mesh_execute_parser = mesh_subparsers.add_parser('execute', help='Execute mesh workflow')
+    mesh_execute_parser.add_argument('--initial-agent', required=True, help='Initial agent type')
+    mesh_execute_parser.add_argument('--input', help='Input file path')
+    mesh_execute_parser.add_argument('--format', choices=['text', 'json'], default='text', help='Output format')
+    mesh_execute_parser.set_defaults(func=cmd_mesh_execute)
+    
+    # mesh list-agents
+    mesh_list_parser = mesh_subparsers.add_parser('list-agents', help='List registered agents')
+    mesh_list_parser.add_argument('--format', choices=['text', 'json'], default='text', help='Output format')
+    mesh_list_parser.set_defaults(func=cmd_mesh_list)
+    
+    # mesh stats
+    mesh_stats_parser = mesh_subparsers.add_parser('stats', help='Get mesh statistics')
+    mesh_stats_parser.add_argument('--format', choices=['text', 'json'], default='text', help='Output format')
+    mesh_stats_parser.set_defaults(func=cmd_mesh_stats)
     
     # Config command (parity with web UI /config/* endpoints)
     config_parser = subparsers.add_parser('config', help='Configuration inspection commands')
@@ -877,8 +1817,19 @@ Examples:
         viz_parser.print_help()
         return 1
     
+    # Handle agent subcommand
+    if args.command == 'agent' and not hasattr(args, 'func'):
+        agent_parser.print_help()
+        return 1
+    
+    # Handle config subcommand
+    if args.command == 'config' and not hasattr(args, 'func'):
+        config_parser.print_help()
+        return 1
+    
     return args.func(args)
 
 
 if __name__ == '__main__':
     sys.exit(main())
+# DOCGEN:LLM-FIRST@v4

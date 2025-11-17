@@ -21,3 +21,4 @@ __all__ = [
     'FrontmatterAgent',
     'FileWriterAgent',
 ]
+# DOCGEN:LLM-FIRST@v4

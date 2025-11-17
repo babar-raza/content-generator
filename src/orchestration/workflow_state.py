@@ -50,3 +50,4 @@ class BlogState(TypedDict):
     # --- Control & Resilience ---
     errors: List[str]
     retry_attempt: int
+# DOCGEN:LLM-FIRST@v4

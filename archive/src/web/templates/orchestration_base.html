@@ -1,0 +1,875 @@
+<!-- ARCHIVED: 2025-11-13 | Reason: React UI is primary interface | Replacement: React components in src/web/static/src/ | Historical: Jinja2 templates for server-side rendering -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UCOP Visual Orchestration Dashboard</title>
+    
+    <!-- React Flow and Dependencies -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@reactflow/core@11.7.4/dist/index.umd.js"></script>
+    <script src="https://unpkg.com/@reactflow/minimap@11.5.4/dist/index.umd.js"></script>
+    <script src="https://unpkg.com/@reactflow/controls@11.1.14/dist/index.umd.js"></script>
+    <script src="https://unpkg.com/@reactflow/background@11.1.14/dist/index.umd.js"></script>
+    
+    <!-- Chart.js for metrics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- CSS Imports -->
+    <link rel="stylesheet" href="https://unpkg.com/@reactflow/core@11.7.4/dist/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/@reactflow/minimap@11.5.4/dist/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/@reactflow/controls@11.1.14/dist/style.css">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f8fafc;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-areas: 
+                "header header header"
+                "sidebar main debugger";
+            grid-template-columns: 300px 1fr 350px;
+            grid-template-rows: auto 1fr;
+            height: 100vh;
+        }
+        
+        /* Header */
+        .dashboard-header {
+            grid-area: header;
+            background: white;
+            border-bottom: 2px solid #e2e8f0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            z-index: 20;
+        }
+        
+        .dashboard-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .dashboard-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-left: auto;
+        }
+        
+        /* Sidebar */
+        .dashboard-sidebar {
+            grid-area: sidebar;
+            background: white;
+            border-right: 2px solid #e2e8f0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-section {
+            padding: 1.5rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .sidebar-section h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        
+        .workflow-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .workflow-item {
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .workflow-item:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .workflow-item.active {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        
+        .workflow-name {
+            font-weight: 500;
+            color: #1e293b;
+        }
+        
+        .workflow-status {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+        
+        /* Main Workflow Area */
+        .dashboard-main {
+            grid-area: main;
+            position: relative;
+            background: #fafafa;
+        }
+        
+        .workflow-tabs {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            z-index: 10;
+        }
+        
+        .tab-list {
+            display: flex;
+            gap: 0;
+        }
+        
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-weight: 500;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+        
+        .tab-button.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .tab-content {
+            position: absolute;
+            top: 50px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+        
+        /* Debugger Panel */
+        .dashboard-debugger {
+            grid-area: debugger;
+            background: white;
+            border-left: 2px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .debugger-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+        
+        .debugger-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+        
+        /* Metrics Cards */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .metric-card {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        
+        .metric-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+        
+        /* Agent Status */
+        .agent-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .agent-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .agent-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .agent-status.idle { background: #94a3b8; }
+        .agent-status.busy { background: #3b82f6; }
+        .agent-status.error { background: #ef4444; }
+        .agent-status.waiting { background: #f59e0b; }
+        
+        .agent-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #1e293b;
+        }
+        
+        .agent-category {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-left: auto;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid transparent;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+            border-color: #2563eb;
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #374151;
+            border-color: #d1d5db;
+        }
+        
+        .btn-secondary:hover {
+            background: #f9fafb;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            border-color: #ef4444;
+        }
+        
+        /* Debug Console */
+        .debug-console {
+            background: #1e293b;
+            color: #e2e8f0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+        
+        .console-line {
+            margin-bottom: 0.5rem;
+            word-wrap: break-word;
+        }
+        
+        .console-timestamp {
+            color: #94a3b8;
+        }
+        
+        .console-level-info { color: #3b82f6; }
+        .console-level-warn { color: #f59e0b; }
+        .console-level-error { color: #ef4444; }
+        
+        /* Breakpoints */
+        .breakpoint-list {
+            margin-top: 1rem;
+        }
+        
+        .breakpoint-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .breakpoint-info {
+            flex: 1;
+        }
+        
+        .breakpoint-agent {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #1e293b;
+        }
+        
+        .breakpoint-condition {
+            font-size: 0.625rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+        
+        /* Status Indicators */
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .status-idle {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+        
+        .status-running {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        
+        .status-completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .status-failed {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 1400px) {
+            .dashboard {
+                grid-template-columns: 250px 1fr 300px;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-areas: 
+                    "header header"
+                    "main main";
+                grid-template-columns: 1fr;
+            }
+            
+            .dashboard-sidebar,
+            .dashboard-debugger {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useMemo, useRef } = React;
+        const { ReactFlow, Controls, MiniMap, Background, useNodesState, useEdgesState } = ReactFlowCore;
+        
+        // Main Dashboard Component
+        const VisualOrchestrationDashboard = () => {
+            // State management
+            const [activeWorkflow, setActiveWorkflow] = useState(null);
+            const [workflows, setWorkflows] = useState([]);
+            const [activeTab, setActiveTab] = useState('workflow');
+            const [realTimeData, setRealTimeData] = useState(null);
+            const [debugSession, setDebugSession] = useState(null);
+            const [consoleLines, setConsoleLines] = useState([]);
+            const [breakpoints, setBreakpoints] = useState([]);
+            
+            // WebSocket connection
+            const wsRef = useRef(null);
+            
+            // Load workflows on component mount
+            useEffect(() => {
+                loadWorkflows();
+                setupWebSocket();
+                loadRealTimeData();
+                
+                return () => {
+                    if (wsRef.current) {
+                        wsRef.current.close();
+                    }
+                };
+            }, []);
+            
+            const loadWorkflows = async () => {
+                try {
+                    const response = await fetch('/api/workflows/profiles');
+                    const data = await response.json();
+                    setWorkflows(data.profiles || []);
+                    if (data.profiles && data.profiles.length > 0) {
+                        setActiveWorkflow(data.profiles[0]);
+                    }
+                } catch (error) {
+                    addConsoleMessage('error', `Failed to load workflows: ${error.message}`);
+                }
+            };
+            
+            const loadRealTimeData = async () => {
+                try {
+                    const response = await fetch('/api/flows/realtime');
+                    const data = await response.json();
+                    setRealTimeData(data);
+                } catch (error) {
+                    addConsoleMessage('error', `Failed to load real-time data: ${error.message}`);
+                }
+            };
+            
+            const setupWebSocket = () => {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws/workflow-updates`;
+                
+                wsRef.current = new WebSocket(wsUrl);
+                
+                wsRef.current.onopen = () => {
+                    addConsoleMessage('info', 'WebSocket connected');
+                };
+                
+                wsRef.current.onmessage = (event) => {
+                    const message = JSON.parse(event.data);
+                    handleWebSocketMessage(message);
+                };
+                
+                wsRef.current.onclose = () => {
+                    addConsoleMessage('warn', 'WebSocket disconnected');
+                    // Reconnect after 5 seconds
+                    setTimeout(setupWebSocket, 5000);
+                };
+                
+                wsRef.current.onerror = (error) => {
+                    addConsoleMessage('error', `WebSocket error: ${error}`);
+                };
+            };
+            
+            const handleWebSocketMessage = (message) => {
+                switch (message.type) {
+                    case 'step_update':
+                        addConsoleMessage('info', `Step ${message.step_id} status: ${message.status}`);
+                        break;
+                    case 'flow_update':
+                        addConsoleMessage('info', `Flow from ${message.flow.source_agent} to ${message.flow.target_agent}`);
+                        break;
+                    case 'workflow_complete':
+                        addConsoleMessage('info', `Workflow completed: ${message.correlation_id}`);
+                        break;
+                    case 'workflow_failed':
+                        addConsoleMessage('error', `Workflow failed: ${message.correlation_id}`);
+                        break;
+                }
+                
+                // Refresh real-time data
+                loadRealTimeData();
+            };
+            
+            const addConsoleMessage = (level, message) => {
+                const timestamp = new Date().toLocaleTimeString();
+                setConsoleLines(lines => [...lines.slice(-99), { timestamp, level, message }]);
+            };
+            
+            const startDebugSession = async () => {
+                if (!activeWorkflow) return;
+                
+                try {
+                    const response = await fetch('/api/debug/sessions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ correlation_id: 'debug_session' })
+                    });
+                    const data = await response.json();
+                    setDebugSession(data.session_id);
+                    addConsoleMessage('info', `Debug session started: ${data.session_id}`);
+                } catch (error) {
+                    addConsoleMessage('error', `Failed to start debug session: ${error.message}`);
+                }
+            };
+            
+            const addBreakpoint = async (agentId, eventType) => {
+                if (!debugSession) return;
+                
+                try {
+                    const response = await fetch(`/api/debug/sessions/${debugSession}/breakpoints`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ agent_id: agentId, event_type: eventType })
+                    });
+                    const data = await response.json();
+                    
+                    setBreakpoints(bp => [...bp, {
+                        id: data.breakpoint_id,
+                        agent_id: agentId,
+                        event_type: eventType
+                    }]);
+                    
+                    addConsoleMessage('info', `Breakpoint added: ${agentId}.${eventType}`);
+                } catch (error) {
+                    addConsoleMessage('error', `Failed to add breakpoint: ${error.message}`);
+                }
+            };
+            
+            const removeBreakpoint = async (breakpointId) => {
+                if (!debugSession) return;
+                
+                try {
+                    await fetch(`/api/debug/sessions/${debugSession}/breakpoints/${breakpointId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    setBreakpoints(bp => bp.filter(b => b.id !== breakpointId));
+                    addConsoleMessage('info', `Breakpoint removed: ${breakpointId}`);
+                } catch (error) {
+                    addConsoleMessage('error', `Failed to remove breakpoint: ${error.message}`);
+                }
+            };
+            
+            // Render workflow tab content
+            const renderWorkflowTab = () => {
+                if (!activeWorkflow) {
+                    return (
+                        <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            height: '100%',
+                            color: '#64748b' 
+                        }}>
+                            Select a workflow to visualize
+                        </div>
+                    );
+                }
+                
+                return <WorkflowVisualizerComponent workflow={activeWorkflow} />;
+            };
+            
+            // Render metrics tab content
+            const renderMetricsTab = () => {
+                if (!realTimeData) return <div>Loading metrics...</div>;
+                
+                return (
+                    <div style={{ padding: '2rem' }}>
+                        <div className="metrics-grid">
+                            <div className="metric-card">
+                                <div className="metric-value">{realTimeData.agents?.length || 0}</div>
+                                <div className="metric-label">Active Agents</div>
+                            </div>
+                            <div className="metric-card">
+                                <div className="metric-value">{realTimeData.active_flows?.length || 0}</div>
+                                <div className="metric-label">Active Flows</div>
+                            </div>
+                            <div className="metric-card">
+                                <div className="metric-value">{Math.round(realTimeData.metrics?.avg_latency_ms || 0)}ms</div>
+                                <div className="metric-label">Avg Latency</div>
+                            </div>
+                            <div className="metric-card">
+                                <div className="metric-value">{Math.round(realTimeData.metrics?.throughput_per_min || 0)}</div>
+                                <div className="metric-label">Flows/min</div>
+                            </div>
+                        </div>
+                        
+                        <div style={{ marginTop: '2rem' }}>
+                            <h3>Recent Flows</h3>
+                            <div style={{ 
+                                background: 'white', 
+                                border: '1px solid #e2e8f0', 
+                                borderRadius: '0.5rem',
+                                padding: '1rem',
+                                marginTop: '1rem'
+                            }}>
+                                {realTimeData.recent_flows?.map((flow, index) => (
+                                    <div key={index} style={{ 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between',
+                                        padding: '0.5rem 0',
+                                        borderBottom: index < realTimeData.recent_flows.length - 1 ? '1px solid #f1f5f9' : 'none'
+                                    }}>
+                                        <span>{flow.source_agent} → {flow.target_agent}</span>
+                                        <span className={`status-indicator status-${flow.status}`}>
+                                            {flow.status}
+                                        </span>
+                                    </div>
+                                )) || <div>No recent flows</div>}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+            
+            return (
+                <div className="dashboard">
+                    {/* Header */}
+                    <div className="dashboard-header">
+                        <div className="dashboard-title">
+                            🎯 UCOP Visual Orchestration
+                        </div>
+                        <div className="dashboard-controls">
+                            <button 
+                                className="btn btn-primary"
+                                onClick={startDebugSession}
+                            >
+                                🐛 Start Debug
+                            </button>
+                            <button className="btn btn-secondary">
+                                📊 Export Report
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* Sidebar */}
+                    <div className="dashboard-sidebar">
+                        <div className="sidebar-section">
+                            <h3>Workflows</h3>
+                            <div className="workflow-list">
+                                {workflows.map(workflow => (
+                                    <div 
+                                        key={workflow}
+                                        className={`workflow-item ${workflow === activeWorkflow ? 'active' : ''}`}
+                                        onClick={() => setActiveWorkflow(workflow)}
+                                    >
+                                        <div className="workflow-name">{workflow}</div>
+                                        <div className="workflow-status">Ready</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="sidebar-section">
+                            <h3>Agent Status</h3>
+                            <div className="agent-list">
+                                {realTimeData?.agents?.map((agent, index) => (
+                                    <div key={index} className="agent-item">
+                                        <div className={`agent-status ${agent.status}`}></div>
+                                        <div className="agent-name">{agent.name}</div>
+                                        <div className="agent-category">{agent.category}</div>
+                                    </div>
+                                )) || <div>Loading agents...</div>}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Main Content */}
+                    <div className="dashboard-main">
+                        <div className="workflow-tabs">
+                            <div className="tab-list">
+                                <button 
+                                    className={`tab-button ${activeTab === 'workflow' ? 'active' : ''}`}
+                                    onClick={() => setActiveTab('workflow')}
+                                >
+                                    🔄 Workflow
+                                </button>
+                                <button 
+                                    className={`tab-button ${activeTab === 'metrics' ? 'active' : ''}`}
+                                    onClick={() => setActiveTab('metrics')}
+                                >
+                                    📊 Metrics
+                                </button>
+                                <button 
+                                    className={`tab-button ${activeTab === 'flows' ? 'active' : ''}`}
+                                    onClick={() => setActiveTab('flows')}
+                                >
+                                    🌊 Data Flows
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="tab-content">
+                            {activeTab === 'workflow' && renderWorkflowTab()}
+                            {activeTab === 'metrics' && renderMetricsTab()}
+                            {activeTab === 'flows' && <DataFlowVisualizerComponent data={realTimeData} />}
+                        </div>
+                    </div>
+                    
+                    {/* Debugger Panel */}
+                    <div className="dashboard-debugger">
+                        <div className="debugger-header">
+                            <h3>🐛 Debugger</h3>
+                            <button className="btn btn-secondary" style={{fontSize: '0.75rem', padding: '0.25rem 0.5rem'}}>
+                                Clear
+                            </button>
+                        </div>
+                        
+                        <div className="debugger-content">
+                            {debugSession && (
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <div className="status-indicator status-running">
+                                        Debug Session: {debugSession.slice(-8)}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div>
+                                <h4>Breakpoints</h4>
+                                <div className="breakpoint-list">
+                                    {breakpoints.map(bp => (
+                                        <div key={bp.id} className="breakpoint-item">
+                                            <div className="breakpoint-info">
+                                                <div className="breakpoint-agent">{bp.agent_id}</div>
+                                                <div className="breakpoint-condition">{bp.event_type}</div>
+                                            </div>
+                                            <button 
+                                                className="btn btn-danger"
+                                                style={{padding: '0.25rem 0.5rem', fontSize: '0.75rem'}}
+                                                onClick={() => removeBreakpoint(bp.id)}
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {breakpoints.length === 0 && (
+                                        <div style={{color: '#64748b', fontSize: '0.75rem'}}>
+                                            No breakpoints set
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            <div className="debug-console">
+                                {consoleLines.map((line, index) => (
+                                    <div key={index} className="console-line">
+                                        <span className="console-timestamp">[{line.timestamp}]</span> 
+                                        <span className={`console-level-${line.level}`}> {line.message}</span>
+                                    </div>
+                                ))}
+                                {consoleLines.length === 0 && (
+                                    <div style={{color: '#64748b'}}>Debug console output will appear here...</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Simplified Workflow Visualizer Component
+        const WorkflowVisualizerComponent = ({ workflow }) => {
+            const [nodes, setNodes, onNodesChange] = useNodesState([]);
+            const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+            
+            useEffect(() => {
+                if (workflow) {
+                    loadWorkflowGraph();
+                }
+            }, [workflow]);
+            
+            const loadWorkflowGraph = async () => {
+                try {
+                    const response = await fetch(`/api/workflows/visual/${workflow}`);
+                    const data = await response.json();
+                    setNodes(data.nodes || []);
+                    setEdges(data.edges || []);
+                } catch (error) {
+                    console.error('Failed to load workflow graph:', error);
+                }
+            };
+            
+            return (
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    fitView
+                >
+                    <Controls position="bottom-right" />
+                    <MiniMap position="bottom-left" />
+                    <Background variant="dots" gap={20} size={1} />
+                </ReactFlow>
+            );
+        };
+        
+        // Simplified Data Flow Visualizer Component  
+        const DataFlowVisualizerComponent = ({ data }) => {
+            return (
+                <div style={{ padding: '2rem' }}>
+                    <h3>Real-time Data Flows</h3>
+                    <div style={{ marginTop: '1rem' }}>
+                        {data?.active_flows?.map((flow, index) => (
+                            <div key={index} style={{ 
+                                background: 'white',
+                                padding: '1rem',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '0.5rem',
+                                marginBottom: '0.5rem'
+                            }}>
+                                <div style={{ fontWeight: '500' }}>
+                                    {flow.source_agent} → {flow.target_agent}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                    {flow.event_type} • {flow.data_size_bytes} bytes
+                                </div>
+                            </div>
+                        )) || <div>No active flows</div>}
+                    </div>
+                </div>
+            );
+        };
+        
+        // Render the application
+        ReactDOM.render(<VisualOrchestrationDashboard />, document.getElementById('root'));
+    </script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+</html>

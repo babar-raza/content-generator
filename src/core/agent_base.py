@@ -4,7 +4,7 @@ Combines Agent from v5_1 with optional mesh-aware features from v5_2.
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from abc import ABC, abstractmethod
 
 from .contracts import AgentEvent, AgentContract
@@ -126,6 +126,50 @@ class Agent(ABC):
         return self.get_tone_setting(section, 'enabled', True)
 
 
+    
+    def request_agent_service(self, capability: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Request service from another agent via mesh.
+        
+        Args:
+            capability: Capability required from another agent
+            input_data: Input data for the requested service
+            
+        Returns:
+            Result data from the service agent
+            
+        Raises:
+            RuntimeError: If mesh is not enabled or request fails
+        """
+        if not self.enable_mesh:
+            raise RuntimeError("Mesh is not enabled for this agent")
+        
+        if not self._capability_registry:
+            raise RuntimeError("Agent is not registered with mesh")
+        
+        logger.debug(f"{self.agent_id} requesting service: {capability}")
+        
+        # Return data structure that mesh executor will process
+        # The actual routing happens in the mesh executor
+        return {
+            '_mesh_request_capability': capability,
+            '_mesh_request_data': input_data,
+            '_mesh_source_agent': self.agent_id
+        }
+    
+    def declare_capabilities(self) -> List[str]:
+        """Declare capabilities this agent provides.
+        
+        Returns:
+            List of capability names
+            
+        Notes:
+            Subclasses should override this to declare their specific capabilities
+        """
+        # Default: derive from agent_id
+        # e.g., "topic_identification" -> ["topic_discovery", "content_planning"]
+        base_capability = self.agent_id.replace('_', ' ').title().replace(' ', '')
+        return [base_capability]
+
 class SelfCorrectingAgent:
     """Mixin for self-correcting agents (from v5_1)."""
     def self_correct(self, result: Dict[str, Any], prompt: str, llm_service, max_attempts: int = 3) -> Dict[str, Any]:
@@ -136,3 +180,4 @@ class SelfCorrectingAgent:
 
 
 __all__ = ['Agent', 'SelfCorrectingAgent']
+# DOCGEN:LLM-FIRST@v4

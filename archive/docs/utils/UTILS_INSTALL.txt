@@ -1,0 +1,121 @@
+UTILS MODULE - INSTALLATION GUIDE
+==================================
+
+QUICK START
+-----------
+1. Extract: unzip utils-fix.zip
+2. Verify: python verify_utils.py
+3. Test runbook: python -c "from src.utils import PerformanceTracker; pt = PerformanceTracker(); print('OK')"
+
+FILES INCLUDED
+--------------
+Core Utilities:
+  src/utils/__init__.py          - Clean exports
+  src/utils/learning.py          - PerformanceTracker (sliding window metrics)
+  src/utils/json_repair.py       - JSON repair for malformed LLM output
+  src/utils/path_utils.py        - Safe path operations & slug generation
+  src/utils/retry.py             - Retry decorators with backoff
+  src/utils/validators.py        - Input validation helpers
+
+Tests:
+  tests/unit/test_utils.py       - 68 test cases covering all utilities
+
+Documentation:
+  UTILS_README.md                - Complete usage guide
+  verify_utils.py                - Verification script
+
+REQUIREMENTS
+------------
+- Python 3.8+
+- No external dependencies (stdlib only)
+- Compatible with existing codebase
+
+VERIFICATION STEPS
+------------------
+Run the verification script:
+  python verify_utils.py
+
+Expected output:
+  ✓ All utilities import successfully
+  ✓ PerformanceTracker sliding window works
+  ✓ JSON repair handles common errors
+  ✓ Path utilities work correctly
+  ✓ Retry decorators work
+  ✓ Validators work
+  ✓ 68 test methods found
+  ✓ All checks passed
+
+ACCEPTANCE CRITERIA MET
+------------------------
+✓ All utilities implemented and tested
+✓ PerformanceTracker uses collections.deque for efficiency
+✓ PerformanceTracker tracks execution time over sliding window
+✓ JSON repair handles: trailing commas, unquoted keys, single quotes
+✓ JSON repair handles edge cases with fallbacks
+✓ Retry decorators: max_attempts, initial_delay, max_delay params
+✓ All functions have docstrings with examples
+✓ Type hints on all functions
+✓ No external dependencies (stdlib only)
+✓ Performance tracker thread-safe
+✓ Tests cover error paths
+
+USAGE EXAMPLES
+--------------
+
+1. PerformanceTracker:
+   from src.utils import PerformanceTracker
+   tracker = PerformanceTracker(window_size=20)
+   tracker.record_execution("agent1", "test", True, latency_ms=100.0)
+   rate = tracker.get_success_rate("agent1", "test")
+
+2. JSON Repair:
+   from src.utils import JSONRepair
+   fixed = JSONRepair.repair('{"key": "value",}')
+
+3. Path Safety:
+   from src.utils import safe_path, generate_slug
+   safe = safe_path("/data", "user_file.txt")
+   slug = generate_slug("Hello World")
+
+4. Retry Decorator:
+   from src.utils import retry_with_backoff
+   @retry_with_backoff(max_attempts=3)
+   def fetch_data():
+       return requests.get(url)
+
+5. Validators:
+   from src.utils import validate_config, validate_input
+   validate_config(config, required_fields=["api_key"])
+   validate_input(42, "age", int, min_value=0, max_value=150)
+
+RUNNING TESTS
+-------------
+With pytest installed:
+  pytest tests/unit/test_utils.py -v
+
+Without pytest:
+  python -m unittest discover tests/unit
+
+DESIGN HIGHLIGHTS
+-----------------
+- PerformanceTracker: O(1) operations with deque
+- JSON Repair: Progressive repair with aggressive fallback
+- Path Utils: Prevents directory traversal attacks
+- Retry: Exponential backoff with configurable parameters
+- Validators: Comprehensive validation in single function
+
+THREAD SAFETY
+-------------
+All utilities are thread-safe:
+- PerformanceTracker uses thread-safe deque
+- No shared mutable state in other utilities
+- ensure_directory handles race conditions
+
+SUPPORT
+-------
+If issues occur:
+1. Check Python version: python --version (must be 3.8+)
+2. Run verification: python verify_utils.py
+3. Check test output: pytest tests/unit/test_utils.py -v
+4. Review error messages (all have clear context)
+
