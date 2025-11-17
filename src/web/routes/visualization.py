@@ -2,7 +2,7 @@
 
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import JSONResponse
 from datetime import datetime, timezone
 
@@ -18,6 +18,7 @@ from ..models import (
 from ...visualization.workflow_visualizer import WorkflowVisualizer
 from ...visualization.agent_flow_monitor import get_flow_monitor
 from ...visualization.monitor import VisualOrchestrationMonitor
+from ...visualization.workflow_debugger import get_workflow_debugger
 from ..connection_manager import get_connection_manager
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,296 @@ def get_orchestration_monitor():
 
 
 # ============================================================================
-# Workflow Visualization Endpoints
+# NEW: Enhanced Visualization Endpoints (Task Card 04)
+# ============================================================================
+
+@router.get("/viz/workflows")
+async def viz_workflows_json(format: str = Query(default="json")):
+    """List all workflows (mirrors cmd_viz_workflows).
+    
+    Args:
+        format: Output format ('json' only for now)
+        
+    Returns:
+        JSON response with workflow profiles
+    """
+    try:
+        visualizer = get_workflow_visualizer()
+        profiles = visualizer.workflows.get('profiles', {})
+        
+        result = {
+            "profiles": [
+                {
+                    "id": profile_id,
+                    "name": profile_data.get('name', profile_id),
+                    "description": profile_data.get('description', ''),
+                    "steps": len(profile_data.get('steps', []))
+                }
+                for profile_id, profile_data in profiles.items()
+            ]
+        }
+        
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"Error getting workflows: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get workflows: {str(e)}")
+
+
+@router.get("/viz/graph/{workflow_id}")
+async def viz_graph(
+    workflow_id: str,
+    job_id: Optional[str] = None
+):
+    """Get workflow execution graph (mirrors cmd_viz_graph).
+    
+    Args:
+        workflow_id: Workflow identifier
+        job_id: Optional job ID to overlay execution data
+        
+    Returns:
+        Graph data with nodes and edges
+    """
+    try:
+        visualizer = get_workflow_visualizer()
+        
+        # Check if workflow exists
+        if workflow_id not in visualizer.workflows.get('profiles', {}):
+            raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found")
+        
+        # Create visual graph
+        graph = visualizer.create_visual_graph(workflow_id)
+        
+        if job_id:
+            # Overlay execution data if job_id provided
+            debugger = get_workflow_debugger()
+            if hasattr(debugger, 'get_execution_trace'):
+                try:
+                    execution_data = debugger.get_execution_trace(job_id)
+                    # Overlay execution state onto graph nodes
+                    if execution_data and 'steps' in execution_data:
+                        for node in graph.get('nodes', []):
+                            step_id = node['id']
+                            if step_id in execution_data['steps']:
+                                node['data']['execution'] = execution_data['steps'][step_id]
+                except Exception as e:
+                    logger.warning(f"Could not overlay execution data: {e}")
+        
+        return JSONResponse(content=graph)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting graph: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get graph: {str(e)}")
+
+
+@router.get("/viz/metrics")
+async def viz_metrics(
+    workflow_id: Optional[str] = None,
+    time_range: str = Query(default="24h"),
+    granularity: str = Query(default="1h")
+):
+    """Get system/workflow metrics (mirrors cmd_viz_metrics).
+    
+    Args:
+        workflow_id: Optional workflow to get specific metrics
+        time_range: Time range for metrics (e.g., '24h', '7d')
+        granularity: Granularity for data points (e.g., '1h', '5m')
+        
+    Returns:
+        Metrics data
+    """
+    try:
+        visualizer = get_workflow_visualizer()
+        monitor = get_orchestration_monitor()
+        
+        if workflow_id:
+            # Get workflow-specific metrics
+            if workflow_id not in visualizer.workflows.get('profiles', {}):
+                raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found")
+            
+            metrics = visualizer.get_execution_metrics(workflow_id)
+        else:
+            # Get system-wide metrics
+            metrics = {
+                "time_range": time_range,
+                "granularity": granularity,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "system": {
+                    "total_jobs": len(getattr(monitor, 'active_jobs', {})),
+                    "total_agents": len(getattr(monitor, 'registered_agents', [])),
+                    "active_flows": len(getattr(monitor, 'active_flows', {}))
+                },
+                "throughput": {
+                    "jobs_per_hour": 0,  # Would be calculated from historical data
+                    "agents_per_hour": 0
+                },
+                "performance": {
+                    "avg_job_duration": 0.0,
+                    "avg_agent_duration": 0.0
+                }
+            }
+        
+        return JSONResponse(content=metrics)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get metrics: {str(e)}")
+
+
+@router.get("/viz/agents")
+async def viz_agents():
+    """Get agent status visualization (mirrors cmd_viz_agents).
+    
+    Returns:
+        Agent status data
+    """
+    try:
+        from src.visualization.monitor import get_monitor
+        
+        monitor = get_monitor()
+        agents = monitor.get_agent_states()
+        
+        result = {
+            "agents": agents,
+            "total": len(agents)
+        }
+        
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"Error getting agents: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get agents: {str(e)}")
+
+
+@router.get("/viz/flows")
+async def viz_flows(
+    workflow_id: Optional[str] = None,
+    job_id: Optional[str] = None
+):
+    """Get data flow visualization (mirrors cmd_viz_flows).
+    
+    Args:
+        workflow_id: Optional workflow to filter flows
+        job_id: Optional job to filter flows
+        
+    Returns:
+        Active data flows
+    """
+    try:
+        from src.visualization.monitor import get_monitor
+        
+        monitor = get_monitor()
+        flows = monitor.get_active_flows()
+        
+        # Filter by workflow_id or job_id if provided
+        if workflow_id:
+            flows = [f for f in flows if f.get('workflow_id') == workflow_id]
+        if job_id:
+            flows = [f for f in flows if f.get('job_id') == job_id]
+        
+        result = {
+            "active_flows": flows,
+            "count": len(flows)
+        }
+        
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"Error getting flows: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get flows: {str(e)}")
+
+
+@router.get("/viz/bottlenecks")
+async def viz_bottlenecks(
+    workflow_id: Optional[str] = None,
+    threshold_seconds: float = Query(default=5.0)
+):
+    """Analyze performance bottlenecks (mirrors cmd_viz_bottlenecks).
+    
+    Args:
+        workflow_id: Optional workflow to analyze
+        threshold_seconds: Threshold for slow operations
+        
+    Returns:
+        Detected bottlenecks
+    """
+    try:
+        flow_monitor = get_flow_monitor_instance()
+        
+        # Detect bottlenecks
+        if hasattr(flow_monitor, 'detect_bottlenecks'):
+            bottlenecks = flow_monitor.detect_bottlenecks()
+        else:
+            # Fallback: analyze agent execution times
+            monitor = get_orchestration_monitor()
+            bottlenecks = []
+            
+            for agent_id, metrics in getattr(monitor, 'agent_metrics', {}).items():
+                if hasattr(metrics, 'to_dict'):
+                    metrics_dict = metrics.to_dict()
+                    avg_duration = metrics_dict.get('avg_execution_time', 0)
+                    
+                    if avg_duration > threshold_seconds:
+                        bottlenecks.append({
+                            "agent_id": agent_id,
+                            "duration": avg_duration,
+                            "type": "slow_agent",
+                            "threshold": threshold_seconds
+                        })
+        
+        # Filter by workflow if provided
+        if workflow_id:
+            bottlenecks = [b for b in bottlenecks if b.get('workflow_id') == workflow_id]
+        
+        result = {
+            "bottlenecks": bottlenecks,
+            "count": len(bottlenecks),
+            "threshold_seconds": threshold_seconds
+        }
+        
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"Error detecting bottlenecks: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to detect bottlenecks: {str(e)}")
+
+
+@router.get("/viz/debug/{job_id}")
+async def viz_debug(job_id: str):
+    """Get debug visualization for job (mirrors cmd_viz_debug).
+    
+    Args:
+        job_id: Job identifier
+        
+    Returns:
+        Debug data for job
+    """
+    try:
+        debugger = get_workflow_debugger()
+        
+        # Get debug data
+        debug_data = {
+            "job_id": job_id,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        if hasattr(debugger, 'get_debug_data'):
+            debug_data.update(debugger.get_debug_data(job_id))
+        elif hasattr(debugger, 'debug_sessions'):
+            # Try to find session for this job
+            sessions = debugger.debug_sessions
+            for session_id, session in sessions.items():
+                if hasattr(session, 'correlation_id') and session.correlation_id == job_id:
+                    if hasattr(session, 'to_dict'):
+                        debug_data['session'] = session.to_dict()
+                    break
+        
+        return JSONResponse(content=debug_data)
+    except Exception as e:
+        logger.error(f"Error getting debug data: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get debug data: {str(e)}")
+
+
+# ============================================================================
+# Workflow Visualization Endpoints (Existing)
 # ============================================================================
 
 @router.get("/visualization/workflows", response_model=WorkflowListResponse)

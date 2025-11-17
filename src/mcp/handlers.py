@@ -16,6 +16,8 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 from pathlib import Path
 import json
+import time
+import uuid
 
 from src.mcp.protocol import (
     MCPRequest,
@@ -29,6 +31,7 @@ from src.mcp.protocol import (
     AgentCapability,
     create_resource_uri,
 )
+from src.mcp.traffic_logger import get_traffic_logger
 
 logger = logging.getLogger(__name__)
 
@@ -857,7 +860,7 @@ async def handle_realtime_subscribe(params: Dict[str, Any]) -> Dict[str, Any]:
 # ============================================================================
 
 async def route_request(request: MCPRequest) -> MCPResponse:
-    """Route MCP request to appropriate handler.
+    """Route MCP request to appropriate handler with traffic logging.
     
     Args:
         request: MCP request
@@ -866,6 +869,23 @@ async def route_request(request: MCPRequest) -> MCPResponse:
         MCP response
     """
     logger.info(f"Routing MCP request: {request.method}")
+    
+    # Log the request
+    traffic_logger = get_traffic_logger()
+    message_id = str(uuid.uuid4())
+    start_time = time.time()
+    
+    # Extract source/target from params (with fallbacks)
+    from_agent = request.params.get("from_agent", "mcp_client")
+    to_agent = request.params.get("to_agent", request.method.split('.')[0] if '.' in request.method else "system")
+    
+    traffic_logger.log_request(
+        message_id=message_id,
+        message_type=request.method,
+        from_agent=from_agent,
+        to_agent=to_agent,
+        request=request.params
+    )
     
     try:
         # Route to handler based on method
@@ -905,12 +925,32 @@ async def route_request(request: MCPRequest) -> MCPResponse:
                 id=request.id
             )
         
+        # Log successful response
+        duration_ms = (time.time() - start_time) * 1000
+        traffic_logger.log_response(
+            message_id=message_id,
+            response=result,
+            status="success",
+            duration_ms=duration_ms
+        )
+        
         # Return successful response
         return MCPResponse(result=result, id=request.id)
         
     except ValueError as e:
         # Invalid parameters
         logger.error(f"Invalid parameters for {request.method}: {e}")
+        
+        # Log error response
+        duration_ms = (time.time() - start_time) * 1000
+        traffic_logger.log_response(
+            message_id=message_id,
+            response={},
+            status="error",
+            duration_ms=duration_ms,
+            error=str(e)
+        )
+        
         return MCPResponse(
             error={
                 "code": -32602,
@@ -921,6 +961,17 @@ async def route_request(request: MCPRequest) -> MCPResponse:
     except Exception as e:
         # Internal error
         logger.error(f"Internal error processing {request.method}: {e}", exc_info=True)
+        
+        # Log error response
+        duration_ms = (time.time() - start_time) * 1000
+        traffic_logger.log_response(
+            message_id=message_id,
+            response={},
+            status="error",
+            duration_ms=duration_ms,
+            error=str(e)
+        )
+        
         return MCPResponse(
             error={
                 "code": -32603,

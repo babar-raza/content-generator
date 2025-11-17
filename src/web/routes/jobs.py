@@ -498,3 +498,226 @@ async def cancel_job(
     except Exception as e:
         logger.error(f"Error cancelling job {job_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to cancel job: {str(e)}")
+
+
+@router.post("/jobs/{job_id}/archive", response_model=JobControl)
+async def archive_job(
+    job_id: str,
+    store=Depends(get_jobs_store),
+    executor=Depends(get_executor)
+):
+    """Archive a completed, failed, or cancelled job.
+    
+    Args:
+        job_id: Job identifier
+        
+    Returns:
+        JobControl with action result
+    """
+    try:
+        if job_id not in store:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        
+        job = store[job_id]
+        current_status = job["status"]
+        
+        # Check if job can be archived
+        if current_status not in ["completed", "cancelled", "failed"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot archive job in status: {current_status}. Only completed, cancelled, or failed jobs can be archived."
+            )
+        
+        # Archive through executor/storage
+        try:
+            if hasattr(executor, 'archive_job'):
+                success = executor.archive_job(job_id)
+            elif hasattr(executor, 'storage') and hasattr(executor.storage, 'archive_job'):
+                success = executor.storage.archive_job(job_id)
+            else:
+                # Fallback: just update status in store
+                job["status"] = "archived"
+                job["archived_at"] = datetime.now(timezone.utc)
+                job["updated_at"] = datetime.now(timezone.utc)
+                store[job_id] = job
+                success = True
+            
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to archive job")
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to archive job {job_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to archive job: {str(e)}")
+        
+        return JobControl(
+            job_id=job_id,
+            action="archive",
+            status="archived",
+            message="Job archived successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error archiving job {job_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to archive job: {str(e)}")
+
+
+@router.post("/jobs/{job_id}/unarchive", response_model=JobControl)
+async def unarchive_job(
+    job_id: str,
+    store=Depends(get_jobs_store),
+    executor=Depends(get_executor)
+):
+    """Unarchive an archived job.
+    
+    Args:
+        job_id: Job identifier
+        
+    Returns:
+        JobControl with action result
+    """
+    try:
+        # Try to find job in store or load from archive
+        job = None
+        if job_id in store:
+            job = store[job_id]
+        elif hasattr(executor, 'storage') and hasattr(executor.storage, 'load_job'):
+            # Load from archive
+            job_state = executor.storage.load_job(job_id, check_archive=True)
+            if job_state:
+                job = job_state.metadata.to_dict()
+        
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        
+        current_status = job.get("status")
+        
+        # Check if job is archived
+        if current_status != "archived":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot unarchive job in status: {current_status}. Only archived jobs can be unarchived."
+            )
+        
+        # Unarchive through executor/storage
+        try:
+            if hasattr(executor, 'unarchive_job'):
+                success = executor.unarchive_job(job_id)
+            elif hasattr(executor, 'storage') and hasattr(executor.storage, 'unarchive_job'):
+                success = executor.storage.unarchive_job(job_id)
+                
+                # Reload job after unarchiving
+                if success:
+                    job_state = executor.storage.load_job(job_id, check_archive=False)
+                    if job_state:
+                        job = job_state.metadata.to_dict()
+                        store[job_id] = job
+            else:
+                # Fallback: restore status
+                if job.get("error"):
+                    job["status"] = "failed"
+                elif job.get("completed_at"):
+                    job["status"] = "completed"
+                else:
+                    job["status"] = "cancelled"
+                
+                job["updated_at"] = datetime.now(timezone.utc)
+                store[job_id] = job
+                success = True
+            
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to unarchive job")
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to unarchive job {job_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to unarchive job: {str(e)}")
+        
+        return JobControl(
+            job_id=job_id,
+            action="unarchive",
+            status=job.get("status", "unknown"),
+            message="Job unarchived successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unarchiving job {job_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to unarchive job: {str(e)}")
+
+
+@router.post("/jobs/{job_id}/retry", response_model=JobControl)
+async def retry_job(
+    job_id: str,
+    store=Depends(get_jobs_store),
+    executor=Depends(get_executor)
+):
+    """Retry a failed job.
+    
+    Args:
+        job_id: Job identifier
+        
+    Returns:
+        JobControl with action result
+    """
+    try:
+        if job_id not in store:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        
+        job = store[job_id]
+        current_status = job["status"]
+        
+        # Check if job can be retried
+        if current_status != "failed":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot retry job in status: {current_status}. Only failed jobs can be retried."
+            )
+        
+        retry_count = job.get("retry_count", 0)
+        max_retries = job.get("max_retries", 3)
+        
+        if retry_count >= max_retries:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Job has exceeded maximum retries ({max_retries})"
+            )
+        
+        # Retry through executor
+        try:
+            if hasattr(executor, 'retry_job'):
+                executor.retry_job(job_id)
+            elif hasattr(executor, 'submit_job'):
+                # Re-submit the job
+                workflow_id = job.get("workflow_id")
+                inputs = job.get("inputs", {})
+                config_overrides = job.get("config_overrides")
+                executor.submit_job(job_id, workflow_id, inputs, config_overrides)
+            
+            job["status"] = "retrying"
+            job["retry_count"] = retry_count + 1
+            job["updated_at"] = datetime.now(timezone.utc)
+            job["error"] = None  # Clear previous error
+            store[job_id] = job
+            
+        except Exception as e:
+            logger.error(f"Executor failed to retry job {job_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to retry job: {str(e)}")
+        
+        return JobControl(
+            job_id=job_id,
+            action="retry",
+            status="retrying",
+            message=f"Job retry initiated (attempt {retry_count + 1}/{max_retries})"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrying job {job_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to retry job: {str(e)}")

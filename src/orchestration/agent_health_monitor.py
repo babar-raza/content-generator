@@ -52,6 +52,11 @@ class AgentHealthMonitor:
         # Agent metadata
         self.agent_names: Dict[str, str] = {}
         
+        # Job history per agent (last 100 jobs)
+        self.agent_job_history: Dict[str, deque] = defaultdict(
+            lambda: deque(maxlen=100)
+        )
+        
         logger.info(f"AgentHealthMonitor initialized with window size {window_size}")
     
     def record_execution(
@@ -103,10 +108,76 @@ class AgentHealthMonitor:
             if not success and error:
                 self.recent_failures[agent_id].append(record)
             
+            # Record job usage
+            self.record_agent_usage(
+                agent_id=agent_id,
+                job_id=job_id,
+                status="completed" if success else "failed",
+                duration=duration_ms / 1000.0,  # Convert to seconds
+                timestamp=datetime.now(timezone.utc)
+            )
+            
             logger.debug(
                 f"Recorded execution for {agent_id}: "
                 f"success={success}, duration={duration_ms}ms"
             )
+    
+    def record_agent_usage(
+        self,
+        agent_id: str,
+        job_id: str,
+        status: str,
+        duration: float,
+        timestamp: datetime
+    ):
+        """Record agent usage in a job.
+        
+        Args:
+            agent_id: Agent identifier
+            job_id: Job identifier
+            status: Job status (completed, failed, running)
+            duration: Duration in seconds
+            timestamp: Timestamp of usage
+        """
+        with self._lock:
+            # Check if this job is already recorded (avoid duplicates)
+            existing_jobs = [j['job_id'] for j in self.agent_job_history[agent_id]]
+            
+            if job_id not in existing_jobs or len(existing_jobs) == 0:
+                self.agent_job_history[agent_id].append({
+                    'job_id': job_id,
+                    'status': status,
+                    'duration': duration,
+                    'timestamp': timestamp.isoformat()
+                })
+            else:
+                # Update existing record
+                for job_record in self.agent_job_history[agent_id]:
+                    if job_record['job_id'] == job_id:
+                        job_record['status'] = status
+                        job_record['duration'] = duration
+                        job_record['timestamp'] = timestamp.isoformat()
+                        break
+    
+    def get_agent_job_history(
+        self,
+        agent_id: str,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get job history for an agent.
+        
+        Args:
+            agent_id: Agent identifier
+            limit: Maximum number of jobs to return
+            
+        Returns:
+            List of job usage records
+        """
+        with self._lock:
+            history = list(self.agent_job_history.get(agent_id, []))
+            # Sort by timestamp (newest first)
+            history.sort(key=lambda x: x['timestamp'], reverse=True)
+            return history[:limit]
     
     def get_agent_health(self, agent_id: str) -> Dict[str, Any]:
         """Get health metrics for a specific agent.
@@ -231,6 +302,8 @@ class AgentHealthMonitor:
                 self.execution_history[agent_id].clear()
             if agent_id in self.recent_failures:
                 self.recent_failures[agent_id].clear()
+            if agent_id in self.agent_job_history:
+                self.agent_job_history[agent_id].clear()
             
             logger.info(f"Reset health metrics for agent {agent_id}")
     

@@ -5,84 +5,17 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .models import SystemHealth
-from .routes import jobs, agents, workflows, visualization, debug, flows, checkpoints, pages
+from .routes import jobs, agents, workflows, visualization, debug, flows, checkpoints, pages, batch, templates, validation, config, topics, ingestion
 from src.mcp import web_adapter
 
 logger = logging.getLogger(__name__)
 
-<<<<<<< Updated upstream
-# Initialize FastAPI app
-app = FastAPI(title="UCOP Dashboard")
-
-# Setup templates and static files
-BASE_DIR = Path(__file__).parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
-
-# Global references - will be set by start_web_server()
-execution_engine: Optional[JobExecutionEngine] = None
-job_controller: Optional[JobController] = None
-ws_manager = get_ws_manager()
-
-
-def set_execution_engine(engine: JobExecutionEngine, controller: JobController):
-    """Set the job execution engine (called from main)."""
-    global execution_engine, job_controller
-    execution_engine = engine
-    job_controller = controller
-    logger.info("Web UI connected to job execution engine")
-
-
-# ============================================================================
-# Web Pages
-# ============================================================================
-
-@app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    """Main dashboard page."""
-    return templates.TemplateResponse("dashboard.html", {"request": request})
-
-
-@app.get("/test", response_class=HTMLResponse)
-async def test_page(request: Request):
-    """Test page to verify server is working."""
-    return templates.TemplateResponse("test.html", {"request": request})
-
-
-@app.get("/jobs/{job_id}", response_class=HTMLResponse)
-async def job_detail(request: Request, job_id: str):
-    """Job detail page with controls."""
-    return templates.TemplateResponse("job_detail.html", {
-        "request": request,
-        "job_id": job_id
-    })
-
-
-@app.get("/api/jobs/{job_id}/logs/stream")
-async def stream_logs(job_id: str):
-    """Stream job logs via Server-Sent Events."""
-    from fastapi.responses import StreamingResponse
-    import asyncio
-    
-    if not execution_engine:
-        raise HTTPException(status_code=503, detail="Job execution engine not initialized")
-    
-    job = execution_engine._jobs.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    
-    log_file = Path(f"./data/jobs/{job_id}/logs/job.log")
-    
-    async def event_generator():
-        """Generate SSE events from log file."""
-        last_position = 0
-=======
 # Global state
 _jobs_store = {}
 _agent_logs = {}
@@ -97,7 +30,6 @@ def create_app(executor=None, config_snapshot=None) -> FastAPI:
     Args:
         executor: Optional execution engine instance
         config_snapshot: Optional configuration snapshot
->>>>>>> Stashed changes
         
     Returns:
         Configured FastAPI application
@@ -131,17 +63,30 @@ def create_app(executor=None, config_snapshot=None) -> FastAPI:
     # Set global executor and config
     _executor = executor
     _config_snapshot = config_snapshot
+
+    # Initialize live flow handler with event bus
+    if executor and hasattr(executor, \'event_bus\'):
+        from .websocket_handlers import set_live_flow_handler, LiveFlowHandler
+        live_handler = LiveFlowHandler(event_bus=executor.event_bus)
+        set_live_flow_handler(live_handler)
+        logger.info("✓ Live flow handler initialized with event bus")
     
     # Inject dependencies into route modules
     if executor:
         jobs.set_executor(executor)
         agents.set_executor(executor)
         workflows.set_executor(executor)
+        batch.set_executor(executor)
         web_adapter.set_executor(executor, config_snapshot)
     
     jobs.set_jobs_store(_jobs_store)
     agents.set_jobs_store(_jobs_store)
     agents.set_agent_logs(_agent_logs)
+    batch.set_jobs_store(_jobs_store)
+    
+    # Set config snapshot for config routes
+    if config_snapshot:
+        config.set_config_snapshot(config_snapshot)
     
     # Set up flow monitor
     try:
@@ -174,6 +119,12 @@ def create_app(executor=None, config_snapshot=None) -> FastAPI:
     app.include_router(flows.router)
     app.include_router(checkpoints.router)
     app.include_router(pages.router)  # UI page routes
+    app.include_router(batch.router)  # Batch processing routes
+    app.include_router(templates.router)  # Template management routes
+    app.include_router(validation.router)  # Content validation routes
+    app.include_router(config.router)  # Config management routes
+    app.include_router(topics.router)  # NEW: Topics discovery routes
+    app.include_router(ingestion.router)  # NEW: Ingestion routes
     app.include_router(web_adapter.router)  # Full MCP adapter with 29 endpoints
     
     # Mount static files for React UI
@@ -329,7 +280,11 @@ def set_global_executor(executor, config_snapshot=None):
     jobs.set_executor(executor)
     agents.set_executor(executor)
     workflows.set_executor(executor)
+    batch.set_executor(executor)
     web_adapter.set_executor(executor, config_snapshot)
+    
+    if config_snapshot:
+        config.set_config_snapshot(config_snapshot)
     
     logger.info(f"Global executor set: {type(executor).__name__}")
 
@@ -350,3 +305,14 @@ def get_agent_logs():
         Agent logs dictionary
     """
     return _agent_logs
+
+
+# Import websocket handler
+from .websocket_handlers import get_live_flow_handler
+
+# Register WebSocket endpoint
+@app.websocket("/ws/live-flow/{job_id}")
+async def live_flow_websocket(websocket: WebSocket, job_id: str):
+    """WebSocket endpoint for live flow monitoring."""
+    handler = get_live_flow_handler()
+    await handler.handle_connection(websocket, job_id)

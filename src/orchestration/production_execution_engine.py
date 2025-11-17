@@ -476,6 +476,15 @@ class ProductionExecutionEngine:
             # Prepare input data for agent
             agent_input = self._prepare_agent_input(agent_type, context)
             
+            # Emit agent started event for live monitoring
+            self.event_bus.publish(AgentEvent(
+                event_type="agent_started",
+                data={"input_keys": list(agent_input.keys())},
+                source_agent=agent_type,
+                correlation_id=context[\'job_id\'],
+                metadata={"job_id": context[\'job_id\']}
+            ))
+            
             # Track LLM calls before execution
             llm_calls_before = getattr(self.services.get('llm'), '_call_count', 0)
             
@@ -512,6 +521,19 @@ class ProductionExecutionEngine:
                 result.output_data = output_event.data
                 result.status = AgentStatus.COMPLETED
                 
+                # Emit agent completed event for live monitoring
+                self.event_bus.publish(AgentEvent(
+                    event_type="agent_completed",
+                    data=result.output_data,
+                    source_agent=agent_type,
+                    correlation_id=context[\'job_id\'],
+                    metadata={
+                        "job_id": context[\'job_id\'],
+                        "duration": time.time() - start_time,
+                        "llm_calls": result.llm_calls
+                    }
+                ))
+                
                 # Update shared state
                 context['shared_state'].update(output_event.data)
                 
@@ -524,6 +546,15 @@ class ProductionExecutionEngine:
             logger.error(f"Agent {agent_type} execution failed: {e}", exc_info=True)
             result.status = AgentStatus.FAILED
             result.error = str(e)
+            
+            # Emit agent failed event for live monitoring
+            self.event_bus.publish(AgentEvent(
+                event_type="agent_failed",
+                data={"error": str(e)},
+                source_agent=agent_type,
+                correlation_id=context[\'job_id\'],
+                metadata={"job_id": context[\'job_id\']}
+            ))
         
         finally:
             result.execution_time = time.time() - start_time

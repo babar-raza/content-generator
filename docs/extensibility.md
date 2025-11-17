@@ -1,53 +1,40 @@
-# Extensibility Guide
+# Extensibility
 
-## Creating Custom Agents
+**Status:** 🚧 Documentation In Progress
 
-### 1. Create Agent File
-```python
-# src/agents/custom/my_agent.py
-from src.agents.base import Agent
+## Overview
 
-class MyCustomAgent(Agent):
-    def execute(self, input_data):
-        # Your logic here
-        return {"output": "result"}
-    
-    @property
-    def contract(self):
-        return {
-            "inputs": {
-                "type": "object",
-                "properties": {"input": {"type": "string"}}
-            },
-            "outputs": {
-                "type": "object", 
-                "properties": {"output": {"type": "string"}}
-            }
-        }
-```
+TODO: Add overview
 
-### 2. Register in Config
-```yaml
-# config/agents.yaml
-agents:
-  my_custom_agent:
-    id: "my_custom_agent"
-    entrypoint:
-      type: "python"
-      module: "agents.custom"
-      function: "my_agent"
-```
+## Table of Contents
 
-### 3. Use in Workflow
-```yaml
-# templates/workflows.yaml
-my_workflow:
-  steps:
-    - my_custom_agent
-```
+- [Overview](#overview)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Examples](#examples)
+- [API Reference](#api-reference)
+- [Troubleshooting](#troubleshooting)
 
-## Creating Custom Workflows
-See `templates/workflows.yaml` for examples.
+## Getting Started
 
-## Adding New Templates
-Add to `templates/` directory and update registry.
+TODO: Add getting started guide
+
+## Usage
+
+TODO: Add usage instructions
+
+## Examples
+
+TODO: Add examples
+
+## API Reference
+
+TODO: Add API reference
+
+## Troubleshooting
+
+TODO: Add troubleshooting guide
+
+---
+
+*This documentation is part of the UCOP project. For more information, see the [main README](../README.md).*

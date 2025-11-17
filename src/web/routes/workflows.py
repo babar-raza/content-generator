@@ -184,3 +184,150 @@ async def get_mesh_stats(executor=Depends(get_executor)):
     except Exception as e:
         logger.error(f"Error getting mesh stats: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get mesh stats: {str(e)}")
+
+
+# Workflow Editor endpoints
+from src.orchestration.workflow_serializer import WorkflowSerializer
+
+_serializer = WorkflowSerializer()
+
+
+@router.get("/workflows/editor/list")
+async def list_editor_workflows():
+    """List all workflows for the visual editor.
+    
+    Returns:
+        List of workflow summaries
+    """
+    try:
+        workflows = _serializer.list_workflows()
+        return {"workflows": workflows, "total": len(workflows)}
+    except Exception as e:
+        logger.error(f"Error listing workflows: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to list workflows: {str(e)}")
+
+
+@router.get("/workflows/editor/{workflow_id}")
+async def get_editor_workflow(workflow_id: str):
+    """Load workflow for visual editor.
+    
+    Args:
+        workflow_id: Workflow identifier
+        
+    Returns:
+        Workflow in visual JSON format
+    """
+    try:
+        workflow = _serializer.load_workflow(workflow_id)
+        return workflow
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error loading workflow {workflow_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to load workflow: {str(e)}")
+
+
+@router.post("/workflows/editor/save")
+async def save_editor_workflow(workflow: dict):
+    """Save workflow from visual editor.
+    
+    Args:
+        workflow: Workflow in visual JSON format
+        
+    Returns:
+        Success response with workflow ID
+    """
+    try:
+        # Validate first
+        validation = _serializer.validate_workflow(workflow)
+        if not validation["valid"]:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Workflow validation failed",
+                    "errors": validation["errors"]
+                }
+            )
+        
+        # Save workflow
+        _serializer.save_workflow(workflow)
+        
+        return {
+            "status": "success",
+            "id": workflow.get("id"),
+            "message": "Workflow saved successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving workflow: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to save workflow: {str(e)}")
+
+
+@router.post("/workflows/editor/validate")
+async def validate_editor_workflow(workflow: dict):
+    """Validate workflow structure.
+    
+    Args:
+        workflow: Workflow in visual JSON format
+        
+    Returns:
+        Validation result with errors and warnings
+    """
+    try:
+        validation = _serializer.validate_workflow(workflow)
+        return validation
+    except Exception as e:
+        logger.error(f"Error validating workflow: {e}", exc_info=True)
+        return {
+            "valid": False,
+            "errors": [str(e)],
+            "warnings": []
+        }
+
+
+@router.post("/workflows/editor/test-run")
+async def test_run_editor_workflow(
+    workflow: dict,
+    executor=Depends(get_executor)
+):
+    """Test run workflow without saving.
+    
+    Args:
+        workflow: Workflow in visual JSON format
+        executor: Executor instance
+        
+    Returns:
+        Test execution result
+    """
+    try:
+        # Validate first
+        validation = _serializer.validate_workflow(workflow)
+        if not validation["valid"]:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Workflow validation failed",
+                    "errors": validation["errors"]
+                }
+            )
+        
+        # Convert to YAML format
+        workflow_yaml = _serializer.json_to_yaml(workflow)
+        workflow_id = list(workflow_yaml.keys())[0]
+        
+        # Execute with test mode
+        # For now, just return success - actual execution integration would go here
+        logger.info(f"Test run workflow: {workflow_id}")
+        
+        return {
+            "status": "success",
+            "message": "Workflow validation passed",
+            "workflow_id": workflow_id,
+            "steps": len(workflow.get("nodes", []))
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error test running workflow: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to test run workflow: {str(e)}")

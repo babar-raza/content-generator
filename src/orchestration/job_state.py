@@ -12,9 +12,11 @@ class JobStatus(Enum):
     PENDING = "pending"
     RUNNING = "running"
     PAUSED = "paused"
+    RETRYING = "retrying"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    ARCHIVED = "archived"
 
 
 class StepStatus(Enum):
@@ -83,6 +85,9 @@ class JobMetadata:
     failed_steps: int = 0
     error_message: Optional[str] = None
     correlation_id: Optional[str] = None
+    retry_count: int = 0
+    max_retries: int = 3
+    archived_at: Optional[datetime] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -100,7 +105,10 @@ class JobMetadata:
             'completed_steps': self.completed_steps,
             'failed_steps': self.failed_steps,
             'error_message': self.error_message,
-            'correlation_id': self.correlation_id
+            'correlation_id': self.correlation_id,
+            'retry_count': self.retry_count,
+            'max_retries': self.max_retries,
+            'archived_at': self.archived_at.isoformat() if self.archived_at else None
         }
     
     @classmethod
@@ -120,7 +128,10 @@ class JobMetadata:
             completed_steps=data.get('completed_steps', 0),
             failed_steps=data.get('failed_steps', 0),
             error_message=data.get('error_message'),
-            correlation_id=data.get('correlation_id')
+            correlation_id=data.get('correlation_id'),
+            retry_count=data.get('retry_count', 0),
+            max_retries=data.get('max_retries', 3),
+            archived_at=datetime.fromisoformat(data['archived_at']) if data.get('archived_at') else None
         )
 
 
@@ -221,5 +232,18 @@ class JobState:
         
         step = self.steps[agent_id]
         step.status = StepStatus.SKIPPED
+        self.metadata.updated_at = datetime.now()
+    
+    def can_retry(self) -> bool:
+        """Check if job can be retried."""
+        return (
+            self.metadata.status == JobStatus.FAILED and
+            self.metadata.retry_count < self.metadata.max_retries
+        )
+    
+    def increment_retry(self) -> None:
+        """Increment retry counter."""
+        self.metadata.retry_count += 1
+        self.metadata.status = JobStatus.RETRYING
         self.metadata.updated_at = datetime.now()
 # DOCGEN:LLM-FIRST@v4

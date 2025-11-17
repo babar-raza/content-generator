@@ -1,21 +1,40 @@
-# Workflows & Pipelines
+# Workflows
 
-See the original documentation at `/home/claude/docs/workflows.md` for complete workflow documentation. Key points:
+**Status:** 🚧 Documentation In Progress
 
 ## Overview
-- LangGraph-based workflow orchestration
-- Parallel agent execution
-- Checkpoint persistence
-- Hot-reload support
 
-## Main Workflows
-1. **blog_generation**: Full blog post generation (default)
-2. **code_only**: Code generation only
-3. **quick_draft**: Quick content without SEO
-4. **seo_only**: SEO optimization only
+TODO: Add overview
 
-## Configuration
-See `config/main.yaml` and `templates/workflows.yaml`
+## Table of Contents
 
-## Creating Custom Workflows
-See [extensibility.md](extensibility.md)
+- [Overview](#overview)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Examples](#examples)
+- [API Reference](#api-reference)
+- [Troubleshooting](#troubleshooting)
+
+## Getting Started
+
+TODO: Add getting started guide
+
+## Usage
+
+TODO: Add usage instructions
+
+## Examples
+
+TODO: Add examples
+
+## API Reference
+
+TODO: Add API reference
+
+## Troubleshooting
+
+TODO: Add troubleshooting guide
+
+---
+
+*This documentation is part of the UCOP project. For more information, see the [main README](../README.md).*

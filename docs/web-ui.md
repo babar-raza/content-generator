@@ -1,30 +1,40 @@
-# Web UI Guide
+# Web Ui
+
+**Status:** 🚧 Documentation In Progress
 
 ## Overview
-React-based web interface with visual workflow editor, real-time job monitoring, and MCP endpoints.
 
-## Accessing the UI
-```bash
-python start_web.py
-# Open http://localhost:8000
-```
+TODO: Add overview
 
-## Features
-- **Visual Workflow Editor**: Drag-and-drop agent palette
-- **Job Monitor**: Real-time status updates via WebSocket
-- **Agent Dashboard**: View all 38 agents and their status
-- **Configuration Inspector**: View current configuration
-- **Performance Metrics**: System and agent metrics
+## Table of Contents
 
-## Known Issues
-See [design-history.md](design-history.md) for current limitations:
-- Some API endpoints unmounted (being fixed)
-- Legacy UI components pending decision
-- Monitoring dashboard in development
+- [Overview](#overview)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Examples](#examples)
+- [API Reference](#api-reference)
+- [Troubleshooting](#troubleshooting)
 
-## Building from Source
-```bash
-cd src/web/static
-npm install
-npm run build
-```
+## Getting Started
+
+TODO: Add getting started guide
+
+## Usage
+
+TODO: Add usage instructions
+
+## Examples
+
+TODO: Add examples
+
+## API Reference
+
+TODO: Add API reference
+
+## Troubleshooting
+
+TODO: Add troubleshooting guide
+
+---
+
+*This documentation is part of the UCOP project. For more information, see the [main README](../README.md).*

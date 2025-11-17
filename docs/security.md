@@ -1,27 +1,40 @@
-# Security Best Practices
+# Security
 
-## API Key Management
-- Store in environment variables
-- Never commit to git
-- Use secrets management in production
+**Status:** 🚧 Documentation In Progress
 
-## Input Validation
-- Schema validation for all inputs
-- Sanitize user content
-- Rate limiting on endpoints
+## Overview
 
-## Network Security
-- Use HTTPS in production
-- Firewall configuration
-- Restrict Ollama access to localhost
+TODO: Add overview
 
-## Access Control
-- API key authentication
-- Role-based access (future)
-- Audit logging
+## Table of Contents
 
-## Regular Updates
-```bash
-pip install --upgrade -r requirements.txt
-git pull origin main
-```
+- [Overview](#overview)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Examples](#examples)
+- [API Reference](#api-reference)
+- [Troubleshooting](#troubleshooting)
+
+## Getting Started
+
+TODO: Add getting started guide
+
+## Usage
+
+TODO: Add usage instructions
+
+## Examples
+
+TODO: Add examples
+
+## API Reference
+
+TODO: Add API reference
+
+## Troubleshooting
+
+TODO: Add troubleshooting guide
+
+---
+
+*This documentation is part of the UCOP project. For more information, see the [main README](../README.md).*

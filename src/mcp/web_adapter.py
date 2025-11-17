@@ -666,79 +666,155 @@ async def handle_debug_trace(params: Dict[str, Any]) -> Dict[str, Any]:
 
 @router.post("/jobs/create")
 async def create_job(request: JobCreateRequest):
-    """REST endpoint that wraps MCP job creation."""
-    mcp_request = MCPRequest(
-        method="jobs/create",
-        params={
+    """REST endpoint for job creation.
+    
+    Args:
+        request: Job creation request with workflow and input data
+        
+    Returns:
+        Dict with job details
+    """
+    try:
+        params = {
             "workflow_name": request.workflow_name,
             "input_data": request.input_data,
             "params": request.params,
             "blog_mode": request.blog_mode,
             "title": request.title
         }
-    )
-    return await mcp_request(mcp_request)
+        result = await handle_job_create(params)
+        return result
+    except Exception as e:
+        logger.error(f"Error creating job: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/jobs")
-async def list_jobs():
-    """REST endpoint that wraps MCP job listing."""
-    mcp_request = MCPRequest(method="jobs/list", params={})
-    return await mcp_request(mcp_request)
+async def list_jobs(status: Optional[str] = None, limit: int = 100):
+    """REST endpoint for job listing.
+    
+    Args:
+        status: Optional status filter
+        limit: Maximum number of jobs to return
+        
+    Returns:
+        Dict containing list of jobs
+    """
+    try:
+        params = {}
+        if status:
+            params["status"] = status
+        if limit:
+            params["limit"] = limit
+        result = await handle_jobs_list(params)
+        return result
+    except Exception as e:
+        logger.error(f"Error listing jobs: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/jobs/{job_id}")
 async def get_job(job_id: str):
-    """REST endpoint that wraps MCP job details."""
-    mcp_request = MCPRequest(
-        method="jobs/get",
-        params={"job_id": job_id}
-    )
-    return await mcp_request(mcp_request)
+    """REST endpoint for job details.
+    
+    Args:
+        job_id: Job identifier
+        
+    Returns:
+        Dict containing job details
+    """
+    try:
+        result = await handle_job_get({"job_id": job_id})
+        return result
+    except Exception as e:
+        logger.error(f"Error getting job {job_id}: {e}", exc_info=True)
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/jobs/{job_id}/pause")
 async def pause_job(job_id: str):
-    """REST endpoint that wraps MCP job pause."""
-    mcp_request = MCPRequest(
-        method="jobs/pause",
-        params={"job_id": job_id}
-    )
-    return await mcp_request(mcp_request)
+    """REST endpoint for pausing a job.
+    
+    Args:
+        job_id: Job identifier to pause
+        
+    Returns:
+        Dict with success status
+    """
+    try:
+        result = await handle_job_pause({"job_id": job_id})
+        return result
+    except Exception as e:
+        logger.error(f"Error pausing job {job_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/jobs/{job_id}/resume")
 async def resume_job(job_id: str):
-    """REST endpoint that wraps MCP job resume."""
-    mcp_request = MCPRequest(
-        method="jobs/resume",
-        params={"job_id": job_id}
-    )
-    return await mcp_request(mcp_request)
+    """REST endpoint for resuming a job.
+    
+    Args:
+        job_id: Job identifier to resume
+        
+    Returns:
+        Dict with success status
+    """
+    try:
+        result = await handle_job_resume({"job_id": job_id})
+        return result
+    except Exception as e:
+        logger.error(f"Error resuming job {job_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(job_id: str):
-    """REST endpoint that wraps MCP job cancel."""
-    mcp_request = MCPRequest(
-        method="jobs/cancel",
-        params={"job_id": job_id}
-    )
-    return await mcp_request(mcp_request)
+    """REST endpoint for canceling a job.
+    
+    Args:
+        job_id: Job identifier to cancel
+        
+    Returns:
+        Dict with success status
+    """
+    try:
+        result = await handle_job_cancel({"job_id": job_id})
+        return result
+    except Exception as e:
+        logger.error(f"Error canceling job {job_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/workflows")
 async def list_workflows():
-    """REST endpoint that wraps MCP workflow listing."""
-    mcp_request = MCPRequest(method="workflows/list", params={})
-    return await mcp_request(mcp_request)
+    """REST endpoint for workflow listing.
+    
+    Returns:
+        Dict containing list of available workflows
+    """
+    try:
+        result = await handle_workflows_list({})
+        return result
+    except Exception as e:
+        logger.error(f"Error listing workflows: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/agents")
 async def list_agents():
-    """REST endpoint that wraps MCP agent listing."""
-    mcp_request = MCPRequest(method="agents/list", params={})
-    return await mcp_request(mcp_request)
+    """REST endpoint for agent listing.
+    
+    Returns:
+        Dict containing list of available agents
+    """
+    try:
+        result = await handle_agents_list({})
+        return result
+    except Exception as e:
+        logger.error(f"Error listing agents: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Visualization REST endpoints

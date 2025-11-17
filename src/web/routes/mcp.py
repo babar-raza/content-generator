@@ -278,3 +278,180 @@ async def get_workflows_config():
             status_code=500,
             detail=f"Failed to get workflows config: {str(e)}"
         )
+
+
+@router.get("/traffic")
+async def get_mcp_traffic(
+    limit: int = 100,
+    offset: int = 0,
+    agent_id: Optional[str] = None,
+    message_type: Optional[str] = None,
+    status: Optional[str] = None
+):
+    """Get MCP traffic with filtering.
+    
+    Args:
+        limit: Maximum number of messages to return
+        offset: Number of messages to skip
+        agent_id: Filter by agent ID
+        message_type: Filter by message type
+        status: Filter by status
+        
+    Returns:
+        List of MCP messages
+    """
+    try:
+        from src.mcp.traffic_logger import get_traffic_logger
+        from dataclasses import asdict
+        
+        traffic_logger = get_traffic_logger()
+        messages = traffic_logger.get_traffic(
+            limit=limit,
+            offset=offset,
+            agent_id=agent_id,
+            message_type=message_type,
+            status=status
+        )
+        
+        return {
+            "messages": [asdict(m) for m in messages],
+            "total": len(messages),
+            "limit": limit,
+            "offset": offset
+        }
+    except Exception as e:
+        logger.error(f"Error getting MCP traffic: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get MCP traffic: {str(e)}"
+        )
+
+
+@router.get("/metrics")
+async def get_mcp_metrics():
+    """Get MCP traffic metrics.
+    
+    Returns:
+        Traffic metrics including message counts, latencies, and error rates
+    """
+    try:
+        from src.mcp.traffic_logger import get_traffic_logger
+        
+        traffic_logger = get_traffic_logger()
+        metrics = traffic_logger.get_metrics()
+        
+        return metrics
+    except Exception as e:
+        logger.error(f"Error getting MCP metrics: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get MCP metrics: {str(e)}"
+        )
+
+
+@router.get("/message/{message_id}")
+async def get_mcp_message(message_id: str):
+    """Get specific MCP message details.
+    
+    Args:
+        message_id: Message identifier
+        
+    Returns:
+        Message details
+    """
+    try:
+        from src.mcp.traffic_logger import get_traffic_logger
+        from dataclasses import asdict
+        
+        traffic_logger = get_traffic_logger()
+        message = traffic_logger.get_message(message_id)
+        
+        if not message:
+            raise HTTPException(status_code=404, detail="Message not found")
+        
+        return asdict(message)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting MCP message: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get MCP message: {str(e)}"
+        )
+
+
+@router.get("/export")
+async def export_mcp_traffic(
+    format: str = 'json',
+    agent_id: Optional[str] = None,
+    message_type: Optional[str] = None,
+    status: Optional[str] = None
+):
+    """Export MCP traffic to JSON or CSV.
+    
+    Args:
+        format: Export format ('json' or 'csv')
+        agent_id: Filter by agent ID
+        message_type: Filter by message type
+        status: Filter by status
+        
+    Returns:
+        Exported data file
+    """
+    try:
+        from fastapi.responses import Response
+        from src.mcp.traffic_logger import get_traffic_logger
+        
+        traffic_logger = get_traffic_logger()
+        
+        filters = {}
+        if agent_id:
+            filters['agent_id'] = agent_id
+        if message_type:
+            filters['message_type'] = message_type
+        if status:
+            filters['status'] = status
+        
+        data = traffic_logger.export_traffic(format=format, **filters)
+        
+        media_type = 'application/json' if format == 'json' else 'text/csv'
+        filename = f'mcp_traffic.{format}'
+        
+        return Response(
+            content=data,
+            media_type=media_type,
+            headers={
+                'Content-Disposition': f'attachment; filename={filename}'
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error exporting MCP traffic: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to export MCP traffic: {str(e)}"
+        )
+
+
+@router.post("/cleanup")
+async def cleanup_old_traffic():
+    """Cleanup old MCP traffic based on retention policy.
+    
+    Returns:
+        Number of records deleted
+    """
+    try:
+        from src.mcp.traffic_logger import get_traffic_logger
+        
+        traffic_logger = get_traffic_logger()
+        deleted = traffic_logger.cleanup_old()
+        
+        return {
+            "deleted": deleted,
+            "status": "success"
+        }
+    except Exception as e:
+        logger.error(f"Error cleaning up MCP traffic: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to cleanup MCP traffic: {str(e)}"
+        )

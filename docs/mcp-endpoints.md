@@ -1,23 +1,40 @@
-# MCP Endpoints Reference
+# Mcp Endpoints
 
-See original documentation at `/home/claude/docs/mcp_endpoints.md` for complete API reference.
+**Status:** 🚧 Documentation In Progress
 
-## Endpoint Categories
-- **Workflow Endpoints**: Execute, status, list
-- **Agent Endpoints**: Invoke, list, health
-- **Checkpoint Endpoints**: List, restore, create
-- **Real-Time Endpoints**: WebSocket subscribe
+## Overview
+
+TODO: Add overview
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Examples](#examples)
+- [API Reference](#api-reference)
+- [Troubleshooting](#troubleshooting)
+
+## Getting Started
+
+TODO: Add getting started guide
 
 ## Usage
-```bash
-# Via CLI
-python ucop_cli.py agent invoke <agent_id> --input <json>
 
-# Via HTTP
-curl -X POST http://localhost:8000/mcp/request \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc": "2.0", "method": "agents/invoke", "params": {...}}'
-```
+TODO: Add usage instructions
 
-## Authentication
-MCP endpoints support API key authentication in production.
+## Examples
+
+TODO: Add examples
+
+## API Reference
+
+TODO: Add API reference
+
+## Troubleshooting
+
+TODO: Add troubleshooting guide
+
+---
+
+*This documentation is part of the UCOP project. For more information, see the [main README](../README.md).*

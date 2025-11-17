@@ -25,8 +25,6 @@ pipeline:
 
 # Pipeline variants for different workflows
 workflows:
-<<<<<<< Updated upstream
-=======
   # Enable LangGraph-based execution (experimental)
   # Set to true to use graph-based execution with automatic checkpointing
   # Set to false to use traditional sequential execution
@@ -56,8 +54,7 @@ mesh:
     enabled: true
     failure_threshold: 3
     timeout_seconds: 60
-  
->>>>>>> Stashed changes
+
   default:
     name: "Full Blog Post Generation"
     steps:
@@ -125,3 +122,41 @@ dependencies:
   file_writer:
     requires:
       - content_assembly
+
+# MCP Traffic Monitoring
+mcp:
+  traffic_retention_days: 7
+  traffic_logging_enabled: true
+
+# Job Management Configuration
+jobs:
+  # Maximum number of retry attempts for failed jobs
+  max_retries: 3
+  
+  # Retry delay in seconds (exponential backoff will be applied)
+  retry_delay_seconds: 60
+  
+  # Maximum concurrent jobs
+  max_concurrent_jobs: 3
+  
+  # Job storage configuration
+  storage:
+    base_dir: ".jobs"
+    archive_dir: ".jobs/archive"
+  
+  # Archive configuration
+  archive:
+    # Enable automatic archiving of completed/failed jobs
+    auto_archive_enabled: true
+    
+    # Days to wait before auto-archiving completed jobs
+    auto_archive_completed_after_days: 7
+    
+    # Days to wait before auto-archiving failed jobs
+    auto_archive_failed_after_days: 14
+    
+    # Days to keep archived jobs before deletion
+    retention_days: 30
+    
+    # Enable automatic cleanup of old archives
+    auto_cleanup_enabled: true
