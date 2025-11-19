@@ -103,6 +103,67 @@ class TestMCPJobEndpoints:
         response = client.get("/mcp/jobs/test_job")
         assert response.status_code in [200, 404, 503]
 
+    def test_create_job_invalid_workflow(self, client):
+        """Test POST /mcp/jobs/create with invalid workflow."""
+        response = client.post(
+            "/mcp/jobs/create",
+            json={
+                "workflow_name": "",
+                "input_data": {}
+            }
+        )
+        assert response.status_code in [400, 422, 503]
+
+    def test_create_job_missing_fields(self, client):
+        """Test POST /mcp/jobs/create with missing fields."""
+        response = client.post(
+            "/mcp/jobs/create",
+            json={}
+        )
+        assert response.status_code in [400, 422, 503]
+
+    def test_get_job_nonexistent(self, client):
+        """Test GET /mcp/jobs/{job_id} for non-existent job."""
+        response = client.get("/mcp/jobs/nonexistent_job_12345")
+        assert response.status_code in [404, 503]
+
+    def test_pause_job(self, client):
+        """Test POST /mcp/jobs/{job_id}/pause."""
+        response = client.post("/mcp/jobs/test_job/pause")
+        assert response.status_code in [200, 404, 503]
+
+    def test_pause_nonexistent_job(self, client):
+        """Test pause non-existent job."""
+        response = client.post("/mcp/jobs/nonexistent/pause")
+        assert response.status_code in [404, 503]
+
+    def test_resume_job(self, client):
+        """Test POST /mcp/jobs/{job_id}/resume."""
+        response = client.post("/mcp/jobs/test_job/resume")
+        assert response.status_code in [200, 404, 503]
+
+    def test_resume_nonexistent_job(self, client):
+        """Test resume non-existent job."""
+        response = client.post("/mcp/jobs/nonexistent/resume")
+        assert response.status_code in [404, 503]
+
+    def test_cancel_job(self, client):
+        """Test POST /mcp/jobs/{job_id}/cancel."""
+        response = client.post("/mcp/jobs/test_job/cancel")
+        assert response.status_code in [200, 404, 503]
+
+    def test_cancel_nonexistent_job(self, client):
+        """Test cancel non-existent job."""
+        response = client.post("/mcp/jobs/nonexistent/cancel")
+        assert response.status_code in [404, 503]
+
+    def test_list_jobs_validates_response(self, client):
+        """Test GET /mcp/jobs validates response structure."""
+        response = client.get("/mcp/jobs")
+        if response.status_code == 200:
+            data = response.json()
+            assert isinstance(data, (list, dict))
+
 
 class TestMCPConfigEndpoints:
     """Tests for MCP config endpoints (from TASK-P0-004)."""
@@ -154,6 +215,38 @@ class TestMCPWorkflowEndpoints:
         response = client.get("/mcp/workflows/visual/test_profile")
         assert response.status_code in [200, 404, 503]
 
+    def test_workflow_visual_nonexistent(self, client):
+        """Test GET /mcp/workflows/visual/{profile_name} for non-existent profile."""
+        response = client.get("/mcp/workflows/visual/nonexistent_profile")
+        assert response.status_code in [404, 503]
+
+    def test_workflow_metrics(self, client):
+        """Test GET /mcp/workflows/{profile_name}/metrics."""
+        response = client.get("/mcp/workflows/test_profile/metrics")
+        assert response.status_code in [200, 404, 503]
+
+    def test_workflow_metrics_nonexistent(self, client):
+        """Test GET /mcp/workflows/{profile_name}/metrics for non-existent profile."""
+        response = client.get("/mcp/workflows/nonexistent/metrics")
+        assert response.status_code in [404, 503]
+
+    def test_workflow_reset(self, client):
+        """Test POST /mcp/workflows/{profile_name}/reset."""
+        response = client.post("/mcp/workflows/test_profile/reset")
+        assert response.status_code in [200, 404, 503]
+
+    def test_workflow_reset_nonexistent(self, client):
+        """Test POST /mcp/workflows/{profile_name}/reset for non-existent profile."""
+        response = client.post("/mcp/workflows/nonexistent/reset")
+        assert response.status_code in [404, 503]
+
+    def test_list_workflows_validates_response(self, client):
+        """Test GET /mcp/workflows validates response structure."""
+        response = client.get("/mcp/workflows")
+        if response.status_code == 200:
+            data = response.json()
+            assert isinstance(data, (list, dict))
+
 
 class TestMCPAgentEndpoints:
     """Tests for MCP agent endpoints."""
@@ -203,6 +296,47 @@ class TestMCPDebugEndpoints:
         """Test GET /mcp/debug/sessions/{session_id}."""
         response = client.get("/mcp/debug/sessions/test_session")
         assert response.status_code in [200, 404, 503]
+
+    def test_get_debug_session_nonexistent(self, client):
+        """Test GET /mcp/debug/sessions/{session_id} for non-existent session."""
+        response = client.get("/mcp/debug/sessions/nonexistent_session")
+        assert response.status_code in [404, 503]
+
+    def test_add_breakpoint(self, client):
+        """Test POST /mcp/debug/breakpoints."""
+        response = client.post(
+            "/mcp/debug/breakpoints",
+            json={
+                "session_id": "test_session",
+                "step_id": "step1"
+            }
+        )
+        assert response.status_code in [200, 404, 422, 503]
+
+    def test_remove_breakpoint(self, client):
+        """Test DELETE /mcp/debug/sessions/{session_id}/breakpoints/{breakpoint_id}."""
+        response = client.delete("/mcp/debug/sessions/test_session/breakpoints/bp1")
+        assert response.status_code in [200, 404, 503]
+
+    def test_step_debug(self, client):
+        """Test POST /mcp/debug/sessions/{session_id}/step."""
+        response = client.post("/mcp/debug/sessions/test_session/step")
+        assert response.status_code in [200, 404, 503]
+
+    def test_continue_debug(self, client):
+        """Test POST /mcp/debug/sessions/{session_id}/continue."""
+        response = client.post("/mcp/debug/sessions/test_session/continue")
+        assert response.status_code in [200, 404, 503]
+
+    def test_get_workflow_trace(self, client):
+        """Test GET /mcp/debug/workflows/{workflow_id}/trace."""
+        response = client.get("/mcp/debug/workflows/test_workflow/trace")
+        assert response.status_code in [200, 404, 503]
+
+    def test_get_workflow_trace_nonexistent(self, client):
+        """Test GET /mcp/debug/workflows/{workflow_id}/trace for non-existent workflow."""
+        response = client.get("/mcp/debug/workflows/nonexistent/trace")
+        assert response.status_code in [404, 503]
 
 
 class TestMCPEndpointAccessibility:

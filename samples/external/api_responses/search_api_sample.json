@@ -1,0 +1,17 @@
+﻿{
+  "query": "ucop agent orchestration",
+  "total": 2,
+  "results": [
+    {
+      "title": "Understanding the Production Execution Engine",
+      "snippet": "ProductionExecutionEngine wires AgentFactory, NoMockGate, and MeshExecutor to run real agents.",
+      "url": "https://example.com/blog/production-execution-engine"
+    },
+    {
+      "title": "Checkpointing LangGraph Flows",
+      "snippet": "Use CheckpointManager with zstd compression for resumable workflows.",
+      "url": "https://example.com/docs/checkpoint-manager"
+    }
+  ],
+  "generated_at": "2025-11-19T16:15:00Z"
+}

@@ -136,6 +136,46 @@ async def list_agents(
         raise HTTPException(status_code=500, detail=f"Failed to list agents: {str(e)}")
 
 
+# NOTE: Specific routes like /agents/health must come BEFORE /agents/{agent_id}
+# to avoid "health" being matched as an agent_id
+
+@router.get("/agents/health", response_model=HealthSummary)
+async def get_agents_health_summary():
+    """Get overall health summary for all agents.
+
+    Returns:
+        HealthSummary with metrics for all agents
+    """
+    try:
+        monitor = get_health_monitor()
+        summary = monitor.get_health_summary()
+
+        return HealthSummary(
+            timestamp=summary["timestamp"],
+            total_agents=summary["total_agents"],
+            healthy_agents=summary["healthy_agents"],
+            degraded_agents=summary["degraded_agents"],
+            failing_agents=summary["failing_agents"],
+            unknown_agents=summary["unknown_agents"],
+            agents=[
+                AgentHealthMetrics(
+                    agent_id=agent["agent_id"],
+                    total_executions=agent["total_executions"],
+                    successful_executions=agent["successful_executions"],
+                    failed_executions=agent["failed_executions"],
+                    last_execution_time=agent["last_execution_time"],
+                    average_duration_ms=agent["average_duration_ms"],
+                    error_rate=agent["error_rate"],
+                    status=agent["status"]
+                )
+                for agent in summary["agents"]
+            ]
+        )
+    except Exception as e:
+        logger.error(f"Error getting agents health summary: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get health summary: {str(e)}")
+
+
 @router.get("/agents/{agent_id}", response_model=AgentInfo)
 async def get_agent(
     agent_id: str,

@@ -196,9 +196,9 @@ async def handle_job_create(params: Dict[str, Any]) -> Dict[str, Any]:
         job_id=result.job_id,
         workflow_uri=create_resource_uri(ResourceType.WORKFLOW, workflow_name),
         status=ResourceStatus(result.status) if result.status in ResourceStatus.__members__.values() else ResourceStatus.COMPLETED,
-        created_at=datetime.fromisoformat(result.started_at) if result.started_at else datetime.now(),
-        started_at=datetime.fromisoformat(result.started_at) if result.started_at else None,
-        completed_at=datetime.fromisoformat(result.completed_at) if result.completed_at else None,
+        created_at=result.started_at if result.started_at else datetime.now(),
+        started_at=result.started_at if result.started_at else None,
+        completed_at=result.completed_at if result.completed_at else None,
         metadata={
             "output_path": str(result.output_path) if result.output_path else None,
             "error": result.error
@@ -822,89 +822,89 @@ async def list_agents():
 @router.get("/workflows/profiles")
 async def list_workflow_profiles():
     """REST endpoint for workflow profiles."""
-    mcp_request = MCPRequest(method="workflows/profiles", params={})
-    return await mcp_request(mcp_request)
+    request_obj = MCPRequest(method="workflows/profiles", params={})
+    return await mcp_request(request_obj)
 
 
 @router.get("/workflows/visual/{profile_name}")
 async def get_visual_workflow(profile_name: str):
     """REST endpoint for visual workflow graph."""
-    mcp_request = MCPRequest(
+    request_obj = MCPRequest(
         method="workflows/visual",
         params={"profile_name": profile_name}
     )
-    return await mcp_request(mcp_request)
+    return await mcp_request(request_obj)
 
 
 @router.get("/workflows/{profile_name}/metrics")
 async def get_workflow_metrics(profile_name: str):
     """REST endpoint for workflow metrics."""
-    mcp_request = MCPRequest(
+    request_obj = MCPRequest(
         method="workflows/metrics",
         params={"profile_name": profile_name}
     )
-    return await mcp_request(mcp_request)
+    return await mcp_request(request_obj)
 
 
 @router.post("/workflows/{profile_name}/reset")
 async def reset_workflow(profile_name: str):
     """REST endpoint for workflow reset."""
-    mcp_request = MCPRequest(
+    request_obj = MCPRequest(
         method="workflows/reset",
         params={"profile_name": profile_name}
     )
-    return await mcp_request(mcp_request)
+    return await mcp_request(request_obj)
 
 
 @router.get("/agents/status")
 async def get_agents_status():
     """REST endpoint for agent status."""
-    mcp_request = MCPRequest(method="agents/status", params={})
-    return await mcp_request(mcp_request)
+    request_obj = MCPRequest(method="agents/status", params={})
+    return await mcp_request(request_obj)
 
 
 @router.get("/flows/realtime")
 async def get_realtime_flows():
     """REST endpoint for real-time flows."""
-    mcp_request = MCPRequest(method="flows/realtime", params={})
-    return await mcp_request(mcp_request)
+    request_obj = MCPRequest(method="flows/realtime", params={})
+    return await mcp_request(request_obj)
 
 
 @router.get("/flows/history/{correlation_id}")
 async def get_flow_history(correlation_id: str):
     """REST endpoint for flow history."""
-    mcp_request = MCPRequest(
+    request_obj = MCPRequest(
         method="flows/history",
         params={"correlation_id": correlation_id}
     )
-    return await mcp_request(mcp_request)
+    return await mcp_request(request_obj)
 
 
 @router.get("/flows/bottlenecks")
 async def get_bottlenecks():
     """REST endpoint for bottleneck detection."""
-    mcp_request = MCPRequest(method="flows/bottlenecks", params={})
-    return await mcp_request(mcp_request)
+    request_obj = MCPRequest(method="flows/bottlenecks", params={})
+    return await mcp_request(request_obj)
 
 
 @router.post("/debug/sessions")
 async def create_debug_session_rest(correlation_id: str):
     """REST endpoint for debug session creation."""
-    mcp_request = MCPRequest(
+    request_obj = MCPRequest(
         method="debug/sessions/create",
         params={"correlation_id": correlation_id}
     )
-    return await mcp_request(mcp_request)
+    return await mcp_request(request_obj)
 
 
 @router.get("/debug/sessions/{session_id}")
 async def get_debug_session_rest(session_id: str):
     """REST endpoint for debug session retrieval."""
-    mcp_request = MCPRequest(
+    request_obj = MCPRequest(
         method="debug/sessions/get",
         params={"session_id": session_id}
     )
-    return await mcp_request(mcp_request)
+    return await mcp_request(request_obj)
 
 
 class BreakpointAddRequest(BaseModel):
@@ -919,51 +919,51 @@ class BreakpointAddRequest(BaseModel):
 @router.post("/debug/breakpoints")
 async def add_breakpoint_rest(request: BreakpointAddRequest):
     """REST endpoint for breakpoint addition."""
-    mcp_request = MCPRequest(
+    request_obj = MCPRequest(
         method="debug/breakpoints/add",
         params=request.dict()
     )
-    return await mcp_request(mcp_request)
+    return await mcp_request(request_obj)
 
 
 @router.delete("/debug/sessions/{session_id}/breakpoints/{breakpoint_id}")
 async def remove_breakpoint_rest(session_id: str, breakpoint_id: str):
     """REST endpoint for breakpoint removal."""
-    mcp_request = MCPRequest(
+    request_obj = MCPRequest(
         method="debug/breakpoints/remove",
         params={"session_id": session_id, "breakpoint_id": breakpoint_id}
     )
-    return await mcp_request(mcp_request)
+    return await mcp_request(request_obj)
 
 
 @router.post("/debug/sessions/{session_id}/step")
 async def step_debug_rest(session_id: str):
     """REST endpoint for debug step."""
-    mcp_request = MCPRequest(
+    request_obj = MCPRequest(
         method="debug/step",
         params={"session_id": session_id}
     )
-    return await mcp_request(mcp_request)
+    return await mcp_request(request_obj)
 
 
 @router.post("/debug/sessions/{session_id}/continue")
 async def continue_debug_rest(session_id: str):
     """REST endpoint for debug continue."""
-    mcp_request = MCPRequest(
+    request_obj = MCPRequest(
         method="debug/continue",
         params={"session_id": session_id}
     )
-    return await mcp_request(mcp_request)
+    return await mcp_request(request_obj)
 
 
 @router.get("/debug/workflows/{workflow_id}/trace")
 async def get_trace_rest(workflow_id: str):
     """REST endpoint for execution trace."""
-    mcp_request = MCPRequest(
+    request_obj = MCPRequest(
         method="debug/trace",
         params={"workflow_id": workflow_id}
     )
-    return await mcp_request(mcp_request)
+    return await mcp_request(request_obj)
 
 
 @router.get("/config/snapshot")

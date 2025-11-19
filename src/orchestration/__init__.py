@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 """Orchestration Layer (v-ucop)
 
 Provides workflow compilation, job execution, monitoring, and control.
@@ -19,7 +18,7 @@ except ImportError as e:
     # Import fallback components
     from .fallback_engine import (
         FallbackOrchestrationEngine as JobExecutionEngine,
-        WorkflowStep, 
+        WorkflowStep,
         WorkflowState,
         JobStatus
     )
@@ -83,5 +82,3 @@ if EnhancedRegistry:
     __all__.append('EnhancedRegistry')
 
 __version__ = '1.0.0'
-=======
->>>>>>> Stashed changes

@@ -1,0 +1,31 @@
+﻿workflow:
+  name: sample_multi_agent_blog
+  version: 1
+  description: Demo workflow used for live test seeds.
+  checkpoints:
+    storage_path: ".checkpoints/tests/sample"
+    keep_last: 5
+    auto_cleanup: true
+  steps:
+    - id: ingest_context
+      agent: ingestion.kb_ingestion
+      inputs:
+        kb_path: "samples/fixtures/kb/sample-kb-overview.md"
+    - id: generate_outline
+      agent: content.outline_creation
+      depends_on: ingest_context
+    - id: write_sections
+      agent: content.section_writer
+      depends_on: generate_outline
+      parallelism: 3
+    - id: qa_review
+      agent: publishing.content_reviewer
+      depends_on: write_sections
+    - id: finalize
+      agent: publishing.write_file
+      depends_on: qa_review
+config:
+  event_bus: in_memory
+  telemetry:
+    emit_events: true
+    mirror_to: "samples/logs/job_success_log.md"

@@ -1,0 +1,39 @@
+workflow:
+  name: simple_research
+  version: 1
+  description: Basic research workflow for testing
+  checkpoints:
+    storage_path: ".checkpoints/tests/simple_research"
+    keep_last: 5
+    auto_cleanup: true
+
+  steps:
+    - id: kb_ingestion
+      agent: ingestion.kb_ingestion
+      inputs:
+        kb_path: "${input.kb_path}"
+        topic: "${input.topic}"
+      timeout_seconds: 15
+
+    - id: topic_analysis
+      agent: research.topic_identification
+      depends_on: [kb_ingestion]
+      inputs:
+        topic: "${input.topic}"
+        context: "${steps.kb_ingestion.output.chunks}"
+      timeout_seconds: 10
+
+    - id: outline_creation
+      agent: content.outline_creation
+      depends_on: [topic_analysis, kb_ingestion]
+      inputs:
+        topic: "${steps.topic_analysis.output.refined_topic}"
+        context: "${steps.kb_ingestion.output.chunks}"
+      timeout_seconds: 15
+
+config:
+  event_bus: in_memory
+  execution_mode: sequential
+  telemetry:
+    emit_events: true
+    mirror_to: "samples/logs/simple_research_log.md"

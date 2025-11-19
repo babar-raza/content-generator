@@ -647,117 +647,14 @@ class LLMService:
             status = getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None
             raise requests.RequestException(f"OpenAI API error (status: {status}): {e}")
 
-<<<<<<< Updated upstream
-def _coerce_text(output) -> str:
-
-    """Coerce various SDK/mock outputs to a plain string."""
-
-    try:
-
-        import json as _json
-
-        if output is None:
-
-            return ""
-
-        if isinstance(output, str):
-
-            return output
-
-        if isinstance(output, bytes):
-
-            return output.decode('utf-8', errors='ignore')
-
-        if isinstance(output, dict):
-
-            for k in ('text','content','output','message'):
-
-                if k in output and isinstance(output[k], (str, bytes)):
-
-                    return output[k] if isinstance(output[k], str) else output[k].decode('utf-8','ignore')
-
-            return _json.dumps(output, ensure_ascii=False)
-
-        if isinstance(output, (list, tuple)):
-
-            return ''.join(str(x) for x in output)
-
-        return str(output)
-
-    except Exception:
-
-        return str(output)
-
-class GeminiRateLimiter:
-
-    """Rate limiter for Gemini API."""
-
-    def __init__(self, requests_per_minute: int):
-
-        self.requests_per_minute = max(1, int(requests_per_minute))
-
-        self.request_times: List[float] = []
-
-        self._lock = threading.Lock()
-
-    def wait_if_needed(self) -> None:
-
-        """Wait if rate limit would be exceeded."""
-
-        max_wait_seconds = 120  # ADD: Never wait more than 2 minutes
-
-        wait_start = time.time()
-
-        while True:
-
-            # ADD: Timeout check
-
-            if time.time() - wait_start > max_wait_seconds:
-
-                logger.error("Rate limiter wait timeout, clearing state")
-
-                with self._lock:
-
-                    self.request_times = []  # Reset
-
-                return
-
-            with self._lock:
-
-                now = time.time()
-
-                # Keep only last 60s
-
-                self.request_times = [t for t in self.request_times if (now - t) < 60.0]
-
-                if len(self.request_times) < self.requests_per_minute:
-
-                    return
-
-                oldest = self.request_times[0]
-
-                wait_time = max(0.0, 60.0 - (now - oldest) + 0.1)
-
-            # Sleep outside lock
-
-            time.sleep(min(wait_time, 10.0))  # ADD: Cap individual sleeps
-
-    def mark_request(self):
-
-        """Mark that a request was made."""
-
-        with self._lock:
-
-            self.request_times.append(time.time())
-=======
     def check_health(self) -> Dict[str, bool]:
         """Check health status of all configured providers.
-        
+
         Returns:
             Dict mapping provider names to health status
         """
         health = {}
-        
+
         # Check Ollama
         if "OLLAMA" in self.providers:
             try:
@@ -769,210 +666,117 @@ class GeminiRateLimiter:
                 health["OLLAMA"] = response.status_code == 200
             except Exception:
                 health["OLLAMA"] = False
-        
+
         # Check Gemini
         if "GEMINI" in self.providers:
             health["GEMINI"] = bool(self.config.gemini_api_key)
-        
+
         # Check OpenAI
         if "OPENAI" in self.providers:
             health["OPENAI"] = bool(self.config.openai_api_key)
-        
+
         return health
 
->>>>>>> Stashed changes
+
+def _coerce_text(output) -> str:
+    """Coerce various SDK/mock outputs to a plain string."""
+    try:
+        import json as _json
+        if output is None:
+            return ""
+        if isinstance(output, str):
+            return output
+        if isinstance(output, bytes):
+            return output.decode('utf-8', errors='ignore')
+        if isinstance(output, dict):
+            for k in ('text','content','output','message'):
+                if k in output and isinstance(output[k], (str, bytes)):
+                    return output[k] if isinstance(output[k], str) else output[k].decode('utf-8','ignore')
+            return _json.dumps(output, ensure_ascii=False)
+        if isinstance(output, (list, tuple)):
+            return ''.join(str(x) for x in output)
+        return str(output)
+    except Exception:
+        return str(output)
+
+
+class GeminiRateLimiter:
+    """Rate limiter for Gemini API."""
+
+    def __init__(self, requests_per_minute: int):
+        self.requests_per_minute = max(1, int(requests_per_minute))
+        self.request_times: List[float] = []
+        self._lock = threading.Lock()
+
+    def wait_if_needed(self) -> None:
+        """Wait if rate limit would be exceeded."""
+        max_wait_seconds = 120  # Never wait more than 2 minutes
+        wait_start = time.time()
+
+        while True:
+            # Timeout check
+            if time.time() - wait_start > max_wait_seconds:
+                logger.error("Rate limiter wait timeout, clearing state")
+                with self._lock:
+                    self.request_times = []  # Reset
+                return
+
+            with self._lock:
+                now = time.time()
+                # Keep only last 60s
+                self.request_times = [t for t in self.request_times if (now - t) < 60.0]
+
+                if len(self.request_times) < self.requests_per_minute:
+                    return
+
+                oldest = self.request_times[0]
+                wait_time = max(0.0, 60.0 - (now - oldest) + 0.1)
+
+            # Sleep outside lock
+            time.sleep(min(wait_time, 10.0))  # Cap individual sleeps
+
+    def mark_request(self):
+        """Mark that a request was made."""
+        with self._lock:
+            self.request_times.append(time.time())
 
 class EmbeddingService:
     """Service for generating text embeddings using sentence-transformers."""
 
     def __init__(self, config: Config):
-<<<<<<< Updated upstream
-
         """Initialize embedding service with GPU support."""
-
-        self.config = config
-
-        # Initialize model with device
-
-        self.model = SentenceTransformer(
-
-            'sentence-transformers/all-MiniLM-L6-v2',
-
-            device=config.device
-
-        )
-
-        self.cache: Dict[str, List[float]] = {}
-
-        logger.info(f"Embedding model loaded on {config.device}")
-
-        if config.device == "cuda":
-
-            logger.info(f"Batch size for GPU: {config.embedding_batch_size}")
-
-    def encode(self, texts: List[str], normalize: bool = True) -> List[List[float]]:
-
-        # FIXED: Ensure return value is always a list of lists, never None
-
-        if not texts:
-
-            return []
-
-        """Encode texts to embeddings with GPU acceleration."""
-
-        uncached_texts = []
-
-        uncached_indices = []
-
-        results = [None] * len(texts)
-
-        # Check cache
-
-        for i, text in enumerate(texts):
-
-            text_hash = hashlib.sha256(text.encode()).hexdigest()
-
-            if text_hash in self.cache:
-
-                results[i] = self.cache[text_hash]
-
-            else:
-
-                uncached_texts.append(text)
-
-                uncached_indices.append(i)
-
-        if uncached_texts:
-
-            # Use larger batch size for GPU
-
-            batch_size = self.config.embedding_batch_size if self.config.device == "cuda" else 8
-
-            embeddings = self.model.encode(
-
-                uncached_texts,
-
-                normalize_embeddings=normalize,
-
-                show_progress_bar=len(uncached_texts) > 100,
-
-                batch_size=batch_size,
-
-                device=self.config.device
-
-            )
-
-            # Cache results
-
-            for i, embedding in zip(uncached_indices, embeddings):
-
-                text = texts[i]
-
-                text_hash = hashlib.sha256(text.encode()).hexdigest()
-
-                emb_list = embedding.tolist()
-
-                self.cache[text_hash] = emb_list
-
-                results[i] = emb_list
-
-        return results
-
-    def similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
-
-        """Compute cosine similarity between embeddings."""
-
-        import numpy as np
-
-        vec1 = np.array(embedding1)
-
-        vec2 = np.array(embedding2)
-        # Normalize vectors to unit length
-        vec1 = vec1 / np.linalg.norm(vec1)
-        vec2 = vec2 / np.linalg.norm(vec2)
-
-        return float(np.dot(vec1, vec2))
-
-class DatabaseService:
-
-    """Service for vector database operations using ChromaDB with semantic folder names."""
-
-    def __init__(self, config: Config, embedding_service: EmbeddingService):
-        """Initialize database service with semantic folder structure."""
-        
-        self.config = config
-        self.embedding_service = embedding_service
-        
-        # Get family (defaults to 'general' if not set)
-        family = getattr(config, 'family', 'general')
-        
-        db_base_path = Path(config.chroma_db_path)
-        
-        # Add batch method wrapper
-        self.embedding_service.batch = lambda texts: self.embedding_service.encode(texts)
-        
-        # Create separate database directories for each section-family combination
-        self.db_paths = {
-            "kb": db_base_path / f"kb-{family}",
-            "blog": db_base_path / f"blog-{family}",
-            "api": db_base_path / f"api-{family}",
-            "tutorial": db_base_path / f"tutorial-{family}",
-            "docs": db_base_path / f"docs-{family}"
-        }
-        
-        # Create all directories
-        for path in self.db_paths.values():
-            path.mkdir(parents=True, exist_ok=True)
-        
-        # Create separate ChromaDB clients for each section
-        self.clients = {}
-        self.collections = {}
-        
-        for section, path in self.db_paths.items():
-            self.clients[section] = self._create_client(path)
-            collection_name = f"{section}-{family}"
-            self.collections[section] = self._get_or_create_collection(
-                section, collection_name
-            )
-        
-        logger.info(f"ChromaDB initialized for family: {family}")
-        for section, path in self.db_paths.items():
-            logger.info(f"  {section}: {path}")
-=======
-        """Initialize embedding service.
-        
-        Args:
-            config: Configuration object
-            
-        Raises:
-            ImportError: If sentence-transformers not available
-        """
         if not SENTENCE_TRANSFORMERS_AVAILABLE:
             raise ImportError(
                 "sentence-transformers not available. "
                 "Install with: pip install sentence-transformers"
             )
-        
-        self.config = config
-        model_name = getattr(config, 'embedding_model', 'all-MiniLM-L6-v2')
-        device = getattr(config, 'device', 'cpu')
-        
-        self.model = SentenceTransformer(model_name, device=device)
-        logger.info(f"✓ Embedding service initialized (model: {model_name}, device: {device})")
 
-    def encode(
-        self,
-        texts: Union[str, List[str]],
-        batch_size: int = 32,
-        show_progress_bar: bool = False
-    ) -> Union[List[float], List[List[float]]]:
-        """Generate embeddings for text(s).
-        
+        self.config = config
+        model_name = getattr(config, 'embedding_model', 'sentence-transformers/all-MiniLM-L6-v2')
+        device = getattr(config, 'device', 'cpu')
+
+        # Initialize model with device
+        self.model = SentenceTransformer(
+            model_name,
+            device=device
+        )
+
+        self.cache: Dict[str, List[float]] = {}
+
+        logger.info(f"Embedding model loaded on {device}")
+        if device == "cuda":
+            batch_size = getattr(config, 'embedding_batch_size', 32)
+            logger.info(f"Batch size for GPU: {batch_size}")
+
+    def encode(self, texts: Union[str, List[str]], normalize: bool = True, batch_size: int = 32, show_progress_bar: bool = False) -> Union[List[float], List[List[float]]]:
+        """Encode texts to embeddings with GPU acceleration and caching.
+
         Args:
             texts: Single text or list of texts to embed
+            normalize: Whether to normalize embeddings
             batch_size: Batch size for encoding
             show_progress_bar: Whether to show progress
-            
+
         Returns:
             Single embedding for str input, list of embeddings for list input
         """
@@ -981,34 +785,67 @@ class DatabaseService:
             if not texts:
                 logger.warning("Empty text provided for embedding")
                 return []
->>>>>>> Stashed changes
-            
+
             embedding = self.model.encode(
                 [texts],
+                normalize_embeddings=normalize,
                 batch_size=batch_size,
                 show_progress_bar=show_progress_bar,
                 convert_to_numpy=True
             )
             return embedding[0].tolist()
-        
+
         # Handle list of texts
         if not texts:
-            logger.warning("No texts provided for embedding")
             return []
-        
-        embeddings = self.model.encode(
-            texts,
-            batch_size=batch_size,
-            show_progress_bar=show_progress_bar,
-            convert_to_numpy=True
-        )
-        
-        # Convert to list of lists
-        return embeddings.tolist()
+
+        uncached_texts = []
+        uncached_indices = []
+        results = [None] * len(texts)
+
+        # Check cache
+        for i, text in enumerate(texts):
+            text_hash = hashlib.sha256(text.encode()).hexdigest()
+            if text_hash in self.cache:
+                results[i] = self.cache[text_hash]
+            else:
+                uncached_texts.append(text)
+                uncached_indices.append(i)
+
+        if uncached_texts:
+            # Use larger batch size for GPU
+            effective_batch_size = getattr(self.config, 'embedding_batch_size', batch_size) if self.config.device == "cuda" else 8
+            embeddings = self.model.encode(
+                uncached_texts,
+                normalize_embeddings=normalize,
+                show_progress_bar=show_progress_bar or len(uncached_texts) > 100,
+                batch_size=effective_batch_size,
+                convert_to_numpy=True
+            )
+
+            # Cache results
+            for i, embedding in zip(uncached_indices, embeddings):
+                text = texts[i]
+                text_hash = hashlib.sha256(text.encode()).hexdigest()
+                emb_list = embedding.tolist()
+                self.cache[text_hash] = emb_list
+                results[i] = emb_list
+
+        return results
+
+    def similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
+        """Compute cosine similarity between embeddings."""
+        import numpy as np
+        vec1 = np.array(embedding1)
+        vec2 = np.array(embedding2)
+        # Normalize vectors to unit length
+        vec1 = vec1 / np.linalg.norm(vec1)
+        vec2 = vec2 / np.linalg.norm(vec2)
+        return float(np.dot(vec1, vec2))
 
     def get_dimension(self) -> int:
         """Get embedding vector dimension.
-        
+
         Returns:
             Dimension of embedding vectors
         """

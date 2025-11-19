@@ -84,9 +84,17 @@ class WorkflowExecution:
 
 class CheckpointManager:
     """Manages checkpoint execution and state persistence."""
-    
-    def __init__(self, storage_dir: Path = Path("./checkpoints")):
-        self.storage_dir = storage_dir
+
+    def __init__(self, storage_dir: Path = None, storage_path: Path = None):
+        # Support both parameter names for backward compatibility
+        if storage_path is not None:
+            self.storage_dir = storage_path
+        elif storage_dir is not None:
+            self.storage_dir = storage_dir
+        else:
+            self.storage_dir = Path("./checkpoints")
+
+        self.storage_path = self.storage_dir  # Alias for compatibility
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         
         self._executions: Dict[str, WorkflowExecution] = {}
@@ -373,15 +381,182 @@ class CheckpointManager:
                     logger.error(f"Failed to load execution from {file_path}: {e}")
                     
             logger.info(f"Loaded {len(self._executions)} persisted executions")
-            
-<<<<<<< Updated upstream
+
         except Exception as e:
             logger.error(f"Failed to load persisted executions: {e}")
-    
+
+    # ========================================================================
+    # Simple Checkpoint API (for direct checkpoint management)
+    # ========================================================================
+
+    def save(self, job_id: str, step_name: str, state: Dict[str, Any]) -> str:
+        """Save a checkpoint for a job (simple API for tests/API routes).
+
+        Args:
+            job_id: Job identifier
+            step_name: Step/checkpoint name
+            state: State data to checkpoint
+
+        Returns:
+            Checkpoint ID
+        """
+        import uuid
+        checkpoint_id = f"{step_name}_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+
+        # Create job-specific directory
+        job_dir = self.storage_dir / job_id
+        job_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save checkpoint data
+        checkpoint_data = {
+            "checkpoint_id": checkpoint_id,
+            "job_id": job_id,
+            "step_name": step_name,
+            "state": state,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "workflow_version": "1.0"
+        }
+
+        checkpoint_file = job_dir / f"{checkpoint_id}.json"
+        with open(checkpoint_file, 'w', encoding='utf-8') as f:
+            json.dump(checkpoint_data, f, indent=2)
+
+        logger.info(f"Saved checkpoint {checkpoint_id} for job {job_id}")
+        return checkpoint_id
+
+    def list(self, job_id: str) -> List[Any]:
+        """List all checkpoints for a job.
+
+        Args:
+            job_id: Job identifier
+
+        Returns:
+            List of checkpoint metadata objects
+        """
+        job_dir = self.storage_dir / job_id
+        if not job_dir.exists():
+            return []
+
+        checkpoints = []
+        for checkpoint_file in sorted(job_dir.glob("*.json")):
+            try:
+                with open(checkpoint_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+                # Create a simple object with attributes
+                from collections import namedtuple
+                CheckpointMeta = namedtuple('CheckpointMeta',
+                    ['checkpoint_id', 'job_id', 'step_name', 'timestamp', 'workflow_version'])
+
+                checkpoint = CheckpointMeta(
+                    checkpoint_id=data.get('checkpoint_id'),
+                    job_id=data.get('job_id', job_id),
+                    step_name=data.get('step_name'),
+                    timestamp=data.get('timestamp'),
+                    workflow_version=data.get('workflow_version', '1.0')
+                )
+                checkpoints.append(checkpoint)
+            except Exception as e:
+                logger.warning(f"Failed to load checkpoint {checkpoint_file}: {e}")
+                continue
+
+        return checkpoints
+
+    def restore(self, job_id: str, checkpoint_id: str) -> Dict[str, Any]:
+        """Restore state from a checkpoint.
+
+        Args:
+            job_id: Job identifier
+            checkpoint_id: Checkpoint identifier
+
+        Returns:
+            Restored state dict
+
+        Raises:
+            FileNotFoundError: If checkpoint not found
+            ValueError: If checkpoint data is invalid
+        """
+        checkpoint_file = self.storage_dir / job_id / f"{checkpoint_id}.json"
+
+        if not checkpoint_file.exists():
+            raise FileNotFoundError(f"Checkpoint {checkpoint_id} not found for job {job_id}")
+
+        try:
+            with open(checkpoint_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            state = data.get('state')
+            if state is None:
+                raise ValueError(f"Checkpoint {checkpoint_id} has no state data")
+
+            logger.info(f"Restored checkpoint {checkpoint_id} for job {job_id}")
+            return state
+
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid checkpoint data: {e}")
+
+    def delete(self, job_id: str, checkpoint_id: str) -> bool:
+        """Delete a specific checkpoint.
+
+        Args:
+            job_id: Job identifier
+            checkpoint_id: Checkpoint identifier
+
+        Returns:
+            True if deleted, False if not found
+        """
+        checkpoint_file = self.storage_dir / job_id / f"{checkpoint_id}.json"
+
+        if not checkpoint_file.exists():
+            return False
+
+        try:
+            checkpoint_file.unlink()
+            logger.info(f"Deleted checkpoint {checkpoint_id} for job {job_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
+            return False
+
+    def cleanup(self, job_id: str, keep_last: int = 10) -> int:
+        """Cleanup old checkpoints, keeping only the N most recent.
+
+        Args:
+            job_id: Job identifier
+            keep_last: Number of recent checkpoints to keep
+
+        Returns:
+            Number of checkpoints deleted
+        """
+        job_dir = self.storage_dir / job_id
+        if not job_dir.exists():
+            return 0
+
+        # Get all checkpoint files sorted by modification time (newest first)
+        checkpoint_files = sorted(
+            job_dir.glob("*.json"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True
+        )
+
+        # Delete old checkpoints beyond keep_last
+        deleted_count = 0
+        for checkpoint_file in checkpoint_files[keep_last:]:
+            try:
+                checkpoint_file.unlink()
+                deleted_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to delete {checkpoint_file}: {e}")
+
+        if deleted_count > 0:
+            logger.info(f"Cleaned up {deleted_count} old checkpoints for job {job_id}")
+
+        return deleted_count
+
     def cleanup_old_executions(self, max_age_days: int = 30):
         """Clean up old completed executions."""
         cutoff_time = time.time() - (max_age_days * 24 * 3600)
-        
+
         with self._lock:
             to_remove = []
             for execution_id, execution in self._executions.items():
@@ -392,15 +567,15 @@ class CheckpointManager:
                             to_remove.append(execution_id)
                     except Exception:
                         continue
-            
+
             for execution_id in to_remove:
                 del self._executions[execution_id]
-                
+
                 # Remove persisted file
                 file_path = self.storage_dir / f"{execution_id}.json"
                 if file_path.exists():
                     file_path.unlink()
-            
+
             if to_remove:
                 logger.info(f"Cleaned up {len(to_remove)} old executions")
 
@@ -408,9 +583,9 @@ class CheckpointManager:
 # Integration helper for existing planner
 def enhance_planner_with_checkpoints(planner, checkpoint_manager: CheckpointManager):
     """Enhance existing planner with checkpoint management."""
-    
+
     original_execute_capability = planner._execute_capability
-    
+
     def checkpoint_aware_execute_capability(capability: str, state):
         """Execute capability with checkpoint management."""
         # Create checkpoint
@@ -421,11 +596,11 @@ def enhance_planner_with_checkpoints(planner, checkpoint_manager: CheckpointMana
             input_data={"capability": capability, "state_data": state.data},
             approval_required=capability in ["write_file", "upload_gist", "add_frontmatter"]
         )
-        
+
         try:
             # Execute original logic
             result = original_execute_capability(capability, state)
-            
+
             # Complete checkpoint on success
             checkpoint_manager.complete_checkpoint(
                 execution_id=f"exec_{state.correlation_id}",
@@ -433,9 +608,9 @@ def enhance_planner_with_checkpoints(planner, checkpoint_manager: CheckpointMana
                 output_data={"success": True, "result": "capability_executed"},
                 success=True
             )
-            
+
             return result
-            
+
         except Exception as e:
             # Complete checkpoint on failure
             checkpoint_manager.complete_checkpoint(
@@ -445,17 +620,9 @@ def enhance_planner_with_checkpoints(planner, checkpoint_manager: CheckpointMana
                 success=False
             )
             raise
-    
+
     # Replace method
     planner._execute_capability = checkpoint_aware_execute_capability
     planner.checkpoint_manager = checkpoint_manager
-    
+
     return planner
-=======
-        Returns:
-            checkpoint_id of the latest checkpoint, or None if no checkpoints exist
-        """
-        checkpoints = self.list(job_id)
-        return checkpoints[0].checkpoint_id if checkpoints else None
-# DOCGEN:LLM-FIRST@v4
->>>>>>> Stashed changes

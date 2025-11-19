@@ -16,9 +16,11 @@ import time
 from datetime import datetime, timezone
 
 from src.mcp import MCPContract, MCPComplianceAdapter
-from .hot_reload import HotReloadManager
+from .hot_reload import HotReloadMonitor
 from .checkpoint_manager import CheckpointManager
 from src.core import Agent
+from .agent_scanner import AgentScanner, AgentMetadata
+from .dependency_resolver import DependencyResolver
 
 logger = logging.getLogger(__name__)
 
@@ -135,35 +137,42 @@ class AgentDiscovery:
 
 class EnhancedAgentRegistry:
     """Enhanced registry with MCP compliance and auto-discovery."""
-    
+
     def __init__(self, config_dir: Path = Path("./config")):
         self.config_dir = config_dir
         self.config_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Enhanced components
         self.mcp_adapter = MCPComplianceAdapter(config_dir)
-        self.hot_reload_manager = HotReloadManager(config_dir, self._handle_config_reload)
+        self.hot_reload_manager = HotReloadMonitor([config_dir], self._handle_config_reload)
         self.checkpoint_manager = CheckpointManager(config_dir / "checkpoints")
-        
+
+        # Add AgentScanner and DependencyResolver
+        self.agents_dir = Path("src/agents")
+        self.scanner = AgentScanner()
+        self.dependency_resolver = DependencyResolver()
+
         # Update AgentDiscovery to search in src/agents directory
-        agents_dir = Path("src/agents")
-        self.agent_discovery = AgentDiscovery([agents_dir] if agents_dir.exists() else [])
-        
+        self.agent_discovery = AgentDiscovery([self.agents_dir] if self.agents_dir.exists() else [])
+
         # Registry state
         self.agents: Dict[str, Dict[str, Any]] = {}  # Simple agent registry
+        self._agent_classes: Dict[str, type] = {}
+        self._agent_metadata: Dict[str, AgentMetadata] = {}
         self._mcp_contracts: Dict[str, MCPContract] = {}
         self._agent_instances: Dict[str, Agent] = {}
         self._discovery_cache: Dict[str, Dict[str, Any]] = {}
         self._last_discovery: Optional[datetime] = None
-        
+
         # Configuration
         self._auto_discovery_enabled = True
         self._auto_reload_enabled = True
-        
+
         self._lock = threading.RLock()
-        
+
         # Auto-discover agents on initialization
         self._discover_agents()
+        self.discover_agents()
     
     def _discover_agents(self):
         """Auto-discover agents from src/agents directory."""
@@ -207,10 +216,11 @@ class EnhancedAgentRegistry:
                 discovered_count += 1
         
         logger.info(f"Discovered {discovered_count} agents from {agents_dir}")
-    def get_all_agents(self) -> List[Dict[str, Any]]:
+    def get_all_agents(self) -> Dict[str, Any]:
         """Get all registered agents."""
         with self._lock:
-            return list(self.agents.values())
+            # Return as dict mapping agent_id to metadata
+            return {name: metadata for name, metadata in self._agent_metadata.items()}
     
     def start_enhanced_registry(self):
         """Start enhanced registry features."""
@@ -451,14 +461,176 @@ class EnhancedAgentRegistry:
     def stop_enhanced_registry(self):
         """Stop enhanced registry features."""
         logger.info("Stopping enhanced agent registry")
-        
+
         if self._auto_reload_enabled:
             self.hot_reload_manager.stop_watching()
-        
+
         # Cleanup checkpoint manager
         self.checkpoint_manager.cleanup_old_executions()
-        
+
         logger.info("Enhanced registry stopped")
+
+    def discover_agents(self) -> int:
+        """Discover agents using the scanner.
+
+        Returns:
+            Count of discovered agents
+        """
+        with self._lock:
+            # Use scanner to discover agents
+            agents = self.scanner.discover(force_rescan=True)
+            metadata = self.scanner.get_all_metadata()
+
+            # Update internal state
+            self._agent_metadata = metadata
+            self._agent_classes = {name: None for name in metadata.keys()}
+
+            # Add dependencies to resolver
+            for name, meta in metadata.items():
+                self.dependency_resolver.add_agent(name, meta.dependencies)
+
+            return len(self._agent_classes)
+
+    def get_agent(self, name: str, config: Optional[Any] = None, event_bus: Optional[Any] = None,
+                  instantiate: bool = True) -> Optional[Any]:
+        """Get agent class or instance.
+
+        Args:
+            name: Agent name
+            config: Configuration object (required for instantiation)
+            event_bus: Event bus (required for instantiation)
+            instantiate: Whether to instantiate the agent
+
+        Returns:
+            Agent instance if config/event_bus provided, None otherwise
+        """
+        with self._lock:
+            # If already instantiated, return instance
+            if name in self._agent_instances:
+                return self._agent_instances[name]
+
+            # If no config or event_bus, return None (can't instantiate)
+            if config is None or event_bus is None:
+                return None
+
+            # Get agent class
+            agent_class = self._agent_classes.get(name)
+            if agent_class is None:
+                return None
+
+            # Instantiate if requested
+            if instantiate:
+                try:
+                    metadata = self._agent_metadata.get(name)
+                    if metadata and len(metadata.dependencies) == 0:
+                        # Simple agent with no dependencies
+                        instance = agent_class(config, event_bus)
+                        self._agent_instances[name] = instance
+                        return instance
+                except Exception as e:
+                    logger.error(f"Failed to instantiate {name}: {e}")
+                    return None
+
+            return agent_class
+
+    def get_dependencies(self, agent_name: str) -> List[str]:
+        """Get dependencies for an agent.
+
+        Args:
+            agent_name: Name of the agent
+
+        Returns:
+            List of dependency names
+        """
+        metadata = self._agent_metadata.get(agent_name)
+        if metadata:
+            return metadata.dependencies
+        return []
+
+    def agents_by_category(self, category: str) -> List[AgentMetadata]:
+        """Get agents by category.
+
+        Args:
+            category: Category name
+
+        Returns:
+            List of AgentMetadata objects
+        """
+        return self.scanner.get_agents_by_category(category)
+
+    def get_agent_metadata(self, agent_name: str) -> Optional[AgentMetadata]:
+        """Get metadata for a specific agent.
+
+        Args:
+            agent_name: Name of the agent
+
+        Returns:
+            AgentMetadata or None
+        """
+        return self._agent_metadata.get(agent_name)
+
+    def get_all_categories(self) -> List[str]:
+        """Get all categories.
+
+        Returns:
+            List of category names
+        """
+        return self.scanner.get_all_categories()
+
+    def validate_dependencies(self, workflow: Optional[List[str]] = None) -> Dict[str, List[str]]:
+        """Validate dependencies.
+
+        Args:
+            workflow: Optional list of agent names to validate
+
+        Returns:
+            Dictionary of validation issues
+        """
+        available = set(self._agent_classes.keys())
+        return self.dependency_resolver.validate_dependencies(available)
+
+    def detect_cycles(self, workflow: Optional[List[str]] = None) -> Optional[List[str]]:
+        """Detect circular dependencies.
+
+        Args:
+            workflow: Optional list of agent names to check
+
+        Returns:
+            List of agents forming a cycle, or None
+        """
+        return self.dependency_resolver.detect_cycles()
+
+    def get_registry_stats(self) -> Dict[str, Any]:
+        """Get registry statistics.
+
+        Returns:
+            Dictionary of statistics
+        """
+        categories = self.get_all_categories()
+        agents_by_cat = {
+            cat: len(self.agents_by_category(cat))
+            for cat in categories
+        }
+
+        return {
+            "total_agents": len(self._agent_classes),
+            "categories": len(categories),
+            "instantiated_agents": len(self._agent_instances),
+            "agents_by_category": agents_by_cat
+        }
+
+    def clear_instances(self) -> None:
+        """Clear cached agent instances."""
+        with self._lock:
+            self._agent_instances.clear()
+
+    def rescan(self) -> int:
+        """Force a rescan of agents.
+
+        Returns:
+            Count of discovered agents
+        """
+        return self.discover_agents()
 
 
 # REST API endpoints for registry management
@@ -467,8 +639,7 @@ class RegistryAPI:
     
     def __init__(self, registry: EnhancedAgentRegistry):
         self.registry = registry
-    
-<<<<<<< Updated upstream
+
     def get_agents(self) -> Dict[str, Any]:
         """GET /registry/agents - List all agents."""
         agents = self.registry.get_all_agents()
@@ -476,17 +647,17 @@ class RegistryAPI:
             'agents': agents,
             'total': len(agents)
         }
-    
+
     def get_agent_contract(self, agent_id: str) -> Optional[Dict[str, Any]]:
         """GET /registry/agents/{agent_id}/contract - Get agent contract."""
         contract = self.registry.get_mcp_contract(agent_id)
         return contract.to_dict() if contract else None
-    
+
     def reload_registry(self) -> Dict[str, Any]:
         """POST /registry/reload - Force reload registry."""
         self.registry.force_rediscovery()
         return {"status": "reloaded", "timestamp": datetime.now().isoformat()}
-    
+
     def validate_contracts(self) -> Dict[str, Any]:
         """POST /registry/validate - Validate all contracts."""
         validation_results = self.registry.validate_all_contracts()
@@ -494,14 +665,35 @@ class RegistryAPI:
             "validation_results": validation_results,
             "total_issues": sum(len(issues) for issues in validation_results.values())
         }
-    
+
     def get_registry_status(self) -> Dict[str, Any]:
         """GET /registry/status - Get registry status."""
         return self.registry.get_registry_status()
-=======
-    with _registry_lock:
-        if _registry_instance is None:
-            _registry_instance = EnhancedAgentRegistry(agents_dir, config_dir)
-        return _registry_instance
-# DOCGEN:LLM-FIRST@v4
->>>>>>> Stashed changes
+
+
+# Singleton pattern for global registry access
+_registry_instance: Optional[EnhancedAgentRegistry] = None
+_registry_lock = threading.Lock()
+
+
+def get_registry(config_dir: Optional[Path] = None) -> EnhancedAgentRegistry:
+    """Get or create the global registry instance (singleton).
+
+    Args:
+        config_dir: Optional configuration directory path
+
+    Returns:
+        Global EnhancedAgentRegistry instance
+    """
+    global _registry_instance
+
+    if _registry_instance is None:
+        with _registry_lock:
+            # Double-check locking pattern
+            if _registry_instance is None:
+                if config_dir is None:
+                    config_dir = Path("config")
+                _registry_instance = EnhancedAgentRegistry(config_dir)
+                logger.info("Created global registry instance")
+
+    return _registry_instance

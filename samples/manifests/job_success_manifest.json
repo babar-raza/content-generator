@@ -1,0 +1,29 @@
+﻿{
+  "job_id": "sample-success-001",
+  "timestamp": "2025-11-19T16:20:00.000Z",
+  "run_spec": {
+    "topic": "LangGraph Success Path",
+    "template_name": "default_blog",
+    "kb_path": "samples/fixtures/kb/sample-kb-overview.md",
+    "docs_path": "samples/fixtures/docs/sample-api-reference.md",
+    "auto_topic": false,
+    "output_dir": "samples/output"
+  },
+  "pipeline_order": [
+    "api_search_node",
+    "blog_search_node",
+    "check_duplication_node",
+    "write_file_node"
+  ],
+  "sources_used": [
+    "https://example.com/docs/ucop-overview",
+    "https://example.com/api/realtime-jobs"
+  ],
+  "config_snapshot": {
+    "hash": "f4f0a248",
+    "timestamp": "2025-11-19T16:19:30Z",
+    "engine_version": "1.0.0"
+  },
+  "status": "completed",
+  "duration": 128.4
+}

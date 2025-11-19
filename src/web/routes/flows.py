@@ -11,7 +11,6 @@ from fastapi.responses import JSONResponse
 
 from ..models import (
     FlowEvent,
-    FlowHistory,
     BottleneckReport,
     ActiveFlow,
     FlowRealtimeResponse,

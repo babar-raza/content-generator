@@ -34,8 +34,14 @@ except ImportError:
 import threading
 
 from src.core.contracts import AgentEvent
+from src.orchestration.execution_plan import ExecutionPlan, ExecutionStep
 
 logger = logging.getLogger(__name__)
+
+
+class CompilationError(Exception):
+    """Exception raised during workflow compilation."""
+    pass
 
 
 @dataclass
@@ -143,21 +149,24 @@ class WorkflowState:
 
 class WorkflowCompiler:
     """Compiles YAML workflow definitions into LangGraph DAGs."""
-    
-    def __init__(self, registry, event_bus):
+
+    def __init__(self, registry, event_bus=None, workflows_path=None):
         self.registry = registry
-<<<<<<< Updated upstream
         self.event_bus = event_bus
+        self.workflows_path = workflows_path or Path("templates/workflows.yaml")
         self._compiled_workflows: Dict[str, CompiledStateGraph] = {}
         self._workflow_definitions: Dict[str, WorkflowDefinition] = {}
         self._lock = threading.RLock()
-        self.workflows = {}
-=======
-        self.workflows_path = workflows_path or Path("templates/workflows.yaml")
         self.workflows: Dict[str, Any] = {}
         self.dependencies: Dict[str, List[str]] = {}
         self.conditions: Dict[str, Dict[str, Any]] = {}
->>>>>>> Stashed changes
+
+        # Auto-load workflows from file if it exists
+        if self.workflows_path and Path(self.workflows_path).exists():
+            try:
+                self.load_workflows_from_file(Path(self.workflows_path))
+            except Exception as e:
+                logger.warning(f"Failed to auto-load workflows: {e}")
         
     def _convert_format(self, data: Dict) -> Dict:
         """Convert v5.1 workflow format to current format."""
@@ -199,8 +208,15 @@ class WorkflowCompiler:
         try:
             with open(workflow_file, 'r') as f:
                 data = yaml.safe_load(f)
-            
-<<<<<<< Updated upstream
+
+            if not data:
+                logger.warning("Empty workflows file")
+                return
+
+            # Extract dependencies and conditions (from stashed changes)
+            self.dependencies = data.get('dependencies', {})
+            self.conditions = data.get('conditions', {})
+
             # Check if v5.1 format (has 'dependencies' and 'profiles' keys)
             if 'dependencies' in data and 'profiles' in data:
                 # Convert v5.1 format to current format
@@ -210,26 +226,12 @@ class WorkflowCompiler:
                 workflows = data['workflows']
             else:
                 raise ValueError("Invalid workflow format")
-=======
-            if not data:
-                logger.warning("Empty workflows file")
-                return
-            
-            # Extract dependencies
-            self.dependencies = data.get('dependencies', {})
-            
-            # Extract workflow profiles
-            self.workflows = data.get('profiles', {})
-            
-            # Extract conditions
-            self.conditions = data.get('conditions', {})
-            
-            logger.info(f"Loaded {len(self.workflows)} workflow profiles")
->>>>>>> Stashed changes
-            
+
             for name, definition in workflows.items():
                 self.workflows[name] = definition
                 logger.info(f"Loaded workflow: {name}")
+
+            logger.info(f"Loaded {len(self.workflows)} workflow profiles")
                 
         except Exception as e:
             logger.error(f"Failed to load workflows from {workflow_file}: {e}")
@@ -238,46 +240,54 @@ class WorkflowCompiler:
     def _parse_workflow_definition(self, name: str, config: Dict[str, Any]) -> WorkflowDefinition:
         """Parse workflow definition from YAML config."""
         steps = []
-<<<<<<< Updated upstream
-        
-        for step_config in config.get('steps', []):
-            step = WorkflowStep(
-                name=step_config['name'],
-                agent_id=step_config['agent'],
-                capabilities=step_config.get('capabilities', []),
-                inputs=step_config.get('inputs', {}),
-                outputs=step_config.get('outputs', {}),
-                conditions=step_config.get('when', {}),
-                retries=step_config.get('retries', 3),
-                timeout=step_config.get('timeout', 300),
-                approval_required=step_config.get('approval_required', False),
-                parallel_group=step_config.get('parallel_group')
-=======
-        for agent_id in active_steps:
-            # Get dependencies for this agent
-            deps = self.dependencies.get(agent_id, [])
-            
-            # Filter dependencies to only include active steps
-            active_deps = [dep for dep in deps if dep in active_steps]
-            
-            # Get condition if defined
-            condition = self.conditions.get(agent_id)
-            
-            # Create execution step
-            step = ExecutionStep(
-                agent_id=agent_id,
-                dependencies=active_deps,
-                condition=condition,
-                timeout=workflow_def.get('resources', {}).get('max_runtime_s', 300),
-                retry=workflow_def.get('max_retries', 3),
-                metadata={
-                    'workflow_id': workflow_id,
-                    'llm_settings': workflow_def.get('llm', {}),
-                    'deterministic': workflow_def.get('deterministic', False)
-                }
->>>>>>> Stashed changes
-            )
-            steps.append(step)
+
+        # Support both new format (steps list) and old format (active_steps)
+        if 'steps' in config:
+            # New format with explicit step configurations
+            for step_config in config.get('steps', []):
+                step = WorkflowStep(
+                    name=step_config['name'],
+                    agent_id=step_config['agent'],
+                    capabilities=step_config.get('capabilities', []),
+                    inputs=step_config.get('inputs', {}),
+                    outputs=step_config.get('outputs', {}),
+                    conditions=step_config.get('when', {}),
+                    retries=step_config.get('retries', 3),
+                    timeout=step_config.get('timeout', 300),
+                    approval_required=step_config.get('approval_required', False),
+                    parallel_group=step_config.get('parallel_group')
+                )
+                steps.append(step)
+        else:
+            # Old format - derive from active steps and dependencies
+            active_steps = config.get('order', [])
+            skipped_steps = config.get('skip', [])
+            active_steps = [s for s in active_steps if s not in skipped_steps]
+
+            for agent_id in active_steps:
+                # Get dependencies for this agent
+                deps = self.dependencies.get(agent_id, [])
+
+                # Filter dependencies to only include active steps
+                active_deps = [dep for dep in deps if dep in active_steps]
+
+                # Get condition if defined
+                condition = self.conditions.get(agent_id)
+
+                # Create workflow step
+                step = WorkflowStep(
+                    name=agent_id,
+                    agent_id=agent_id,
+                    capabilities=[],
+                    inputs={},
+                    outputs={},
+                    conditions=condition or {},
+                    retries=config.get('max_retries', 3),
+                    timeout=config.get('resources', {}).get('max_runtime_s', 300),
+                    approval_required=False,
+                    parallel_group=None
+                )
+                steps.append(step)
         
         return WorkflowDefinition(
             name=name,
@@ -465,8 +475,190 @@ class WorkflowCompiler:
     def list_workflows(self) -> List[str]:
         """List all available workflow names."""
         with self._lock:
-            return list(self._workflow_definitions.keys())
-    
+            # Return both _workflow_definitions and workflows keys
+            all_workflows = set(self._workflow_definitions.keys()) | set(self.workflows.keys())
+            return list(all_workflows)
+
+    def compile(self, workflow_name: str) -> ExecutionPlan:
+        """Compile workflow into an execution plan with topological ordering.
+
+        Args:
+            workflow_name: Name of the workflow to compile
+
+        Returns:
+            ExecutionPlan with topologically sorted steps
+
+        Raises:
+            CompilationError: If workflow not found or has circular dependencies
+        """
+        # Check if workflow exists in either dict
+        if workflow_name not in self.workflows and workflow_name not in self._workflow_definitions:
+            raise CompilationError(f"Workflow not found: {workflow_name}")
+
+        # Get workflow config
+        workflow_config = self.workflows.get(workflow_name, {})
+
+        # Extract steps and dependencies
+        steps_config = workflow_config.get('steps', {})
+
+        # Build dependency map
+        dep_map = {}
+        for step_name, step_info in steps_config.items():
+            if isinstance(step_info, dict):
+                dep_map[step_name] = step_info.get('depends_on', [])
+            else:
+                dep_map[step_name] = []
+
+        # If no steps, use global dependencies
+        if not dep_map:
+            dep_map = self.dependencies.copy()
+
+        # Topological sort with cycle detection
+        sorted_steps = self._topological_sort(dep_map)
+
+        # Build parallel groups - steps with same depth can run in parallel
+        parallel_groups = self._build_parallel_groups(dep_map, sorted_steps)
+
+        # Create ExecutionStep objects
+        execution_steps = []
+        for step_name in sorted_steps:
+            step_config = steps_config.get(step_name, {})
+
+            execution_steps.append(ExecutionStep(
+                agent_id=step_name,
+                dependencies=dep_map.get(step_name, []),
+                condition=self.conditions.get(step_name),
+                timeout=step_config.get('timeout', 300) if isinstance(step_config, dict) else 300,
+                retry=step_config.get('retry', 3) if isinstance(step_config, dict) else 3,
+                metadata=step_config.get('metadata', {}) if isinstance(step_config, dict) else {}
+            ))
+
+        return ExecutionPlan(
+            workflow_id=workflow_name,
+            steps=execution_steps,
+            parallel_groups=parallel_groups,
+            metadata=workflow_config.get('metadata', {})
+        )
+
+    def _topological_sort(self, dep_map: Dict[str, List[str]]) -> List[str]:
+        """Topologically sort steps, detecting circular dependencies.
+
+        Args:
+            dep_map: Map of step_name -> list of dependencies
+
+        Returns:
+            List of step names in topological order
+
+        Raises:
+            CompilationError: If circular dependency detected
+        """
+        # Kahn's algorithm for topological sorting
+        in_degree = {node: 0 for node in dep_map}
+
+        # Calculate in-degrees
+        for node, deps in dep_map.items():
+            for dep in deps:
+                if dep in in_degree:
+                    in_degree[dep] = in_degree.get(dep, 0)
+                in_degree[node] = in_degree.get(node, 0) + len([d for d in deps if d in dep_map])
+
+        # Recalculate properly
+        in_degree = {node: 0 for node in dep_map}
+        for node, deps in dep_map.items():
+            for dep in deps:
+                if dep not in in_degree:
+                    in_degree[dep] = 0
+        for node, deps in dep_map.items():
+            in_degree[node] = len([d for d in deps if d in dep_map])
+
+        # Queue of nodes with no dependencies
+        queue = [node for node, degree in in_degree.items() if degree == 0]
+        sorted_nodes = []
+
+        while queue:
+            # Sort queue for deterministic ordering
+            queue.sort()
+            node = queue.pop(0)
+            sorted_nodes.append(node)
+
+            # Reduce in-degree for dependent nodes
+            for other_node, deps in dep_map.items():
+                if node in deps:
+                    in_degree[other_node] -= 1
+                    if in_degree[other_node] == 0:
+                        queue.append(other_node)
+
+        # Check for circular dependencies
+        if len(sorted_nodes) != len(dep_map):
+            raise CompilationError("Circular dependency detected in workflow")
+
+        return sorted_nodes
+
+    def _build_parallel_groups(self, dep_map: Dict[str, List[str]], sorted_steps: List[str]) -> List[List[str]]:
+        """Build parallel execution groups from dependency map.
+
+        Args:
+            dep_map: Map of step_name -> list of dependencies
+            sorted_steps: Topologically sorted steps
+
+        Returns:
+            List of parallel groups (each group is a list of step names)
+        """
+        # Calculate depth of each node (longest path from root)
+        depths = {}
+        for step in sorted_steps:
+            deps = dep_map.get(step, [])
+            if not deps:
+                depths[step] = 0
+            else:
+                depths[step] = max(depths.get(dep, 0) for dep in deps if dep in depths) + 1
+
+        # Group by depth
+        groups_by_depth = {}
+        for step, depth in depths.items():
+            if depth not in groups_by_depth:
+                groups_by_depth[depth] = []
+            groups_by_depth[depth].append(step)
+
+        # Convert to list of groups
+        max_depth = max(groups_by_depth.keys()) if groups_by_depth else 0
+        parallel_groups = []
+        for depth in range(max_depth + 1):
+            if depth in groups_by_depth:
+                parallel_groups.append(sorted(groups_by_depth[depth]))
+
+        return parallel_groups
+
+    def get_workflow_metadata(self, workflow_name: str) -> Dict[str, Any]:
+        """Get metadata for a workflow.
+
+        Args:
+            workflow_name: Name of the workflow
+
+        Returns:
+            Dictionary with workflow metadata
+
+        Raises:
+            CompilationError: If workflow not found
+        """
+        if workflow_name not in self.workflows and workflow_name not in self._workflow_definitions:
+            raise CompilationError(f"Workflow not found: {workflow_name}")
+
+        workflow_config = self.workflows.get(workflow_name, {})
+        config = workflow_config.get('config', {})
+
+        return {
+            'workflow_id': workflow_name,
+            'name': workflow_config.get('name', workflow_name),
+            'description': workflow_config.get('description', ''),
+            'version': workflow_config.get('version', '1.0'),
+            'steps': list(workflow_config.get('steps', {}).keys()),
+            'deterministic': config.get('deterministic', False),
+            'max_retries': config.get('max_retries', 3),
+            'llm_settings': config.get('llm_settings', {}),
+            'metadata': workflow_config.get('metadata', {})
+        }
+
     def validate_workflow(self, workflow_name: str) -> List[str]:
         """Validate workflow definition and return issues."""
         workflow_def = self._workflow_definitions.get(workflow_name)
@@ -493,6 +685,33 @@ class WorkflowCompiler:
         
         return issues
 
+    def compile_with_conditions(
+        self,
+        workflow_id: str,
+        conditions: Dict[str, Dict[str, Any]]
+    ) -> CompiledStateGraph:
+        """Compile workflow with conditional steps.
+
+        Args:
+            workflow_id: Workflow profile ID
+            conditions: Map of agent_id to condition definitions
+
+        Returns:
+            CompiledStateGraph with conditional steps
+        """
+        # Get the workflow definition
+        workflow_def = self._workflow_definitions.get(workflow_id)
+        if not workflow_def:
+            raise ValueError(f"Workflow not found: {workflow_id}")
+
+        # Add conditions to workflow steps
+        for step in workflow_def.steps:
+            if step.agent_id in conditions:
+                step.conditions.update(conditions[step.agent_id])
+
+        # Compile the workflow
+        return self.compile_workflow(workflow_id)
+
 
 # Example workflow YAML structure
 EXAMPLE_WORKFLOW_YAML = """
@@ -503,8 +722,7 @@ workflows:
     global_inputs:
       kb_path: "required"
       output_dir: "optional"
-    
-<<<<<<< Updated upstream
+
     steps:
       - name: ingest_kb
         agent: KBIngestionAgent
@@ -515,7 +733,7 @@ workflows:
           kb_content: "kb_article_content"
         timeout: 120
         retries: 2
-      
+
       - name: identify_topics
         agent: TopicIdentificationAgent
         capabilities: ["identify_blog_topics"]
@@ -524,7 +742,7 @@ workflows:
         outputs:
           topics: "topics"
         approval_required: false
-      
+
       - name: check_duplication
         agent: DuplicationCheckAgent
         capabilities: ["check_duplication"]
@@ -534,7 +752,7 @@ workflows:
           approved_topics: "approved_topics"
         when:
           "identify_topics.topics": "not_empty"
-      
+
       - name: generate_content
         agent: ContentAssemblyAgent
         capabilities: ["assemble_content"]
@@ -545,7 +763,7 @@ workflows:
           final_content: "content"
         approval_required: true
         timeout: 300
-      
+
       - name: write_file
         agent: FileWriterAgent
         capabilities: ["write_file"]
@@ -554,10 +772,10 @@ workflows:
           output_dir: "global.output_dir"
         outputs:
           file_path: "file_path"
-    
+
     global_outputs:
       generated_file: "write_file.file_path"
-      
+
     error_handling:
       continue_on_error: false
       max_retries: 3
@@ -566,7 +784,7 @@ workflows:
   quick_draft:
     version: "1.0"
     description: "Quick draft generation for testing"
-    
+
     steps:
       - name: ingest_only
         agent: KBIngestionAgent
@@ -576,29 +794,6 @@ workflows:
         outputs:
           content: "kb_article_content"
 """
-=======
-    def compile_with_conditions(
-        self, 
-        workflow_id: str,
-        conditions: Dict[str, Dict[str, Any]]
-    ) -> ExecutionPlan:
-        """Compile workflow with conditional steps.
-        
-        Args:
-            workflow_id: Workflow profile ID
-            conditions: Map of agent_id to condition definitions
-            
-        Returns:
-            ExecutionPlan with conditional steps
-        """
-        # Start with basic compilation
-        plan = self.compile(workflow_id)
-        
-        # Add conditions to steps
-        for step in plan.steps:
-            if step.agent_id in conditions:
-                step.condition = conditions[step.agent_id]
-        
-        return plan
+
+
 # DOCGEN:LLM-FIRST@v4
->>>>>>> Stashed changes

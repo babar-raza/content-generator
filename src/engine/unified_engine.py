@@ -538,22 +538,39 @@ class UnifiedEngine:
     
     def _execute_agent(self, agent_name: str, context: Dict[str, Any], agent_def: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a single agent (stub - real implementation would call actual agent).
-        
+
         Args:
             agent_name: Agent name
             context: Execution context
             agent_def: Agent definition from config
-            
+
         Returns:
             Agent output
         """
-        # Placeholder implementation
+        # Check if we're in live test mode
+        try:
+            from src.utils.testing_mode import is_live_mode
+            if is_live_mode():
+                # In live mode, use ProductionExecutionEngine for real orchestration
+                logger.warning(
+                    f"UnifiedEngine in TEST_MODE=live should use ProductionExecutionEngine. "
+                    f"Agent {agent_name} will return minimal stub output."
+                )
+                return {
+                    'agent': agent_name,
+                    'status': 'executed',
+                    'note': 'Stub execution - use ProductionExecutionEngine for real agents'
+                }
+        except ImportError:
+            pass  # testing_mode not available, continue with mock
+
+        # Placeholder implementation (mock mode)
         # Real implementation would:
         # 1. Import the actual agent class
         # 2. Initialize with config
         # 3. Call agent.execute(context)
         # 4. Return agent output
-        
+
         return {
             'agent': agent_name,
             'status': 'executed',
@@ -867,12 +884,26 @@ _engine_instance: Optional[UnifiedEngine] = None
 
 def get_engine() -> UnifiedEngine:
     """Get global engine instance.
-    
+
     Returns:
-        UnifiedEngine instance
+        UnifiedEngine instance (or ProductionExecutionEngine in live test mode)
     """
     global _engine_instance
     if _engine_instance is None:
-        _engine_instance = UnifiedEngine()
+        # Check if TEST_MODE=live
+        try:
+            from src.utils.testing_mode import is_live_mode
+            if is_live_mode():
+                logger.info("TEST_MODE=live detected - using ProductionExecutionEngine for real orchestration")
+                from src.orchestration.production_execution_engine import ProductionExecutionEngine
+                from src.core.config import Config
+                config = Config()
+                _engine_instance = ProductionExecutionEngine(config)
+                logger.info("ProductionExecutionEngine initialized for live testing")
+            else:
+                _engine_instance = UnifiedEngine()
+        except ImportError:
+            # testing_mode module not available, use standard UnifiedEngine
+            _engine_instance = UnifiedEngine()
     return _engine_instance
 # DOCGEN:LLM-FIRST@v4

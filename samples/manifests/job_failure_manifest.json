@@ -1,0 +1,28 @@
+﻿{
+  "job_id": "sample-failure-encoding",
+  "timestamp": "2025-11-19T16:22:00.000Z",
+  "run_spec": {
+    "topic": "Windows Encoding Regression",
+    "template_name": "default_blog",
+    "kb_path": null,
+    "auto_topic": true,
+    "output_dir": "samples/output"
+  },
+  "pipeline_order": [
+    "api_search_node",
+    "write_file_node"
+  ],
+  "sources_used": [],
+  "config_snapshot": {
+    "hash": "deadbeef",
+    "timestamp": "2025-11-19T16:21:40Z",
+    "engine_version": "1.0.0"
+  },
+  "status": "failed",
+  "failure": {
+    "error": "'charmap' codec can't encode character '\u2192' in position 136",
+    "origin": "write_file_node",
+    "mitigation": "Open files with encoding='utf-8'"
+  },
+  "duration": 12.6
+}

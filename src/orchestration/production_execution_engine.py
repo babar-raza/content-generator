@@ -185,7 +185,18 @@ class ProductionExecutionEngine:
     def __init__(self, config: Config):
         self.config = config
         self.event_bus = EventBus()
-        
+
+        # Check if running in test mode
+        self.test_mode = False
+        try:
+            from src.utils.testing_mode import get_test_mode, TestMode
+            mode = get_test_mode()
+            self.test_mode = (mode == TestMode.LIVE)
+            if self.test_mode:
+                logger.info("ProductionExecutionEngine initialized in TEST_MODE=live")
+        except ImportError:
+            pass  # testing_mode not available
+
         # Initialize services
         self.services = self._initialize_services()
         
@@ -360,64 +371,46 @@ class ProductionExecutionEngine:
         
         total_steps = len(steps)
         start_step = context.get('current_step', 0)
-        
-<<<<<<< Updated upstream
-=======
-        # Check if parallel execution is enabled
-        use_parallel = self.parallel_executor is not None
-        
->>>>>>> Stashed changes
+
         try:
-            if use_parallel:
-                # Parallel execution path
-                self._execute_parallel_pipeline(
-                    steps=steps,
-                    context=context,
-<<<<<<< Updated upstream
-                    step_config=step_config
-                )
-                
+            # Execute steps sequentially
+            for step_num, step in enumerate(steps[start_step:], start=start_step):
+                agent_type = step.get('agent') or step.get('id')
+                step_config = step.get('config', {})
+
+                logger.info(f"Executing step {step_num + 1}/{total_steps}: {agent_type}")
+
+                # Update progress
+                if progress_callback:
+                    progress = ((step_num + 1) / total_steps) * 100
+                    progress_callback(progress, f"Executing {agent_type}")
+
+                # Execute agent
+                result = self._execute_agent(agent_type, context, step_config)
+
                 # Store result
                 context['agent_outputs'][agent_type] = result
                 context['llm_calls'] += result.llm_calls
                 context['tokens_used'] += result.tokens_used
-                
+
                 # Check for failures
                 if result.status == AgentStatus.FAILED:
                     logger.error(f"Agent {agent_type} failed: {result.error}")
                     context['error'] = result.error
                     context['failed_agent'] = agent_type
                     break
-                
+
                 # Create checkpoint
                 context['current_step'] = step_num
                 checkpoint_data = self._create_checkpoint(context)
                 self.checkpoint_manager.save_checkpoint(job_id, checkpoint_data)
-                
+
                 if checkpoint_callback:
                     checkpoint_callback(agent_type, checkpoint_data)
-                
+
                 logger.info(
                     f"✓ Agent {agent_type} completed in {result.execution_time:.2f}s "
                     f"(LLM calls: {result.llm_calls})"
-=======
-                    job_id=job_id,
-                    total_steps=total_steps,
-                    start_step=start_step,
-                    progress_callback=progress_callback,
-                    checkpoint_callback=checkpoint_callback
-                )
-            else:
-                # Sequential execution path (original)
-                self._execute_sequential_pipeline(
-                    steps=steps,
-                    context=context,
-                    job_id=job_id,
-                    total_steps=total_steps,
-                    start_step=start_step,
-                    progress_callback=progress_callback,
-                    checkpoint_callback=checkpoint_callback
->>>>>>> Stashed changes
                 )
             
             # Final progress
@@ -481,8 +474,8 @@ class ProductionExecutionEngine:
                 event_type="agent_started",
                 data={"input_keys": list(agent_input.keys())},
                 source_agent=agent_type,
-                correlation_id=context[\'job_id\'],
-                metadata={"job_id": context[\'job_id\']}
+                correlation_id=context['job_id'],
+                metadata={"job_id": context['job_id']}
             ))
             
             # Track LLM calls before execution
@@ -526,9 +519,9 @@ class ProductionExecutionEngine:
                     event_type="agent_completed",
                     data=result.output_data,
                     source_agent=agent_type,
-                    correlation_id=context[\'job_id\'],
+                    correlation_id=context['job_id'],
                     metadata={
-                        "job_id": context[\'job_id\'],
+                        "job_id": context['job_id'],
                         "duration": time.time() - start_time,
                         "llm_calls": result.llm_calls
                     }
@@ -552,8 +545,8 @@ class ProductionExecutionEngine:
                 event_type="agent_failed",
                 data={"error": str(e)},
                 source_agent=agent_type,
-                correlation_id=context[\'job_id\'],
-                metadata={"job_id": context[\'job_id\']}
+                correlation_id=context['job_id'],
+                metadata={"job_id": context['job_id']}
             ))
         
         finally:
@@ -654,7 +647,27 @@ class ProductionExecutionEngine:
             agent_input['topic'] = context['shared_state'].get('topic', '')
         
         return agent_input
-    
+
+    def _create_checkpoint(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Create checkpoint data from execution context
+
+        Args:
+            context: Execution context
+
+        Returns:
+            Checkpoint data dictionary
+        """
+        return {
+            'workflow_name': context.get('workflow_name'),
+            'job_id': context.get('job_id'),
+            'current_step': context.get('current_step', 0),
+            'agent_outputs': context.get('agent_outputs', {}),
+            'shared_state': context.get('shared_state', {}),
+            'llm_calls': context.get('llm_calls', 0),
+            'tokens_used': context.get('tokens_used', 0),
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        }
+
     def _execute_langgraph_pipeline(
         self,
         workflow_name: str,

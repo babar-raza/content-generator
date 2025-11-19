@@ -1,6 +1,6 @@
 {
-  "job_id": "79c969c1fdd8",
-  "timestamp": "2025-11-14T20:11:24.422971",
+  "job_id": "0187a1d5dbf3",
+  "timestamp": "2025-11-19T19:26:07.185361",
   "run_spec": {
     "topic": "End to End",
     "template_name": "default_blog",
@@ -50,12 +50,10 @@
     "tutorial_search_node",
     "write_file_node"
   ],
-  "sources_used": [
-    "C:\\Users\\prora\\OneDrive\\Documents\\GitHub\\content-generator\\tests\\fixtures\\sample_inputs\\test_kb.md"
-  ],
+  "sources_used": [],
   "config_snapshot": {
-    "hash": "aa82a4c4",
-    "timestamp": "2025-11-14T20:11:24.345410",
+    "hash": "f4f0a248",
+    "timestamp": "2025-11-19T19:26:07.158773",
     "engine_version": "1.0.0"
   },
   "status": "running",

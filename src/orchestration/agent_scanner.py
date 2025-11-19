@@ -15,30 +15,60 @@ from datetime import datetime
 class AgentMetadata:
     """Metadata extracted from agent analysis"""
     name: str
-    function_name: str
-    is_async: bool
-    parameters: List[Dict[str, Any]]
-    return_type: Optional[str]
-    docstring: Optional[str]
-    line_number: int
+    function_name: str = ""
+    is_async: bool = False
+    parameters: List[Dict[str, Any]] = field(default_factory=list)
+    return_type: Optional[str] = None
+    docstring: Optional[str] = None
+    line_number: int = 0
     has_contract_in_schemas: bool = False
     contract_schema: Optional[Dict[str, Any]] = None
     prompt_template: Optional[str] = None
     inferred_checkpoints: List[Dict[str, Any]] = field(default_factory=list)
     side_effects: str = "none"
+    category: str = "unknown"
+    capabilities: List[str] = field(default_factory=list)
+    dependencies: List[str] = field(default_factory=list)
 
 
 class BlogGeneratorScanner:
     """Scanner adjusted for your blog generator patterns"""
-    
-    def __init__(self, agents_file: Path, contracts_file: Path, config_file: Path):
-        self.agents_file = agents_file
-        self.contracts_file = contracts_file
-        self.config_file = config_file
+
+    def __init__(self, agents_file: Optional[Path] = None, contracts_file: Optional[Path] = None,
+                 config_file: Optional[Path] = None, custom_path: Optional[Path] = None,
+                 base_path: Optional[Path] = None):
+        """
+        Initialize scanner with flexible arguments.
+
+        Can be called as:
+        - AgentScanner() - uses defaults
+        - AgentScanner(custom_path) - sets base_path
+        - AgentScanner(agents_file, contracts_file, config_file) - explicit files
+        """
+        # Handle single path argument (custom_path scenario)
+        if agents_file is not None and isinstance(agents_file, Path) and contracts_file is None and config_file is None:
+            self.base_path = agents_file
+            self.agents_file = None
+            self.contracts_file = None
+            self.config_file = None
+        elif custom_path is not None:
+            self.base_path = custom_path
+            self.agents_file = None
+            self.contracts_file = None
+            self.config_file = None
+        else:
+            # Handle 3-file signature or defaults
+            self.agents_file = agents_file or Path("src/agents/agents.py")
+            self.contracts_file = contracts_file or Path("src/core/contracts.py")
+            self.config_file = config_file or Path("config/agents.yaml")
+            self.base_path = base_path or Path("src/agents")
+
         self.discovered_agents: Dict[str, AgentMetadata] = {}
         self.agent_schemas: Dict[str, Dict[str, Any]] = {}
         self.prompts: Dict[str, Dict[str, Any]] = {}
         self.config_values: Dict[str, Any] = {}
+        self._cache: Dict[str, Any] = {}
+        self._cache_valid: bool = False
         
     def scan_all(self) -> Dict[str, Any]:
         """Scan all files and build complete picture"""
@@ -300,7 +330,6 @@ class BlogGeneratorScanner:
         
         return checkpoints
     
-<<<<<<< Updated upstream
     def generate_report(self) -> Dict[str, Any]:
         """Generate discovery report"""
         return {
@@ -330,7 +359,7 @@ class BlogGeneratorScanner:
             "prompts_available": len(self.prompts),
             "config_fields": len(self.config_values)
         }
-    
+
     def generate_yaml_config(self) -> Dict[str, Any]:
         """Generate agents.yaml configuration"""
         agents_config = {
@@ -339,7 +368,7 @@ class BlogGeneratorScanner:
             "source": "blog-generator auto-discovery",
             "agents": {}
         }
-        
+
         for agent_name, metadata in self.discovered_agents.items():
             agent_config = {
                 "id": agent_name,
@@ -368,58 +397,219 @@ class BlogGeneratorScanner:
                     "max_memory_mb": 1024
                 }
             }
-            
+
             if metadata.prompt_template:
                 agent_config["prompt_template"] = metadata.prompt_template
-            
+
             agents_config["agents"][agent_name] = agent_config
-        
+
         return agents_config
+
+    def discover(self, force_rescan: bool = False) -> List:
+        """Discover all agents in the agents directory.
+
+        Args:
+            force_rescan: If True, bypass cache and rescan
+
+        Returns:
+            List of agent classes or None values
+        """
+        if self._cache_valid and not force_rescan:
+            return list(self._cache.get('agents', []))
+
+        # Clear previous discoveries
+        self.discovered_agents.clear()
+
+        # Determine which path to scan
+        scan_path = self.base_path if self.base_path else Path("src/agents")
+
+        if not scan_path.exists():
+            return []
+
+        # Import ast and importlib for discovery
+        import ast
+        import importlib.util
+        import sys
+
+        discovered_classes = []
+
+        # Scan all Python files in the agents directory
+        for py_file in scan_path.rglob("*.py"):
+            # Skip __init__.py, base.py, and __pycache__
+            if py_file.name in ["__init__.py", "base.py"] or "__pycache__" in str(py_file):
+                continue
+
+            try:
+                # Read and parse file
+                with open(py_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                tree = ast.parse(content)
+
+                # Find Agent classes
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ClassDef):
+                        # Check if it's an Agent class
+                        is_agent = any(
+                            (isinstance(base, ast.Name) and 'Agent' in base.id) or
+                            (isinstance(base, ast.Attribute) and base.attr == 'Agent')
+                            for base in node.bases
+                        )
+
+                        if is_agent:
+                            # Extract category from directory structure
+                            relative_path = py_file.relative_to(scan_path)
+                            category = relative_path.parts[0] if len(relative_path.parts) > 1 else "unknown"
+
+                            # Extract capabilities from contract method
+                            capabilities = []
+                            for item in node.body:
+                                if isinstance(item, ast.FunctionDef) and item.name == '_create_contract':
+                                    # Try to extract capabilities
+                                    for stmt in ast.walk(item):
+                                        if isinstance(stmt, ast.keyword) and stmt.arg == 'capabilities':
+                                            if isinstance(stmt.value, ast.List):
+                                                capabilities = [
+                                                    elt.value if isinstance(elt, ast.Constant) else ""
+                                                    for elt in stmt.value.elts
+                                                ]
+
+                            # Create metadata
+                            metadata = AgentMetadata(
+                                name=node.name,
+                                function_name=node.name,
+                                docstring=ast.get_docstring(node),
+                                line_number=node.lineno,
+                                category=category,
+                                capabilities=capabilities
+                            )
+
+                            self.discovered_agents[node.name] = metadata
+                            discovered_classes.append(None)  # Placeholder for class
+
+            except Exception as e:
+                # Silently skip files with errors
+                pass
+
+        # Update cache
+        self._cache['agents'] = discovered_classes
+        self._cache_valid = True
+
+        return discovered_classes
+
+    def get_metadata(self, agent_name: str) -> Optional[AgentMetadata]:
+        """Get metadata for a specific agent.
+
+        Args:
+            agent_name: Name of the agent
+
+        Returns:
+            AgentMetadata or None if not found
+        """
+        if not self._cache_valid:
+            self.discover()
+
+        return self.discovered_agents.get(agent_name)
+
+    def get_all_metadata(self) -> Dict[str, AgentMetadata]:
+        """Get all agent metadata.
+
+        Returns:
+            Dictionary mapping agent names to metadata
+        """
+        if not self._cache_valid:
+            self.discover()
+
+        return self.discovered_agents.copy()
+
+    def get_agents_by_category(self, category: str) -> List[AgentMetadata]:
+        """Get agents by category.
+
+        Args:
+            category: Category name (e.g., 'content', 'code', 'seo')
+
+        Returns:
+            List of AgentMetadata objects in the category
+        """
+        if not self._cache_valid:
+            self.discover()
+
+        return [
+            metadata for metadata in self.discovered_agents.values()
+            if metadata.category == category
+        ]
+
+    def get_all_categories(self) -> List[str]:
+        """Get all unique categories.
+
+        Returns:
+            List of category names
+        """
+        if not self._cache_valid:
+            self.discover()
+
+        categories = set(metadata.category for metadata in self.discovered_agents.values())
+        return sorted(list(categories))
+
+    def invalidate_cache(self) -> None:
+        """Invalidate the agent discovery cache."""
+        self._cache_valid = False
+
+    def trigger_reload(self) -> List:
+        """Trigger a full agent reload.
+
+        This method is called by hot reload monitor when agent configurations change.
+
+        Returns:
+            List of discovered Agent class types
+        """
+        self._cache_valid = False
+        return self.discover(force_rescan=True)
 
 
 # Test it out
 if __name__ == "__main__":
     import sys
     from pathlib import Path
-    
+
     print("=" * 80)
     print("Blog Generator Auto-Discovery Scanner")
     print("=" * 80)
-    
+
     # File paths
     agents_file = Path("agents.py")
     contracts_file = Path("contracts.py")
     config_file = Path("config.py")
-    
+
     # Check files exist
     missing = []
     for f in [agents_file, contracts_file, config_file]:
         if not f.exists():
             missing.append(str(f))
-    
+
     if missing:
         print(f"❌ Missing files: {', '.join(missing)}")
         sys.exit(1)
-    
+
     # Run scanner
     scanner = BlogGeneratorScanner(agents_file, contracts_file, config_file)
     report = scanner.scan_all()
-    
+
     # Save report
     report_file = Path("discovery_report.json")
     with open(report_file, 'w') as f:
         json.dump(report, f, indent=2)
     print(f"\n✓ Report saved to {report_file}")
-    
+
     # Generate agents.yaml
     yaml_config = scanner.generate_yaml_config()
     yaml_file = Path("agents.yaml")
-    
+
     import yaml
     with open(yaml_file, 'w') as f:
         yaml.dump(yaml_config, f, default_flow_style=False, sort_keys=False)
     print(f"✓ Generated {yaml_file}")
-    
+
     # Print summary
     print(f"\n📊 Discovery Summary:")
     print(f"  Agents discovered: {report['discovered_agents']}")
@@ -427,7 +617,7 @@ if __name__ == "__main__":
     print(f"  With prompts: {sum(1 for a in report['agents'].values() if a['has_prompt'])}")
     print(f"  Available contracts: {report['contracts_available']}")
     print(f"  Available prompts: {report['prompts_available']}")
-    
+
     # Print agent list
     print(f"\n📝 Discovered Agents:")
     for i, (name, info) in enumerate(report['agents'].items(), 1):
@@ -438,19 +628,10 @@ if __name__ == "__main__":
             status.append(f"✓ prompt:{info['prompt_key']}")
         status_str = ", ".join(status) if status else "no contract/prompt"
         print(f"  {i}. {name} ({status_str})")
-=======
-    def invalidate_cache(self) -> None:
-        """Invalidate the agent discovery cache."""
-        self._cache_valid = False
-    
-    def trigger_reload(self) -> List[Type]:
-        """Trigger a full agent reload.
-        
-        This method is called by hot reload monitor when agent configurations change.
-        
-        Returns:
-            List of discovered Agent class types
-        """
-        logger.info("Triggering agent reload due to configuration change")
-        return self.discover(force_rescan=True)
->>>>>>> Stashed changes
+
+
+# Backward compatibility alias
+AgentScanner = BlogGeneratorScanner
+
+# Public API
+__all__ = ['AgentScanner', 'BlogGeneratorScanner', 'AgentMetadata']

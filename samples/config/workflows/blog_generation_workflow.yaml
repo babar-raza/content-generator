@@ -1,0 +1,148 @@
+workflow:
+  name: blog_post_generation
+  version: 2
+  description: Complete blog post generation with SEO optimization
+  checkpoints:
+    storage_path: ".checkpoints/blog_generation"
+    keep_last: 10
+    auto_cleanup: true
+
+  steps:
+    # Stage 1: Research and Planning
+    - id: topic_identification
+      agent: research.topic_identification
+      inputs:
+        topic: "${input.topic}"
+        kb_path: "${input.kb_path}"
+      timeout_seconds: 10
+      retry_on_failure: true
+      max_retries: 2
+
+    - id: kb_ingestion
+      agent: ingestion.kb_ingestion
+      depends_on: [topic_identification]
+      inputs:
+        kb_path: "${input.kb_path}"
+        topic: "${steps.topic_identification.output.refined_topic}"
+      timeout_seconds: 15
+
+    - id: duplication_check
+      agent: research.duplication_check
+      depends_on: [kb_ingestion]
+      inputs:
+        topic: "${steps.topic_identification.output.refined_topic}"
+        context: "${steps.kb_ingestion.output.chunks}"
+      timeout_seconds: 10
+
+    # Stage 2: Content Structure
+    - id: outline_creation
+      agent: content.outline_creation
+      depends_on: [topic_identification, kb_ingestion]
+      inputs:
+        topic: "${steps.topic_identification.output.refined_topic}"
+        context: "${steps.kb_ingestion.output.chunks}"
+        duplication_status: "${steps.duplication_check.output}"
+      timeout_seconds: 20
+
+    # Stage 3: Content Generation (Parallel)
+    - id: introduction_writer
+      agent: content.introduction_writer
+      depends_on: [outline_creation]
+      inputs:
+        outline: "${steps.outline_creation.output.outline}"
+        context: "${steps.kb_ingestion.output.chunks}"
+      timeout_seconds: 15
+
+    - id: section_writer
+      agent: content.section_writer
+      depends_on: [outline_creation]
+      parallelism: 3  # Write 3 sections in parallel
+      inputs:
+        outline: "${steps.outline_creation.output.outline}"
+        intro: "${steps.introduction_writer.output.content}"
+        context: "${steps.kb_ingestion.output.chunks}"
+      timeout_seconds: 30
+
+    - id: conclusion_writer
+      agent: content.conclusion_writer
+      depends_on: [section_writer]
+      inputs:
+        outline: "${steps.outline_creation.output.outline}"
+        sections: "${steps.section_writer.output.sections}"
+      timeout_seconds: 15
+
+    # Stage 4: SEO Optimization
+    - id: keyword_extraction
+      agent: seo.keyword_extraction
+      depends_on: [section_writer, conclusion_writer]
+      inputs:
+        content: "${steps.section_writer.output.sections}"
+        topic: "${steps.topic_identification.output.refined_topic}"
+      timeout_seconds: 10
+
+    - id: keyword_injection
+      agent: seo.keyword_injection
+      depends_on: [keyword_extraction, section_writer]
+      inputs:
+        content: "${steps.section_writer.output.sections}"
+        keywords: "${steps.keyword_extraction.output.keywords}"
+      timeout_seconds: 15
+
+    - id: seo_metadata
+      agent: seo.seo_metadata
+      depends_on: [keyword_injection]
+      inputs:
+        title: "${steps.outline_creation.output.outline.title}"
+        content: "${steps.keyword_injection.output.optimized_content}"
+        keywords: "${steps.keyword_extraction.output.keywords}"
+      timeout_seconds: 10
+
+    # Stage 5: Assembly and Publishing
+    - id: content_assembly
+      agent: content.content_assembly
+      depends_on: [introduction_writer, keyword_injection, conclusion_writer]
+      inputs:
+        intro: "${steps.introduction_writer.output.content}"
+        sections: "${steps.keyword_injection.output.optimized_content}"
+        conclusion: "${steps.conclusion_writer.output.content}"
+      timeout_seconds: 10
+
+    - id: frontmatter
+      agent: publishing.frontmatter
+      depends_on: [seo_metadata, content_assembly]
+      inputs:
+        metadata: "${steps.seo_metadata.output}"
+        title: "${steps.outline_creation.output.outline.title}"
+      timeout_seconds: 5
+
+    - id: link_validation
+      agent: publishing.link_validation
+      depends_on: [content_assembly]
+      inputs:
+        content: "${steps.content_assembly.output.full_content}"
+      timeout_seconds: 20
+
+    - id: file_writer
+      agent: publishing.file_writer
+      depends_on: [frontmatter, content_assembly, link_validation]
+      inputs:
+        frontmatter: "${steps.frontmatter.output.yaml}"
+        content: "${steps.content_assembly.output.full_content}"
+        topic: "${steps.topic_identification.output.refined_topic}"
+        output_dir: "${input.output_dir}"
+      timeout_seconds: 5
+
+config:
+  event_bus: in_memory
+  execution_mode: sequential  # or "mesh" or "langgraph"
+  telemetry:
+    emit_events: true
+    mirror_to: "samples/logs/blog_generation_log.md"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 3
+    timeout_duration_seconds: 30
+    half_open_attempts: 2
+  performance_tracking:
+    enabled: true
+    window_size: 20

@@ -1,0 +1,87 @@
+# Test workflows for integration tests
+
+dependencies:
+  agent_a: []
+  agent_b: [agent_a]
+  agent_c: [agent_a]
+  agent_d: [agent_b, agent_c]
+  agent_e: [agent_d]
+
+conditions:
+  agent_b:
+    type: "if"
+    key: "enable_agent_b"
+  agent_c:
+    type: "unless"
+    key: "skip_agent_c"
+
+workflows:
+  simple_workflow:
+    name: "Simple Linear Workflow"
+    description: "A simple 3-step linear workflow"
+    version: "1.0"
+    steps:
+      agent_a:
+        agent: agent_a
+        depends_on: []
+      agent_b:
+        agent: agent_b
+        depends_on: [agent_a]
+      agent_c:
+        agent: agent_c
+        depends_on: [agent_a]
+    config:
+      deterministic: true
+      max_retries: 3
+      llm_settings:
+        temperature: 0.7
+    metadata:
+      category: "test"
+
+  parallel_workflow:
+    name: "Parallel Workflow"
+    description: "Workflow with parallel execution groups"
+    version: "1.0"
+    steps:
+      agent_a:
+        agent: agent_a
+        depends_on: []
+      agent_b:
+        agent: agent_b
+        depends_on: [agent_a]
+      agent_c:
+        agent: agent_c
+        depends_on: [agent_a]
+      agent_d:
+        agent: agent_d
+        depends_on: [agent_b, agent_c]
+      agent_e:
+        agent: agent_e
+        depends_on: [agent_d]
+    metadata:
+      category: "test"
+
+  circular_workflow:
+    name: "Circular Dependency Workflow"
+    description: "Workflow with circular dependencies (should fail)"
+    version: "1.0"
+    steps:
+      agent_a:
+        agent: agent_a
+        depends_on: [agent_c]
+      agent_b:
+        agent: agent_b
+        depends_on: [agent_a]
+      agent_c:
+        agent: agent_c
+        depends_on: [agent_b]
+    metadata:
+      category: "test"
+
+  empty_workflow:
+    name: "Empty Workflow"
+    description: "Workflow with no steps"
+    version: "1.0"
+    steps: {}
+    metadata:
+      category: "test"

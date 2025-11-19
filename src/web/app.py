@@ -65,7 +65,7 @@ def create_app(executor=None, config_snapshot=None) -> FastAPI:
     _config_snapshot = config_snapshot
 
     # Initialize live flow handler with event bus
-    if executor and hasattr(executor, \'event_bus\'):
+    if executor and hasattr(executor, 'event_bus'):
         from .websocket_handlers import set_live_flow_handler, LiveFlowHandler
         live_handler = LiveFlowHandler(event_bus=executor.event_bus)
         set_live_flow_handler(live_handler)
@@ -260,7 +260,15 @@ def create_app(executor=None, config_snapshot=None) -> FastAPI:
             status_code=500,
             content={"error": "Internal Server Error", "message": "An unexpected error occurred"}
         )
-    
+
+    # Register WebSocket endpoint
+    @app.websocket("/ws/live-flow/{job_id}")
+    async def live_flow_websocket(websocket: WebSocket, job_id: str):
+        """WebSocket endpoint for live flow monitoring."""
+        from .websocket_handlers import get_live_flow_handler
+        handler = get_live_flow_handler()
+        await handler.handle_connection(websocket, job_id)
+
     return app
 
 
@@ -300,19 +308,8 @@ def get_jobs_store():
 
 def get_agent_logs():
     """Get the agent logs store for external access.
-    
+
     Returns:
         Agent logs dictionary
     """
     return _agent_logs
-
-
-# Import websocket handler
-from .websocket_handlers import get_live_flow_handler
-
-# Register WebSocket endpoint
-@app.websocket("/ws/live-flow/{job_id}")
-async def live_flow_websocket(websocket: WebSocket, job_id: str):
-    """WebSocket endpoint for live flow monitoring."""
-    handler = get_live_flow_handler()
-    await handler.handle_connection(websocket, job_id)

@@ -23,19 +23,77 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 def mock_executor():
     """Create a comprehensive mock executor for testing."""
     executor = Mock()
-    
+
     # Mock job engine
     executor.job_engine = Mock()
     executor.job_engine._jobs = {}
-    
-    # Mock methods
-    executor.run_job = Mock()
+
+    # Create proper job result mock with datetime objects
+    job_result = Mock()
+    job_result.job_id = "test_job_123"
+    job_result.status = "running"
+    job_result.started_at = datetime.now(timezone.utc)
+    job_result.completed_at = None
+    job_result.output_path = Path("./output")
+    job_result.error = None
+
+    # Mock methods with proper return values
+    executor.run_job = Mock(return_value=job_result)
     executor.submit_job = Mock()
     executor.pause_job = Mock()
     executor.resume_job = Mock()
     executor.cancel_job = Mock()
     executor.get_status = Mock(return_value={"status": "healthy"})
-    
+    executor.get_workflows = Mock(return_value=[
+        {
+            "id": "test_workflow",
+            "name": "Test Workflow",
+            "description": "A test workflow",
+            "agents": ["agent1", "agent2"],
+            "metadata": {}
+        }
+    ])
+    # get_workflow that returns None for nonexistent workflows
+    def mock_get_workflow(workflow_id):
+        if workflow_id == "test_workflow":
+            return {
+                "id": "test_workflow",
+                "name": "Test Workflow",
+                "description": "A test workflow",
+                "agents": ["agent1", "agent2"],
+                "metadata": {}
+            }
+        return None
+
+    executor.get_workflow = Mock(side_effect=mock_get_workflow)
+
+    # Mock get_agents for agent API tests
+    executor.get_agents = Mock(return_value=[
+        {
+            "id": "TestAgent",
+            "name": "Test Agent",
+            "category": "content",
+            "description": "A test agent",
+            "capabilities": ["generate", "validate"],
+            "metadata": {}
+        }
+    ])
+
+    # Mock get_agent that returns None for nonexistent agents
+    def mock_get_agent(agent_id):
+        if agent_id == "TestAgent":
+            return {
+                "id": "TestAgent",
+                "name": "Test Agent",
+                "category": "content",
+                "description": "A test agent",
+                "capabilities": ["generate", "validate"],
+                "metadata": {}
+            }
+        return None
+
+    executor.get_agent = Mock(side_effect=mock_get_agent)
+
     return executor
 
 
@@ -74,15 +132,15 @@ def sample_job_data():
 def sample_job_result():
     """Create sample job result for mock executor."""
     from unittest.mock import Mock
-    
+
     result = Mock()
     result.job_id = "test_job_123"
     result.status = "running"
-    result.started_at = "2025-01-15T12:00:00"
+    result.started_at = datetime.now(timezone.utc)
     result.completed_at = None
     result.output_path = Path("./output")
     result.error = None
-    
+
     return result
 
 

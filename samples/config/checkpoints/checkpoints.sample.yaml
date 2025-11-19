@@ -1,0 +1,9 @@
+﻿checkpoint:
+  storage_path: ".checkpoints/tests/sample"
+  keep_last: 10
+  keep_after_completion: 3
+  auto_cleanup: true
+  compression: zstd
+  metadata:
+    owner: "qa"
+    purpose: "live_test_seed"

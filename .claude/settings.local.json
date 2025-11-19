@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(C:Usersproraanaconda3Scriptsactivate.bat llm)",
+      "Bash(conda info:*)",
+      "Bash(where:*)",
+      "Bash(current_packages.txt)",
+      "Bash(cat:*)",
+      "Bash(python:*)",
+      "Bash(pytest:*)",
+      "Bash(find:*)",
+      "Bash(for file in \"tests/integration/test_checkpoints_api.py\" \"tests/integration/test_config_integration.py\" \"tests/integration/test_debug_sessions.py\" \"tests/integration/test_flows_api.py\" \"tests/integration/test_live_flow.py\" \"tests/test_agent_contracts.py\" \"tests/test_config_integration.py\" \"tests/test_integration.py\" \"tests/web/test_mcp_endpoints.py\" \"tests/web/test_mcp_integration.py\")",
+      "Bash(do echo \"=== Testing $file ===\")",
+      "Bash(done)",
+      "Bash(for file in tests/integration/test_agents_api.py tests/integration/test_workflows_api.py tests/integration/test_jobs_api.py)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(git checkout:*)",
+      "Bash(sort:*)",
+      "Bash(for module in model_selection quality_gate validation)",
+      "Bash(do echo \"=== $module ===\")",
+      "Bash(for util in citation_tracker dedup_utils mock_guard model_helper)",
+      "Bash(do echo '=== $util ===')",
+      "Bash(for file in src/utils/content_utils.py src/utils/workflow_utils.py src/utils/path_utils.py src/utils/retry.py src/utils/tone_utils.py src/utils/ollama_detector.py src/utils/learning.py)",
+      "Bash(test:*)",
+      "Bash(while read f)",
+      "Bash(do basename \"$f\" .py)",
+      "Bash(comm -23:*)",
+      "Bash(xargs:*)",
+      "Bash(comm:*)",
+      "Bash(git tag:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

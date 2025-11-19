@@ -30,6 +30,24 @@ from datetime import datetime
 from dataclasses import dataclass, asdict
 
 
+class ConfigValidator:
+    """Validates configuration files."""
+
+    @staticmethod
+    def validate_agents_config(config: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+        """Validate agents configuration."""
+        if not isinstance(config, dict):
+            return False, "Config must be a dictionary"
+        return True, None
+
+    @staticmethod
+    def validate_workflows_config(config: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+        """Validate workflows configuration."""
+        if not isinstance(config, dict):
+            return False, "Config must be a dictionary"
+        return True, None
+
+
 @dataclass
 class ConfigSnapshot:
     """Frozen configuration snapshot with hash.

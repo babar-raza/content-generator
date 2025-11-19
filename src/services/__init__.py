@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 """At a glance
 - Purpose: Provides unified interfaces to external services (LLM providers, vector database, embeddings, GitHub, trends, link validation).
 - Key inputs: Config object with service-specific settings.
@@ -27,11 +25,10 @@ from src.services.services import (
 
 __all__ = [
     "LLMService",
-    "DatabaseService", 
+    "DatabaseService",
     "EmbeddingService",
     "GistService",
     "LinkChecker",
     "TrendsService",
 ]
 # DOCGEN:LLM-FIRST@v4
->>>>>>> Stashed changes

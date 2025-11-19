@@ -1,8 +1,7 @@
 """Unified Contract System
 
-<<<<<<< Updated upstream
 Combines contracts from v5_1 (base), v5_2 (mesh enhancements), and v-ucop (full schemas).
-=======
+
 Module overview
 - Purpose: Defines unified contract system for agent communication, capabilities, and mesh interactions across the content generator system.
 - Lifecycle: Imported during system startup to establish communication protocols.
@@ -41,7 +40,6 @@ Deeper dive
 - I/O & performance: Lightweight dataclasses with minimal computation; thread locks in DataContract for concurrent access.
 - Configuration map: None.
 - External dependencies: typing, datetime, dataclasses, enum, logging, threading.
->>>>>>> Stashed changes
 """
 
 from typing import Dict, List, Optional, Any, Callable

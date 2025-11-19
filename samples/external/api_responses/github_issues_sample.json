@@ -1,0 +1,23 @@
+﻿[
+  {
+    "repository": "content-generator",
+    "id": 192837465,
+    "title": "Agent mesh retries fail on Windows",
+    "state": "open",
+    "labels": ["bug", "windows"],
+    "url": "https://example.com/api/github/issues/192837465",
+    "body": "When ProductionExecutionEngine runs on Windows, UTF-8 logs are written as cp1252 and crash the run." ,
+    "created_at": "2025-11-10T12:33:00Z"
+  },
+  {
+    "repository": "content-generator",
+    "id": 192837499,
+    "title": "Add dual-mode testing harness",
+    "state": "closed",
+    "labels": ["enhancement", "testing"],
+    "url": "https://example.com/api/github/issues/192837499",
+    "body": "Need explicit TEST_MODE flag to switch between mock and live executions.",
+    "created_at": "2025-11-11T09:10:00Z",
+    "closed_at": "2025-11-12T17:45:00Z"
+  }
+]
