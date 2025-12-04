@@ -1,0 +1,86 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/validate_hooks.sh",
+            "timeout": 30,
+            "description": "Validate all hook scripts follow correct patterns (ENFORCED)"
+          },
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/check_root_files.sh",
+            "timeout": 30,
+            "description": "Prevent files from being created at repository root (keeps root clean)"
+          },
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/check_tests.sh",
+            "timeout": 120,
+            "description": "Check if tests exist and run them for modified Python files"
+          },
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/check_docs.sh",
+            "timeout": 60,
+            "description": "Verify DOCGEN documentation coverage for modified Python files"
+          },
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/auto_format.sh",
+            "timeout": 60,
+            "description": "Auto-format modified Python files with black"
+          },
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/check_doc_location.sh",
+            "timeout": 30,
+            "description": "Verify documentation files are in correct locations (docs/ vs development/)"
+          },
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/check_doc_consolidation.sh",
+            "timeout": 45,
+            "description": "Prevent documentation sprawl by enforcing consolidation (HARD RULE)"
+          },
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/check_api_docs.sh",
+            "timeout": 45,
+            "description": "Enforce auto-generated OpenAPI/Swagger documentation (RECOMMENDED)"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git status --short",
+            "timeout": 10,
+            "description": "Show git status at session start"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "auto_approve": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(python -m pytest*)",
+      "Bash(python -m black*)",
+      "Bash(npm run build*)",
+      "Bash(npm run dev*)"
+    ]
+  },
+  "preferences": {
+    "auto_run_hooks": true,
+    "verbose_hooks": true
+  }
+}
