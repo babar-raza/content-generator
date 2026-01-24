@@ -1,0 +1,27 @@
+{
+  "_comment": "Explicit capability-to-test mapping overrides for high-confidence, fast e2e_mock tests",
+  "_version": "1.1",
+  "_created_by": "Wave 5.3 - Phase 2 (updated to remove root dir prefix)",
+
+  "overrides": {
+    "CAP-AGENT-validation": "tests/unit/test_validation.py::TestValidationAgent::test_agent_initialization",
+    "CAP-WEB-agents": "tests/e2e_mock/test_web_routes_smoke.py::TestAgentsRoutes::test_list_agents",
+    "CAP-WEB-batch": "tests/e2e_mock/test_web_routes_smoke.py::TestBatchRoutes::test_create_batch_jobs_valid",
+    "CAP-WEB-checkpoints": "tests/e2e_mock/test_web_routes_smoke.py::TestCheckpointsRoutes::test_list_checkpoints",
+    "CAP-WEB-config": "tests/e2e_mock/test_web_routes_smoke.py::TestConfigRoutes::test_validate_config",
+    "CAP-WEB-debug": "tests/e2e_mock/test_web_routes_smoke.py::TestDebugRoutes::test_list_breakpoints",
+    "CAP-WEB-flows": "tests/e2e_mock/test_web_routes_smoke.py::TestFlowsRoutes::test_get_flow_data",
+    "CAP-WEB-ingestion": "tests/e2e_mock/test_web_routes_smoke.py::TestIngestionRoutes::test_ingest_kb",
+    "CAP-WEB-jobs": "tests/e2e_mock/test_web_routes_smoke.py::TestJobsRoutes::test_list_jobs",
+    "CAP-WEB-mcp": "tests/e2e_mock/test_mcp_http_smoke.py::TestMCPProtocol::test_mcp_jsonrpc_workflow_list",
+    "CAP-WEB-validation": "tests/e2e_mock/test_web_routes_smoke.py::TestConfigRoutes::test_validate_config",
+    "CAP-WEB-visualization": "tests/e2e_mock/test_web_routes_smoke.py::TestVisualizationRoutes::test_get_execution_graph",
+    "CAP-WEB-workflows": "tests/e2e_mock/test_web_routes_smoke.py::TestWorkflowsRoutes::test_list_workflows"
+  },
+
+  "notes": {
+    "CAP-WEB-pages": "No explicit override - will use fuzzy matching",
+    "CAP-WEB-templates": "No explicit override - will use fuzzy matching",
+    "CAP-WEB-topics": "No explicit override - will use fuzzy matching"
+  }
+}
