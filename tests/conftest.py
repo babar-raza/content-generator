@@ -26,20 +26,24 @@ from src.utils.testing_mode import is_live_mode, is_mock_mode, get_sample_data_p
 
 def pytest_configure(config):
     """Configure pytest with module-level mocks."""
+    # Skip mocking if in live mode
+    if os.getenv('TEST_MODE', 'mock').lower() == 'live':
+        return
+
     # Import the mock classes
     from tests.fixtures.mock_chromadb import MockChromaClient, MockSentenceTransformer
-    
+
     # Mock chromadb module
     mock_chromadb = MagicMock()
     mock_chromadb.PersistentClient = MockChromaClient
-    
+
     # Mock Settings
     mock_settings = MagicMock()
     mock_chromadb.config.Settings = mock_settings
-    
+
     sys.modules['chromadb'] = mock_chromadb
     sys.modules['chromadb.config'] = mock_chromadb.config
-    
+
     # Mock sentence_transformers
     mock_st = MagicMock()
     mock_st.SentenceTransformer = MockSentenceTransformer
@@ -53,6 +57,29 @@ def mock_chromadb_availability():
         with patch('src.services.vectorstore.CHROMADB_AVAILABLE', True):
             with patch('src.services.vectorstore.SENTENCE_TRANSFORMERS_AVAILABLE', True):
                 yield
+
+
+@pytest.fixture(autouse=True)
+def _isolation_reset(monkeypatch):
+    """Reset all global state for test isolation.
+
+    This fixture ensures every test starts with clean global state by:
+    1. Resetting all singleton instances (ConfigValidator, monitors, etc)
+    2. Clearing all module-level caches
+    3. Removing leaked module mocks (like psutil)
+    4. Running garbage collection
+
+    Note: Does NOT set TEST_MODE - tests should set this explicitly if needed.
+    E2E mock tests should set TEST_MODE=mock in their conftest or fixtures.
+    """
+    # Import and call reset_all before the test
+    from src.testing.reset_state import reset_all
+    reset_all()
+
+    yield
+
+    # Reset again after the test to ensure clean slate for next test
+    reset_all()
 
 
 # ============================================================================
@@ -96,6 +123,23 @@ def mock_registry():
     registry.get_all_categories = MagicMock(return_value=["content", "seo", "code"])
     registry.get_agents_by_category = MagicMock(return_value=["TestAgent1"])
     return registry
+
+
+@pytest.fixture(autouse=True)
+def reset_route_globals():
+    """Reset global state in route modules between tests for proper isolation."""
+    yield
+    # Cleanup after each test to prevent state leakage
+    try:
+        from src.web.routes import jobs, agents
+        jobs._jobs_store = None
+        jobs._executor = None
+        agents._jobs_store = None
+        agents._executor = None
+        agents._agent_logs = {}
+    except ImportError:
+        # Modules might not be imported yet
+        pass
 
 
 @pytest.fixture

@@ -206,6 +206,18 @@ This is a fallback document generated when the primary content generation failed
 """
 
 
+def apply_llm_service_fixes(service_class: type) -> None:
+    """Apply fixes to LLM service class.
+
+    This is a no-op function for compatibility with production_execution_engine.
+    The actual NoMockGate validation is handled separately.
+
+    Args:
+        service_class: The LLM service class to apply fixes to
+    """
+    pass
+
+
 __all__ = [
     'SEOSchemaGate',
     'PrerequisitesNormalizer',
@@ -214,4 +226,5 @@ __all__ = [
     'TopicIdentificationFallback',
     'BlogSwitchPolicy',
     'RunToResultGuarantee',
+    'apply_llm_service_fixes',
 ]

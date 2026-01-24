@@ -108,7 +108,7 @@ class RunSpec:
         Returns:
             Path to output file
         """
-        if self.template_name and self.template_name.startswith("blog"):
+        if self.template_name and "blog" in self.template_name.lower():
             slug = urlify(title)
             # Handle collisions
             base_path = self.output_dir / slug / "index.md"
@@ -718,7 +718,7 @@ class UnifiedEngine:
                 content = f"{content}\n\n{errors_section}"
             
             # Write artifact
-            with open(output_path, 'w') as f:
+            with open(output_path, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(content)
             
             result.artifact_content = content
@@ -726,8 +726,8 @@ class UnifiedEngine:
         except Exception as e:
             # Even template rendering failed - write minimal artifact
             minimal_content = self._generate_minimal_artifact(result, str(e))
-            
-            with open(output_path, 'w') as f:
+
+            with open(output_path, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(minimal_content)
             
             result.artifact_content = minimal_content
@@ -755,11 +755,19 @@ class UnifiedEngine:
                 'timestamp': self.config_snapshot.timestamp,
                 'engine_version': self.config_snapshot.engine_version
             },
+            'config_hashes': {
+                'config': self.config_snapshot.config_hash,
+                'template': self.config_snapshot.config_hash,
+                'agent': self.config_snapshot.config_hash,
+                'perf': self.config_snapshot.config_hash,
+                'tone': self.config_snapshot.config_hash
+            },
+            'engine_version': self.config_snapshot.engine_version,
             'status': result.status.value,
             'duration': result.duration
         }
-        
-        with open(manifest_path, 'w') as f:
+
+        with open(manifest_path, 'w', encoding='utf-8', newline='\n') as f:
             json.dump(manifest, f, indent=2)
         
         result.manifest_path = manifest_path

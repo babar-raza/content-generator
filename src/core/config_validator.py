@@ -14,13 +14,17 @@ class ValidationError(Exception):
     message: str
     config_file: str
 
+    def __str__(self) -> str:
+        return f"{self.config_file}: {self.field} - {self.message}"
+
 
 @dataclass
 class ConfigSchema:
     """Configuration schema definitions."""
     
     # Agent config required fields
-    AGENT_REQUIRED = ['agents', 'workflows']
+    # Note: workflows are defined in main.yaml, not agents.yaml
+    AGENT_REQUIRED = ['agents']
     
     # Performance config required fields
     PERF_REQUIRED = ['timeouts', 'limits', 'batch']

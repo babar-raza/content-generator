@@ -151,13 +151,13 @@ class TestConfigIntegration:
     
     def test_config_used_by_engine(self):
         """Test that engine loads and uses config."""
-        
+
         from src.engine.unified_engine import get_engine
-        
+
         engine = get_engine()
-        
-        # Should have configs loaded
-        assert engine.config is not None
+
+        # Should have configs loaded (config_snapshot is the main config object)
+        assert engine.config_snapshot is not None
         assert engine.agent_config is not None
         assert engine.perf_config is not None
         assert engine.tone_config is not None

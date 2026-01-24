@@ -7,6 +7,8 @@ from typing import Dict, Any, List, Optional, Set, Pattern
 from dataclasses import dataclass, field
 from enum import Enum
 
+from ..utils.path_utils import get_repo_root
+
 
 class TemplateType(Enum):
     """Template types"""
@@ -163,29 +165,55 @@ class Template:
                 # Remove line with empty optional placeholder
                 lines = result.split('\n')
                 result = '\n'.join(
-                    line for line in lines 
+                    line for line in lines
                     if placeholder not in line
                 )
-        
+
         return result
+
+    def validate_output(self, output: str) -> List[str]:
+        """Validate that rendered output contains required sections.
+
+        Args:
+            output: Rendered template output to validate
+
+        Returns:
+            List of missing required sections (empty if all present)
+        """
+        missing = []
+
+        for section in self.schema.required_sections:
+            if section not in output:
+                missing.append(section)
+
+        return missing
 
 
 class TemplateRegistry:
     """Registry of all available templates"""
-    
+
     def __init__(self, templates_dir: Path = Path("./templates")):
         """Initialize registry and load templates.
-        
+
         Args:
-            templates_dir: Directory containing template YAML files
+            templates_dir: Directory containing template YAML files (relative paths resolved against repo root)
         """
+        # Resolve relative paths against repo root (not CWD)
+        if not templates_dir.is_absolute():
+            try:
+                repo_root = get_repo_root()
+                templates_dir = repo_root / templates_dir
+            except FileNotFoundError:
+                # Fallback to CWD if repo root not found (for backwards compatibility)
+                templates_dir = Path.cwd() / templates_dir
+
         self.templates_dir = templates_dir
         self.templates: Dict[str, Template] = {}
         self.templates_by_type: Dict[TemplateType, List[Template]] = {
             t: [] for t in TemplateType
         }
         self._template_cache: Dict[str, Template] = {}
-        
+
         # Load all templates
         self._load_templates()
     

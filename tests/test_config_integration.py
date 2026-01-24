@@ -341,14 +341,15 @@ class TestWorkflowConfigIntegration:
     """Test that workflows respect main.yaml configuration."""
     
     def test_default_workflow_exists(self):
-        """Test that default workflow is defined."""
+        """Test that default workflow is defined (under mesh configuration)."""
         snapshot = load_validated_config(Path("./config"))
         main_config = snapshot.main_config
-        
-        workflows = main_config.get('workflows', {})
-        assert 'default' in workflows
-        
-        default_workflow = workflows['default']
+
+        # Default workflow is defined under mesh configuration
+        mesh = main_config.get('mesh', {})
+        assert 'default' in mesh, "Default workflow should be defined under 'mesh' configuration"
+
+        default_workflow = mesh['default']
         assert 'steps' in default_workflow
         assert len(default_workflow['steps']) > 0
     

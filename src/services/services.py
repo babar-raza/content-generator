@@ -43,6 +43,7 @@ except ImportError:
 from src.core.config import Config
 from src.optimization.cache import cached
 from src.optimization.connection_pool import ConnectionPool
+from src.services.vectorstore import VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -857,10 +858,10 @@ class DatabaseService:
 
     def __init__(self, config: Config):
         """Initialize database service.
-        
+
         Args:
             config: Configuration object
-            
+
         Raises:
             ImportError: If chromadb not available
         """
@@ -869,20 +870,23 @@ class DatabaseService:
                 "chromadb not available. "
                 "Install with: pip install chromadb"
             )
-        
+
         self.config = config
         db_path = getattr(config.database, 'chroma_db_path', './chroma_db')
-        
+
         # Initialize ChromaDB
         self.client = chromadb.PersistentClient(
             path=db_path,
             settings=ChromaSettings(anonymized_telemetry=False)
         )
-        
-        self.collection_name = "default"
-        self.vectorstore = None
-        
-        logger.info(f"✓ Database service initialized (path: {db_path})")
+
+        # Get collection name from config
+        self.collection_name = getattr(config.database, 'collection_name', 'default')
+
+        # Initialize VectorStore with the same client
+        self.vectorstore = VectorStore(config, collection_name=self.collection_name, client=self.client)
+
+        logger.info(f"✓ Database service initialized (path: {db_path}, collection: {self.collection_name})")
 
     def get_or_create_collection(
         self,
@@ -914,28 +918,32 @@ class DatabaseService:
     def add_documents(
         self,
         documents: List[str],
-        ids: List[str],
         metadatas: Optional[List[Dict[str, Any]]] = None,
+        ids: Optional[List[str]] = None,
         embeddings: Optional[List[List[float]]] = None,
         collection_name: Optional[str] = None
     ):
         """Add documents to collection.
-        
+
         Args:
             documents: List of document texts
-            ids: List of document IDs
             metadatas: Optional list of metadata dicts
+            ids: Optional list of document IDs
             embeddings: Optional pre-computed embeddings
             collection_name: Optional collection name
         """
+        # Switch vectorstore collection if different collection specified
+        if collection_name and collection_name != self.vectorstore.collection.name:
+            self.vectorstore.switch_collection(collection_name)
+
         collection = self.get_or_create_collection(collection_name)
-        
+
         try:
             # If embeddings provided, use them directly
             collection.add(
                 documents=documents,
-                ids=ids,
                 metadatas=metadatas,
+                ids=ids,
                 embeddings=embeddings
             )
             logger.info(f"✓ Added {len(documents)} documents to {collection.name}")
@@ -951,16 +959,22 @@ class DatabaseService:
         collection_name: Optional[str] = None
     ) -> Dict[str, Any]:
         """Query collection for similar documents.
-        
+
         Args:
             query_texts: List of query texts
             n_results: Number of results per query
             where: Optional metadata filter
             collection_name: Optional collection name
-            
+
         Returns:
             Query results dict
+
+        Raises:
+            RuntimeError: If vectorstore not initialized
         """
+        if self.vectorstore is None:
+            raise RuntimeError("VectorStore not initialized")
+
         collection = self.get_or_create_collection(collection_name)
         
         try:

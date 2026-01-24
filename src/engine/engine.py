@@ -262,20 +262,26 @@ class UnifiedEngine:
         """Initialize required services."""
         try:
             # Initialize configuration
-            from src.initialization.integrated_init import initialize_system
-            
+            from src.initialization.integrated_init import initialize_integrated_system
+            from src.core.config import Config
+            from src.core.event_bus import EventBus
+
             logger.info("Initializing system services...")
-            components = initialize_system()
-            
-            self.llm_service = components.get('llm_service')
-            self.database_service = components.get('database_service')
-            self.embedding_service = components.get('embedding_service')
-            self.event_bus = components.get('event_bus')
-            self.agents = components.get('agents', {})
-            self.template_registry = components.get('template_registry')
-            
+            config = Config()
+            event_bus = EventBus()
+
+            execution_engine, job_controller, init_status = initialize_integrated_system(config, event_bus)
+
+            # Extract services from initialized components
+            self.llm_service = getattr(execution_engine, 'llm_service', None)
+            self.database_service = getattr(execution_engine, 'database_service', None)
+            self.embedding_service = getattr(execution_engine, 'embedding_service', None)
+            self.event_bus = event_bus
+            self.agents = getattr(execution_engine, 'agents', {})
+            self.template_registry = None  # Will be loaded in _load_templates
+
             logger.info(f"Initialized {len(self.agents)} agents")
-            
+
         except Exception as e:
             logger.warning(f"Failed to initialize services: {e}")
             self._setup_fallback_services()
@@ -283,12 +289,11 @@ class UnifiedEngine:
     def _setup_fallback_services(self):
         """Setup fallback services for testing."""
         logger.info("Setting up fallback services...")
-        
-        # Create mock services
-        from src.core.mock_llm import MockLLMService
+
+        # Create minimal services for testing
         from src.core.event_bus import EventBus
-        
-        self.llm_service = MockLLMService()
+
+        self.llm_service = None  # Will be initialized on demand
         self.database_service = None
         self.embedding_service = None
         self.event_bus = EventBus()

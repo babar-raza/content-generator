@@ -250,6 +250,7 @@ def load_validated_config(config_dir: Path = Path("./config")) -> ConfigSnapshot
 
     # Create merged config
     merged_config = {
+        "version": "1.0.0",  # Config version for compatibility tracking
         "agents": agent_config.get('agents', {}),
         "workflows": agent_config.get('workflows', {}),
         "performance": perf_config,

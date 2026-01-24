@@ -381,13 +381,13 @@ class TestDatabaseServiceErrorHandling:
     
     def test_add_documents_with_uninitialized_vectorstore(self, mock_config):
         """Test adding documents when VectorStore fails to initialize."""
-        with patch('src.services.vectorstore.chromadb') as mock_chromadb_module:
+        # With the new architecture where DatabaseService and VectorStore share the same client,
+        # we need to patch at the services level to simulate initialization failure
+        with patch('src.services.services.chromadb') as mock_chromadb_module:
             mock_chromadb_module.PersistentClient.side_effect = Exception("Init failed")
-            # VectorStore has graceful degradation, so it doesn't raise
-            # It should log a warning and continue
-            service = DatabaseService(mock_config)
-            # Verify vectorstore is in degraded mode
-            assert service.vectorstore.client is None
+            # Should raise error during DatabaseService initialization
+            with pytest.raises(Exception, match="Init failed"):
+                service = DatabaseService(mock_config)
     
     def test_query_with_uninitialized_vectorstore(self, database_service):
         """Test querying when VectorStore is None."""

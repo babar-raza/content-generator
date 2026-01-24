@@ -44,13 +44,14 @@ class VectorStore:
         collection: Active ChromaDB collection
     """
     
-    def __init__(self, config: Config, collection_name: str = "default"):
+    def __init__(self, config: Config, collection_name: str = "default", client=None):
         """Initialize VectorStore with ChromaDB and embedding model.
-        
+
         Args:
             config: Configuration object with vectorstore settings
             collection_name: Name of the collection to use
-            
+            client: Optional existing ChromaDB client to reuse
+
         Raises:
             ImportError: If ChromaDB or sentence-transformers not available
         """
@@ -58,44 +59,54 @@ class VectorStore:
         self._lock = threading.Lock()
         self._query_cache: Dict[str, Tuple[List[Dict[str, Any]], datetime]] = {}
         self._cache_ttl = 300  # 5 minutes cache TTL
-        
+
         # Check dependencies
         if not CHROMADB_AVAILABLE:
             logger.warning("ChromaDB not available. VectorStore will operate in degraded mode.")
             self.client = None
             self.collection = None
         else:
-            # Initialize ChromaDB client
-            persist_dir = getattr(config, 'chroma_persist_directory', None)
-            if persist_dir is None:
-                # Use database.chroma_db_path if available
-                if hasattr(config, 'database') and hasattr(config.database, 'chroma_db_path'):
-                    persist_dir = config.database.chroma_db_path
-                else:
-                    persist_dir = './chroma_db'
-            
-            Path(persist_dir).mkdir(parents=True, exist_ok=True)
-            
-            try:
-                self.client = chromadb.PersistentClient(
-                    path=persist_dir,
-                    settings=Settings(
-                        anonymized_telemetry=False,
-                        allow_reset=True
+            # Use provided client or create new one
+            if client is not None:
+                self.client = client
+                logger.info(f"VectorStore using provided ChromaDB client")
+            else:
+                # Initialize ChromaDB client
+                persist_dir = getattr(config, 'chroma_persist_directory', None)
+                if persist_dir is None:
+                    # Use database.chroma_db_path if available
+                    if hasattr(config, 'database') and hasattr(config.database, 'chroma_db_path'):
+                        persist_dir = config.database.chroma_db_path
+                    else:
+                        persist_dir = './chroma_db'
+
+                Path(persist_dir).mkdir(parents=True, exist_ok=True)
+
+                try:
+                    self.client = chromadb.PersistentClient(
+                        path=persist_dir,
+                        settings=Settings(
+                            anonymized_telemetry=False,
+                            allow_reset=True
+                        )
                     )
-                )
-                
-                # Get or create collection
-                self.collection = self.client.get_or_create_collection(
-                    name=collection_name,
-                    metadata={"hnsw:space": "cosine"}
-                )
-                
-                logger.info(f"ChromaDB initialized at {persist_dir}, collection: {collection_name}")
-                
-            except Exception as e:
-                logger.warning(f"Failed to initialize ChromaDB: {e}. Operating in degraded mode.")
-                self.client = None
+                    logger.info(f"ChromaDB client created at {persist_dir}")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize ChromaDB: {e}. Operating in degraded mode.")
+                    self.client = None
+
+            # Get or create collection
+            if self.client:
+                try:
+                    self.collection = self.client.get_or_create_collection(
+                        name=collection_name,
+                        metadata={"hnsw:space": "cosine"}
+                    )
+                    logger.info(f"VectorStore collection ready: {collection_name}")
+                except Exception as e:
+                    logger.warning(f"Failed to get/create collection: {e}")
+                    self.collection = None
+            else:
                 self.collection = None
         
         # Initialize embedding model

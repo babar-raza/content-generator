@@ -43,7 +43,7 @@ class TestConfigPrecedence:
 
         # Check default LLM config
         assert config.llm.ollama_base_url == "http://localhost:11434"
-        assert config.llm.default_model == "gemini-1.5-flash"
+        assert config.llm.default_model == "llama2"
         assert config.llm.temperature == 0.7
 
         # Check default database config

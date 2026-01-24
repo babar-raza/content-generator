@@ -9,20 +9,22 @@ import json
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
 
 class WorkflowSerializer:
     """Serializes workflows between JSON (visual) and YAML (storage) formats."""
-    
+
     def __init__(self, workflows_file: Optional[Path] = None):
         """Initialize the serializer.
-        
+
         Args:
             workflows_file: Path to workflows.yaml file
         """
         self.workflows_file = workflows_file or Path("templates/workflows.yaml")
+        self._file_lock = threading.Lock()
     
     def json_to_yaml(self, workflow_json: Dict[str, Any]) -> Dict[str, Any]:
         """Convert visual JSON format to YAML format.
@@ -235,33 +237,35 @@ class WorkflowSerializer:
         }
     
     def save_workflow(self, workflow_json: Dict[str, Any]) -> None:
-        """Save workflow to YAML file.
-        
+        """Save workflow to YAML file with thread-safe file locking.
+
         Args:
             workflow_json: Workflow in visual JSON format
         """
-        # Load existing workflows
-        if self.workflows_file.exists():
-            with open(self.workflows_file, 'r', encoding='utf-8') as f:
-                workflows = yaml.safe_load(f) or {}
-        else:
-            workflows = {}
-        
-        # Ensure workflows key exists
-        if "workflows" not in workflows:
-            workflows["workflows"] = {}
-        
-        # Convert and merge
-        workflow_yaml = self.json_to_yaml(workflow_json)
-        workflow_id = list(workflow_yaml.keys())[0]
-        
-        workflows["workflows"][workflow_id] = workflow_yaml[workflow_id]
-        
-        # Save back to file
-        with open(self.workflows_file, 'w', encoding='utf-8') as f:
-            yaml.dump(workflows, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
-        
-        logger.info(f"Saved workflow: {workflow_id}")
+        # Use thread lock to ensure atomic read-modify-write
+        with self._file_lock:
+            # Load existing workflows
+            if self.workflows_file.exists():
+                with open(self.workflows_file, 'r', encoding='utf-8') as f:
+                    workflows = yaml.safe_load(f) or {}
+            else:
+                workflows = {}
+
+            # Ensure workflows key exists
+            if "workflows" not in workflows:
+                workflows["workflows"] = {}
+
+            # Convert and merge
+            workflow_yaml = self.json_to_yaml(workflow_json)
+            workflow_id = list(workflow_yaml.keys())[0]
+
+            workflows["workflows"][workflow_id] = workflow_yaml[workflow_id]
+
+            # Save back to file
+            with open(self.workflows_file, 'w', encoding='utf-8') as f:
+                yaml.dump(workflows, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+            logger.info(f"Saved workflow: {workflow_id}")
     
     def load_workflow(self, workflow_id: str) -> Dict[str, Any]:
         """Load workflow from YAML file.

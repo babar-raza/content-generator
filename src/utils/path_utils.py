@@ -290,17 +290,79 @@ def is_safe_path(path: Union[str, Path], allowed_extensions: list = None) -> boo
 
 def normalize_path(path: Union[str, Path]) -> Path:
     """Normalize path by resolving . and .. components.
-    
+
     Does NOT resolve symlinks or check if path exists.
-    
+
     Args:
         path: Path to normalize
-        
+
     Returns:
         Normalized Path object
-        
+
     Example:
         >>> normalize_path("./data/../files/./report.txt")
         PosixPath('files/report.txt')
     """
     return Path(os.path.normpath(path))
+
+
+def get_repo_root(start_path: Union[str, Path, None] = None) -> Path:
+    """Find repository root by walking up from start_path.
+
+    Searches for common repository markers:
+    - pyproject.toml
+    - requirements.txt
+    - .git directory
+    - src/ directory
+
+    Args:
+        start_path: Starting path for search (default: this file's directory)
+
+    Returns:
+        Path to repository root
+
+    Raises:
+        FileNotFoundError: If no repository root markers found
+
+    Example:
+        >>> repo_root = get_repo_root()
+        >>> templates_path = repo_root / "templates"
+    """
+    if start_path is None:
+        # Start from this file's directory
+        start_path = Path(__file__).parent
+    else:
+        start_path = Path(start_path)
+
+    # Make absolute and resolve
+    current = start_path.resolve()
+
+    # Repository markers to look for
+    markers = [
+        'pyproject.toml',
+        'requirements.txt',
+        '.git',
+        'src',
+    ]
+
+    # Walk up the directory tree
+    max_depth = 10  # Prevent infinite loops
+    for _ in range(max_depth):
+        # Check if any marker exists in current directory
+        for marker in markers:
+            marker_path = current / marker
+            if marker_path.exists():
+                return current
+
+        # Move up one level
+        parent = current.parent
+        if parent == current:
+            # Reached filesystem root without finding markers
+            break
+        current = parent
+
+    # If we get here, no repo root found
+    raise FileNotFoundError(
+        f"Could not find repository root. Started from {start_path}, "
+        f"looked for markers: {', '.join(markers)}"
+    )

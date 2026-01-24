@@ -209,7 +209,8 @@ class ProductionExecutionEngine:
         self.agent_factory = AgentFactory(config, self.event_bus, self.services)
         
         # Checkpoint manager
-        self.checkpoint_manager = CheckpointManager(Path(config.checkpoint_dir))
+        checkpoint_dir = getattr(config, 'checkpoint_dir', './checkpoints')
+        self.checkpoint_manager = CheckpointManager(Path(checkpoint_dir))
         
         # Mesh executor (optional)
         self.mesh_executor = None
@@ -254,16 +255,16 @@ class ProductionExecutionEngine:
             logger.info("✓ Embedding Service initialized")
             
             # Gist Service
-            if self.config.github_token:
-                services['gist'] = GistService(self.config.github_token)
+            if self.config.github_gist_token:
+                services['gist'] = GistService(self.config.github_gist_token)
                 logger.info("✓ Gist Service initialized")
             
             # Link Checker
-            services['link_checker'] = LinkChecker()
+            services['link_checker'] = LinkChecker(self.config)
             logger.info("✓ Link Checker initialized")
-            
+
             # Trends Service
-            services['trends'] = TrendsService()
+            services['trends'] = TrendsService(self.config)
             logger.info("✓ Trends Service initialized")
             
         except Exception as e:

@@ -41,7 +41,7 @@ class TestConfigSchema:
     def test_agent_required_fields(self):
         """Test AGENT_REQUIRED constant."""
         assert 'agents' in ConfigSchema.AGENT_REQUIRED
-        assert 'workflows' in ConfigSchema.AGENT_REQUIRED
+        # Note: workflows are optional in agent config
     
     def test_perf_required_fields(self):
         """Test PERF_REQUIRED constant."""
@@ -112,15 +112,17 @@ class TestConfigValidator:
         assert exc_info.value.field == 'agents'
         assert 'missing' in exc_info.value.message.lower()
     
-    def test_validate_agent_config_missing_workflows(self):
-        """Test validation fails when workflows field is missing."""
+    def test_validate_agent_config_minimal(self):
+        """Test validation passes with minimal config (only agents, no workflows).
+
+        Workflows are optional in agent config.
+        """
         validator = ConfigValidator()
         config = {'agents': {}}
-        
-        with pytest.raises(ValidationError) as exc_info:
-            validator.validate_agent_config(config)
-        
-        assert exc_info.value.field == 'workflows'
+
+        # Should not raise - workflows are optional
+        result = validator.validate_agent_config(config)
+        assert 'agents' in result
     
     def test_validate_agent_config_invalid_agents_type(self):
         """Test validation fails when agents is not a dict."""

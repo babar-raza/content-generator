@@ -4,11 +4,12 @@ import pytest
 from pathlib import Path
 
 from src.core.template_registry import (
-    get_template_registry, 
+    get_template_registry,
     get_template,
     list_templates,
     TemplateType,
-    Template
+    Template,
+    TemplateSchema
 )
 
 
@@ -91,17 +92,17 @@ class TestTemplateRendering:
     
     def test_template_render_with_context(self):
         """Test rendering template with context."""
-        
+
         # Create a simple test template
         template = Template(
             name='test_template',
             type=TemplateType.MARKDOWN,
             template_content='Hello {{name}}! Topic: {{topic}}',
-            schema=type('Schema', (), {
-                'required_placeholders': ['name', 'topic'],
-                'optional_placeholders': [],
-                'required_sections': []
-            })()
+            schema=TemplateSchema(
+                required_placeholders=['name', 'topic'],
+                optional_placeholders=[],
+                required_sections=[]
+            )
         )
         
         # Render with context
@@ -113,16 +114,16 @@ class TestTemplateRendering:
     
     def test_template_render_missing_placeholder(self):
         """Test that missing required placeholders raise error."""
-        
+
         template = Template(
             name='test_template',
             type=TemplateType.MARKDOWN,
             template_content='Hello {{name}}!',
-            schema=type('Schema', (), {
-                'required_placeholders': ['name', 'topic'],
-                'optional_placeholders': [],
-                'required_sections': []
-            })()
+            schema=TemplateSchema(
+                required_placeholders=['name', 'topic'],
+                optional_placeholders=[],
+                required_sections=[]
+            )
         )
         
         # Missing 'topic'
@@ -130,22 +131,22 @@ class TestTemplateRendering:
         
         with pytest.raises(ValueError) as exc_info:
             template.render(context)
-        
-        assert 'missing required placeholders' in str(exc_info.value).lower()
+
+        assert 'missing required placeholder' in str(exc_info.value).lower()
         assert 'topic' in str(exc_info.value)
     
     def test_template_validate_output(self):
         """Test validating rendered output for required sections."""
-        
+
         template = Template(
             name='test_template',
             type=TemplateType.BLOG,
             template_content='# Introduction\n\nContent here',
-            schema=type('Schema', (), {
-                'required_placeholders': [],
-                'optional_placeholders': [],
-                'required_sections': ['## Introduction', '## Conclusion']
-            })()
+            schema=TemplateSchema(
+                required_placeholders=[],
+                optional_placeholders=[],
+                required_sections=['## Introduction', '## Conclusion']
+            )
         )
         
         # Output missing Conclusion

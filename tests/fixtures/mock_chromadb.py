@@ -26,18 +26,27 @@ class MockChromaCollection:
     def add(
         self,
         ids: List[str],
-        embeddings: List[List[float]],
-        documents: List[str],
-        metadatas: List[Dict[str, Any]]
+        embeddings: Optional[List[List[float]]] = None,
+        documents: Optional[List[str]] = None,
+        metadatas: Optional[List[Dict[str, Any]]] = None
     ):
         """Add documents to collection.
-        
+
         Args:
             ids: Document IDs
-            embeddings: Document embeddings
-            documents: Document texts
-            metadatas: Document metadata
+            embeddings: Document embeddings (optional, will be auto-generated if None)
+            documents: Document texts (optional)
+            metadatas: Document metadata (optional)
         """
+        # Auto-generate embeddings if not provided
+        if embeddings is None and documents is not None:
+            mock_encoder = MockSentenceTransformer()
+            embeddings = mock_encoder.encode(documents).tolist()
+
+        metadatas = metadatas or []
+        documents = documents or [f"doc_{id}" for id in ids]
+        embeddings = embeddings or [[0.0] * 384 for _ in ids]
+
         for i, doc_id in enumerate(ids):
             self._documents[doc_id] = {
                 'id': doc_id,
@@ -129,33 +138,43 @@ class MockChromaCollection:
         self,
         ids: Optional[List[str]] = None,
         where: Optional[Dict] = None,
-        include: Optional[List[str]] = None
+        include: Optional[List[str]] = None,
+        limit: Optional[int] = None,
+        offset: int = 0
     ) -> Dict[str, List]:
         """Get documents by ID or filter.
-        
+
         Args:
             ids: Optional list of IDs to retrieve
             where: Optional metadata filter
             include: Fields to include in results
-            
+            limit: Optional limit on number of results
+            offset: Optional offset for pagination
+
         Returns:
             Documents matching criteria
         """
         include = include or ['documents', 'metadatas', 'embeddings']
-        
+
         # Get documents
         if ids:
             docs = [(doc_id, self._documents.get(doc_id)) for doc_id in ids if doc_id in self._documents]
         else:
             docs = list(self._documents.items())
-        
+
         # Apply metadata filter
         if where:
             docs = [
                 (k, v) for k, v in docs
                 if v and all(v['metadata'].get(wk) == wv for wk, wv in where.items())
             ]
-        
+
+        # Apply offset and limit
+        if offset > 0:
+            docs = docs[offset:]
+        if limit is not None:
+            docs = docs[:limit]
+
         # Format results
         results = {
             'ids': [doc_id for doc_id, _ in docs],
@@ -163,7 +182,7 @@ class MockChromaCollection:
             'metadatas': [doc_data['metadata'] for _, doc_data in docs if doc_data] if 'metadatas' in include else None,
             'embeddings': [doc_data['embedding'] for _, doc_data in docs if doc_data] if 'embeddings' in include else None
         }
-        
+
         return results
     
     def delete(self, ids: List[str]):
