@@ -321,7 +321,7 @@ class MCPTrafficLogger:
             
             # Average latency
             cursor.execute(
-                f'SELECT AVG(duration_ms) FROM mcp_traffic{where_clause} AND duration_ms IS NOT NULL',
+                f'SELECT AVG(duration_ms) FROM mcp_traffic{where_clause}{" AND" if where_clause else " WHERE"} duration_ms IS NOT NULL',
                 params
             )
             avg_latency = cursor.fetchone()[0] or 0

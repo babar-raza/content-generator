@@ -76,6 +76,14 @@ def mock_executor():
             "description": "A test agent",
             "capabilities": ["generate", "validate"],
             "metadata": {}
+        },
+        {
+            "id": "test_agent",
+            "name": "test_agent",
+            "category": "test",
+            "description": "A test agent for testing",
+            "capabilities": ["test"],
+            "metadata": {}
         }
     ])
 
@@ -88,6 +96,15 @@ def mock_executor():
                 "category": "content",
                 "description": "A test agent",
                 "capabilities": ["generate", "validate"],
+                "metadata": {}
+            }
+        elif agent_id == "test_agent":
+            return {
+                "id": "test_agent",
+                "name": "test_agent",
+                "category": "test",
+                "description": "A test agent for testing",
+                "capabilities": ["test"],
                 "metadata": {}
             }
         return None
@@ -176,13 +193,15 @@ def test_app(mock_executor, mock_jobs_store, mock_agent_logs):
     from src.web.app import create_app
     
     app = create_app(executor=mock_executor, config_snapshot=None)
-    
+
     # Inject mock stores
-    from src.web.routes import jobs, agents
+    from src.web.routes import jobs, agents, batch
     jobs.set_jobs_store(mock_jobs_store)
     agents.set_jobs_store(mock_jobs_store)
     agents.set_agent_logs(mock_agent_logs)
-    
+    agents.set_executor(mock_executor)  # Ensure executor is set for agent existence checks
+    batch.set_jobs_store(mock_jobs_store)
+
     return app
 
 

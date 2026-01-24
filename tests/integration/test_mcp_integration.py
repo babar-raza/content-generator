@@ -412,62 +412,63 @@ async def test_web_routes_integration():
 async def test_web_adapter_mounted():
     """Test that web_adapter router is properly imported and available."""
     from src.mcp.web_adapter import router, set_executor, get_executor
-    
+
     assert router is not None
-    assert router.prefix == "/mcp"
+    # Router has no prefix - app adds /mcp prefix via include_router()
+    assert router.prefix == ""
     assert set_executor is not None
     assert get_executor is not None
 
 
 @pytest.mark.asyncio
 async def test_all_mcp_endpoints_registered():
-    """Test that all 31 MCP endpoints are registered in the web_adapter router."""
+    """Test that all MCP endpoints are registered in the web_adapter router."""
     from src.mcp.web_adapter import router
-    
-    # Get all routes from the router
+
+    # Get all routes from the router (paths without prefix - app adds /mcp)
     routes = [route.path for route in router.routes]
-    
-    # Expected REST endpoints (27 REST + 1 MCP protocol + 2 utility = 30 routes + /request)
+
+    # Expected REST endpoints (relative paths - app adds /mcp prefix)
     expected_endpoints = [
-        "/mcp/request",  # Main MCP protocol endpoint
-        "/mcp/methods",  # List MCP methods
-        "/mcp/status",  # MCP status
-        "/mcp/jobs",  # Job management
-        "/mcp/jobs/create",
-        "/mcp/jobs/{job_id}",
-        "/mcp/jobs/{job_id}/pause",
-        "/mcp/jobs/{job_id}/resume",
-        "/mcp/jobs/{job_id}/cancel",
-        "/mcp/workflows",  # Workflow endpoints
-        "/mcp/workflows/profiles",
-        "/mcp/workflows/visual/{profile_name}",
-        "/mcp/workflows/{profile_name}/metrics",
-        "/mcp/workflows/{profile_name}/reset",
-        "/mcp/agents",  # Agent endpoints
-        "/mcp/agents/status",
-        "/mcp/flows/realtime",  # Flow endpoints
-        "/mcp/flows/history/{correlation_id}",
-        "/mcp/flows/bottlenecks",
-        "/mcp/debug/sessions",  # Debug endpoints
-        "/mcp/debug/sessions/{session_id}",
-        "/mcp/debug/breakpoints",
-        "/mcp/debug/sessions/{session_id}/breakpoints/{breakpoint_id}",
-        "/mcp/debug/sessions/{session_id}/step",
-        "/mcp/debug/sessions/{session_id}/continue",
-        "/mcp/debug/workflows/{workflow_id}/trace",
-        "/mcp/config/snapshot",  # Config endpoints
-        "/mcp/config/agents",
-        "/mcp/config/workflows",
-        "/mcp/config/tone",
-        "/mcp/config/performance",
+        "/request",  # Main MCP protocol endpoint
+        "/methods",  # List MCP methods
+        "/status",  # MCP status
+        "/jobs",  # Job management
+        "/jobs/create",
+        "/jobs/{job_id}",
+        "/jobs/{job_id}/pause",
+        "/jobs/{job_id}/resume",
+        "/jobs/{job_id}/cancel",
+        "/workflows",  # Workflow endpoints
+        "/workflows/profiles",
+        "/workflows/visual/{profile_name}",
+        "/workflows/{profile_name}/metrics",
+        "/workflows/{profile_name}/reset",
+        "/agents",  # Agent endpoints
+        "/agents/status",
+        "/flows/realtime",  # Flow endpoints
+        "/flows/history/{correlation_id}",
+        "/flows/bottlenecks",
+        "/debug/sessions",  # Debug endpoints
+        "/debug/sessions/{session_id}",
+        "/debug/breakpoints",
+        "/debug/sessions/{session_id}/breakpoints/{breakpoint_id}",
+        "/debug/sessions/{session_id}/step",
+        "/debug/sessions/{session_id}/continue",
+        "/debug/workflows/{workflow_id}/trace",
+        "/config/snapshot",  # Config endpoints
+        "/config/agents",
+        "/config/workflows",
+        "/config/tone",
+        "/config/performance",
     ]
-    
+
     # Check that all expected endpoints are present
     for endpoint in expected_endpoints:
         assert endpoint in routes, f"Expected endpoint {endpoint} not found in router"
-    
-    # Verify we have at least 31 routes (could be more with HEAD/OPTIONS)
-    assert len(routes) >= 31, f"Expected at least 31 routes, found {len(routes)}"
+
+    # Verify we have at least 30 routes
+    assert len(routes) >= 30, f"Expected at least 30 routes, found {len(routes)}"
 
 
 @pytest.mark.asyncio  

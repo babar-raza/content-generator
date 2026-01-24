@@ -19,11 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 def mock_executor():
     """Create a mock executor for testing."""
     executor = Mock()
-    
-    # Mock job engine
-    executor.job_engine = Mock()
-    executor.job_engine._jobs = {}
-    
+
     # Mock run_job for job creation tests
     job_result = Mock()
     job_result.job_id = "test_job_123"
@@ -32,8 +28,23 @@ def mock_executor():
     job_result.completed_at = None
     job_result.output_path = Path("./output")
     job_result.error = None
+    job_result.to_dict = Mock(return_value={
+        "job_id": "test_job_123",
+        "status": "running",
+        "started_at": "2025-01-15T12:00:00",
+        "completed_at": None,
+        "output_path": "./output",
+        "error": None
+    })
     executor.run_job = Mock(return_value=job_result)
-    
+
+    # Mock job engine with the test job
+    executor.job_engine = Mock()
+    executor.job_engine._jobs = {"test_job_123": job_result}
+    executor.job_engine.pause_job = Mock()
+    executor.job_engine.resume_job = Mock()
+    executor.job_engine.cancel_job = Mock()
+
     return executor
 
 

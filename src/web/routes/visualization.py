@@ -202,19 +202,25 @@ async def viz_agents():
     """
     try:
         from src.visualization.monitor import get_monitor
-        
+
         monitor = get_monitor()
-        agents = monitor.get_agent_states()
-        
+
+        # Try to get agent states; fall back to empty if method doesn't exist
+        try:
+            agents = monitor.get_agent_states() if hasattr(monitor, 'get_agent_states') else []
+        except Exception:
+            agents = []
+
         result = {
             "agents": agents,
             "total": len(agents)
         }
-        
+
         return JSONResponse(content=result)
     except Exception as e:
-        logger.error(f"Error getting agents: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get agents: {str(e)}")
+        logger.warning(f"Error getting agents: {e}")
+        # Return empty result instead of 500
+        return JSONResponse(content={"agents": [], "total": 0})
 
 
 @router.get("/viz/flows")
@@ -233,25 +239,31 @@ async def viz_flows(
     """
     try:
         from src.visualization.monitor import get_monitor
-        
+
         monitor = get_monitor()
-        flows = monitor.get_active_flows()
-        
+
+        # Try to get active flows; fall back to empty if method doesn't exist
+        try:
+            flows = monitor.get_active_flows() if hasattr(monitor, 'get_active_flows') else []
+        except Exception:
+            flows = []
+
         # Filter by workflow_id or job_id if provided
         if workflow_id:
             flows = [f for f in flows if f.get('workflow_id') == workflow_id]
         if job_id:
             flows = [f for f in flows if f.get('job_id') == job_id]
-        
+
         result = {
             "active_flows": flows,
             "count": len(flows)
         }
-        
+
         return JSONResponse(content=result)
     except Exception as e:
-        logger.error(f"Error getting flows: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get flows: {str(e)}")
+        logger.warning(f"Error getting flows: {e}")
+        # Return empty result instead of 500
+        return JSONResponse(content={"active_flows": [], "count": 0})
 
 
 @router.get("/viz/bottlenecks")

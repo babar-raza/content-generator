@@ -69,8 +69,15 @@ def mock_agent_logs():
 @pytest.fixture
 def mock_health_monitor():
     """Create mock health monitor."""
+    from threading import RLock
+
     monitor = Mock()
     timestamp_str = datetime.now(timezone.utc).isoformat()
+
+    # These internal attributes are accessed directly by route handlers
+    monitor._lock = RLock()
+    monitor.execution_history = {"agent-1": []}  # Dict for agent_id in checks
+    monitor.recent_failures = {"agent-1": []}  # Dict for agent_id in checks
 
     monitor.get_health_summary = Mock(return_value={
         "timestamp": timestamp_str,

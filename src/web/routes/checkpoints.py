@@ -55,23 +55,21 @@ def get_executor():
 
 @router.get("", response_model=CheckpointList)
 async def list_checkpoints(
-    job_id: str = Query(..., description="Job ID to list checkpoints for"),
+    job_id: str = Query(..., description="Job ID to list checkpoints for (required)"),
     manager=Depends(get_checkpoint_manager)
 ):
     """List all checkpoints for a job.
-    
+
     Args:
-        job_id: Job identifier to list checkpoints for
-        
+        job_id: Job identifier to list checkpoints for.
+
     Returns:
         CheckpointList with all checkpoints for the job
     """
     try:
-        if not job_id:
-            raise HTTPException(status_code=400, detail="Missing required parameter: job_id")
-        
+
         checkpoints_data = manager.list(job_id)
-        
+
         # Convert to API models
         checkpoint_models = []
         for cp in checkpoints_data:
@@ -84,14 +82,14 @@ async def list_checkpoints(
                 workflow_name=None,
                 metadata=None
             ))
-        
+
         return CheckpointList(
             job_id=job_id,
             checkpoints=checkpoint_models,
             total=len(checkpoint_models),
             timestamp=datetime.now().isoformat()
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:

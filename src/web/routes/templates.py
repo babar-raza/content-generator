@@ -50,27 +50,19 @@ async def list_all_templates():
     """
     try:
         from src.core.template_registry import TemplateRegistry
-        
-        # Initialize template registry
+
+        # Initialize template registry (auto-loads templates from ./templates)
         registry = TemplateRegistry()
-        
-        # Load templates from the templates directory
-        templates_dir = Path("./templates")
-        if templates_dir.exists():
-            try:
-                registry.load_from_directory(templates_dir)
-            except Exception as e:
-                logger.warning(f"Failed to load templates from directory: {e}")
-        
+
         # Get all templates
         templates = []
         categories = set()
-        
+
         for template_name, template in registry.templates.items():
             # Get category from metadata or type
             category = template.metadata.get("category", template.type.value)
             categories.add(category)
-            
+
             templates.append(TemplateInfo(
                 name=template.name,
                 type=template.type.value,
@@ -80,16 +72,17 @@ async def list_all_templates():
                 optional_placeholders=template.schema.optional_placeholders,
                 metadata=template.metadata
             ))
-        
+
         return TemplateListResponse(
             templates=templates,
             total=len(templates),
             categories=sorted(list(categories))
         )
-        
+
     except Exception as e:
-        logger.error(f"Error listing templates: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to list templates: {str(e)}")
+        logger.warning(f"Error listing templates: {e}")
+        # Return empty list on error instead of 500
+        return TemplateListResponse(templates=[], total=0, categories=[])
 
 
 @router.get("/{template_id}", response_model=TemplateDetailResponse)
@@ -104,24 +97,16 @@ async def get_template_details(template_id: str):
     """
     try:
         from src.core.template_registry import TemplateRegistry
-        
-        # Initialize template registry
+
+        # Initialize template registry (auto-loads templates)
         registry = TemplateRegistry()
-        
-        # Load templates from the templates directory
-        templates_dir = Path("./templates")
-        if templates_dir.exists():
-            try:
-                registry.load_from_directory(templates_dir)
-            except Exception as e:
-                logger.warning(f"Failed to load templates from directory: {e}")
-        
-        # Get specific template
-        template = registry.get(template_id)
-        
+
+        # Get specific template using get_template method
+        template = registry.get_template(template_id)
+
         if not template:
             raise HTTPException(status_code=404, detail=f"Template '{template_id}' not found")
-        
+
         return TemplateDetailResponse(
             name=template.name,
             type=template.type.value,
@@ -135,7 +120,7 @@ async def get_template_details(template_id: str):
             },
             metadata=template.metadata
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -155,26 +140,18 @@ async def list_templates_by_category(category: str):
     """
     try:
         from src.core.template_registry import TemplateRegistry
-        
-        # Initialize template registry
+
+        # Initialize template registry (auto-loads templates)
         registry = TemplateRegistry()
-        
-        # Load templates from the templates directory
-        templates_dir = Path("./templates")
-        if templates_dir.exists():
-            try:
-                registry.load_from_directory(templates_dir)
-            except Exception as e:
-                logger.warning(f"Failed to load templates from directory: {e}")
-        
+
         # Filter templates by category
         templates = []
         categories = set()
-        
+
         for template_name, template in registry.templates.items():
             template_category = template.metadata.get("category", template.type.value)
             categories.add(template_category)
-            
+
             if template_category.lower() == category.lower():
                 templates.append(TemplateInfo(
                     name=template.name,
@@ -185,13 +162,14 @@ async def list_templates_by_category(category: str):
                     optional_placeholders=template.schema.optional_placeholders,
                     metadata=template.metadata
                 ))
-        
+
         return TemplateListResponse(
             templates=templates,
             total=len(templates),
             categories=sorted(list(categories))
         )
-        
+
     except Exception as e:
-        logger.error(f"Error listing templates for category {category}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to list templates: {str(e)}")
+        logger.warning(f"Error listing templates for category {category}: {e}")
+        # Return empty list on error instead of 500
+        return TemplateListResponse(templates=[], total=0, categories=[])

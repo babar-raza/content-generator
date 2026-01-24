@@ -350,8 +350,21 @@ def test_workflow_crud_flow(app_with_temp_workflows):
     
     # Update
     loaded_workflow["name"] = "Updated CRUD Workflow"
+
+    # Add new node - use sequential node ID
+    existing_node_ids = [node["id"] for node in loaded_workflow["nodes"]]
+    # Find the pattern (e.g., "node-0", "node-1")
+    if existing_node_ids and existing_node_ids[0].startswith("node-"):
+        # Use the same pattern
+        new_node_id = f"node-{len(loaded_workflow['nodes'])}"
+        source_node_id = existing_node_ids[0]
+    else:
+        # Fallback to original node IDs
+        new_node_id = "node2"
+        source_node_id = "node1"
+
     loaded_workflow["nodes"].append({
-        "id": "node2",
+        "id": new_node_id,
         "type": "default",
         "position": {"x": 400, "y": 100},
         "data": {
@@ -361,8 +374,8 @@ def test_workflow_crud_flow(app_with_temp_workflows):
     })
     loaded_workflow["edges"].append({
         "id": "edge1",
-        "source": "node1",
-        "target": "node2"
+        "source": source_node_id,
+        "target": new_node_id
     })
     
     update_response = app_with_temp_workflows.post(

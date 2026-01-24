@@ -85,17 +85,23 @@ async def create_job(
         # Store job
         store[job_id] = job_data
         
-        # Submit to executor (non-blocking)
-        try:
-            # Use executor to start the job
-            if hasattr(executor, 'submit_job'):
-                executor.submit_job(job_id, job.workflow_id, job.inputs)
-                job_data["status"] = "queued"
+        # Submit to executor (non-blocking, if available)
+        if executor is not None:
+            try:
+                # Use executor to start the job
+                if hasattr(executor, 'submit_job'):
+                    executor.submit_job(job_id, job.workflow_id, job.inputs)
+                    job_data["status"] = "queued"
+                    store[job_id] = job_data
+            except Exception as e:
+                logger.error(f"Failed to submit job to executor: {e}")
+                job_data["status"] = "failed"
+                job_data["error"] = str(e)
                 store[job_id] = job_data
-        except Exception as e:
-            logger.error(f"Failed to submit job to executor: {e}")
-            job_data["status"] = "failed"
-            job_data["error"] = str(e)
+        else:
+            # No executor in mock mode - job remains in "created" status
+            logger.info(f"Job {job_id} created in mock mode (no executor)")
+            job_data["status"] = "created"
             store[job_id] = job_data
         
         return JobResponse(
@@ -231,7 +237,7 @@ async def create_batch_jobs(
         return BatchJobResponse(
             batch_id=batch_id,
             job_ids=job_ids,
-            status="created",
+            status="submitted",
             message=f"Batch of {len(job_ids)} jobs created"
         )
         

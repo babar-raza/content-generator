@@ -5,9 +5,9 @@ ensuring CLI and Web UI communicate through the same protocol.
 """
 
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from src.mcp.protocol import (
@@ -19,7 +19,8 @@ from src.mcp.protocol import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/mcp", tags=["mcp"])
+# Router without prefix - prefix is added by app.include_router()
+router = APIRouter(tags=["mcp"])
 
 
 class JobCreateRequest(BaseModel):
@@ -45,6 +46,7 @@ class MCPToolCallRequest(BaseModel):
 # Global executor and config references (set by app initialization)
 _executor = None
 _config_snapshot = None
+_agent_registry = None
 
 
 def set_executor(executor, config_snapshot=None):
@@ -75,17 +77,107 @@ def get_config_snapshot():
     return _config_snapshot
 
 
-@router.post("/request", response_model=MCPResponse)
-async def mcp_request(request: MCPRequest):
-    """Handle MCP-compliant requests.
-    
+@router.get("")
+@router.get("/")
+async def mcp_root():
+    """Handle GET requests to MCP root.
+
+    Returns JSON metadata about the MCP adapter.
+    """
+    return {
+        "name": "MCP Adapter",
+        "canonical": "POST /mcp/request",
+        "version": "2.0",
+        "endpoints": [
+            "/mcp/request",
+            "/mcp/methods",
+            "/mcp/status",
+            "/mcp/workflows",
+            "/mcp/jobs",
+            "/mcp/agents"
+        ]
+    }
+
+
+@router.post("/request")
+async def mcp_request(request: Request):
+    """Handle MCP-compliant requests (canonical endpoint).
+
     This is the main entry point for MCP protocol communication.
     All operations go through this endpoint using MCP's method routing.
+
+    Supports both single MCPRequest and batch requests (list of MCPRequest).
     """
+    body = await request.json()
+
+    # Check if this is a batch request (list of requests)
+    if isinstance(body, list):
+        # Handle batch request
+        responses = []
+        for item in body:
+            try:
+                mcp_req = MCPRequest(**item)
+                mcp_resp = await _handle_mcp_request(mcp_req)
+                responses.append(mcp_resp.model_dump(exclude_none=True))
+            except Exception as e:
+                # Return error for this specific request
+                logger.error(f"Batch request item failed: {e}")
+                error_resp = MCPResponse(
+                    error={"code": -32600, "message": f"Invalid request: {str(e)}"},
+                    id=item.get("id")
+                )
+                responses.append(error_resp.model_dump(exclude_none=True))
+        return responses
+    else:
+        # Handle single request
+        mcp_req = MCPRequest(**body)
+        return await _handle_mcp_request(mcp_req)
+
+
+@router.post("/")
+async def mcp_request_legacy(request: Request):
+    """Handle MCP requests at legacy root path (backward compatibility alias).
+
+    This is an alias for /mcp/request to maintain backward compatibility
+    with tests and clients that POST to /mcp/ instead of /mcp/request.
+
+    Supports both single MCPRequest and batch requests (list of MCPRequest).
+
+    CANONICAL ENDPOINT: /mcp/request
+    """
+    import json
+    body = await request.json()
+
+    # Check if this is a batch request (list of requests)
+    if isinstance(body, list):
+        # Handle batch request
+        responses = []
+        for item in body:
+            try:
+                mcp_req = MCPRequest(**item)
+                mcp_resp = await _handle_mcp_request(mcp_req)
+                responses.append(mcp_resp.model_dump(exclude_none=True))
+            except Exception as e:
+                # Return error for this specific request
+                logger.error(f"Batch request item failed: {e}")
+                error_resp = MCPResponse(
+                    error={"code": -32600, "message": f"Invalid request: {str(e)}"},
+                    id=item.get("id")
+                )
+                responses.append(error_resp.model_dump(exclude_none=True))
+        return responses
+    else:
+        # Handle single request
+        mcp_req = MCPRequest(**body)
+        return await _handle_mcp_request(mcp_req)
+
+
+async def _handle_mcp_request(request: MCPRequest):
+    """Internal handler for MCP requests (shared by both endpoints)."""
     try:
         method = request.method
         params = request.params
-        
+
         # Route to appropriate handler
         if method == "jobs/create":
             result = await handle_job_create(params)
@@ -152,9 +244,9 @@ async def mcp_request(request: MCPRequest):
                 error={"code": -32601, "message": f"Method not found: {method}"},
                 id=request.id
             )
-        
+
         return MCPResponse(result=result, id=request.id)
-        
+
     except Exception as e:
         logger.error(f"MCP request failed: {e}", exc_info=True)
         return MCPResponse(
@@ -254,11 +346,16 @@ async def handle_job_get(params: Dict[str, Any]) -> Dict[str, Any]:
 async def handle_job_pause(params: Dict[str, Any]) -> Dict[str, Any]:
     """Handle job pause via MCP protocol."""
     executor = get_executor()
-    
+
     job_id = params.get("job_id")
     if not job_id:
         raise ValueError("job_id is required")
-    
+
+    # Check if job exists
+    job = executor.job_engine._jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
     try:
         executor.job_engine.pause_job(job_id)
         return {"success": True, "job_id": job_id, "action": "paused"}
@@ -270,11 +367,16 @@ async def handle_job_pause(params: Dict[str, Any]) -> Dict[str, Any]:
 async def handle_job_resume(params: Dict[str, Any]) -> Dict[str, Any]:
     """Handle job resume via MCP protocol."""
     executor = get_executor()
-    
+
     job_id = params.get("job_id")
     if not job_id:
         raise ValueError("job_id is required")
-    
+
+    # Check if job exists
+    job = executor.job_engine._jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
     try:
         executor.job_engine.resume_job(job_id)
         return {"success": True, "job_id": job_id, "action": "resumed"}
@@ -286,11 +388,16 @@ async def handle_job_resume(params: Dict[str, Any]) -> Dict[str, Any]:
 async def handle_job_cancel(params: Dict[str, Any]) -> Dict[str, Any]:
     """Handle job cancellation via MCP protocol."""
     executor = get_executor()
-    
+
     job_id = params.get("job_id")
     if not job_id:
         raise ValueError("job_id is required")
-    
+
+    # Check if job exists
+    job = executor.job_engine._jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
     try:
         executor.job_engine.cancel_job(job_id)
         return {"success": True, "job_id": job_id, "action": "cancelled"}
@@ -667,10 +774,10 @@ async def handle_debug_trace(params: Dict[str, Any]) -> Dict[str, Any]:
 @router.post("/jobs/create")
 async def create_job(request: JobCreateRequest):
     """REST endpoint for job creation.
-    
+
     Args:
         request: Job creation request with workflow and input data
-        
+
     Returns:
         Dict with job details
     """
@@ -684,6 +791,10 @@ async def create_job(request: JobCreateRequest):
         }
         result = await handle_job_create(params)
         return result
+    except ValueError as e:
+        # Invalid input (e.g., missing workflow_name)
+        logger.warning(f"Invalid job creation request: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating job: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -736,16 +847,18 @@ async def get_job(job_id: str):
 @router.post("/jobs/{job_id}/pause")
 async def pause_job(job_id: str):
     """REST endpoint for pausing a job.
-    
+
     Args:
         job_id: Job identifier to pause
-        
+
     Returns:
         Dict with success status
     """
     try:
         result = await handle_job_pause({"job_id": job_id})
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error pausing job {job_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -754,16 +867,18 @@ async def pause_job(job_id: str):
 @router.post("/jobs/{job_id}/resume")
 async def resume_job(job_id: str):
     """REST endpoint for resuming a job.
-    
+
     Args:
         job_id: Job identifier to resume
-        
+
     Returns:
         Dict with success status
     """
     try:
         result = await handle_job_resume({"job_id": job_id})
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error resuming job {job_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -772,16 +887,18 @@ async def resume_job(job_id: str):
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(job_id: str):
     """REST endpoint for canceling a job.
-    
+
     Args:
         job_id: Job identifier to cancel
-        
+
     Returns:
         Dict with success status
     """
     try:
         result = await handle_job_cancel({"job_id": job_id})
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error canceling job {job_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -823,7 +940,7 @@ async def list_agents():
 async def list_workflow_profiles():
     """REST endpoint for workflow profiles."""
     request_obj = MCPRequest(method="workflows/profiles", params={})
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.get("/workflows/visual/{profile_name}")
@@ -833,7 +950,7 @@ async def get_visual_workflow(profile_name: str):
         method="workflows/visual",
         params={"profile_name": profile_name}
     )
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.get("/workflows/{profile_name}/metrics")
@@ -843,7 +960,7 @@ async def get_workflow_metrics(profile_name: str):
         method="workflows/metrics",
         params={"profile_name": profile_name}
     )
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.post("/workflows/{profile_name}/reset")
@@ -853,21 +970,21 @@ async def reset_workflow(profile_name: str):
         method="workflows/reset",
         params={"profile_name": profile_name}
     )
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.get("/agents/status")
 async def get_agents_status():
     """REST endpoint for agent status."""
     request_obj = MCPRequest(method="agents/status", params={})
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.get("/flows/realtime")
 async def get_realtime_flows():
     """REST endpoint for real-time flows."""
     request_obj = MCPRequest(method="flows/realtime", params={})
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.get("/flows/history/{correlation_id}")
@@ -877,14 +994,14 @@ async def get_flow_history(correlation_id: str):
         method="flows/history",
         params={"correlation_id": correlation_id}
     )
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.get("/flows/bottlenecks")
 async def get_bottlenecks():
     """REST endpoint for bottleneck detection."""
     request_obj = MCPRequest(method="flows/bottlenecks", params={})
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.post("/debug/sessions")
@@ -894,7 +1011,7 @@ async def create_debug_session_rest(correlation_id: str):
         method="debug/sessions/create",
         params={"correlation_id": correlation_id}
     )
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.get("/debug/sessions/{session_id}")
@@ -904,7 +1021,7 @@ async def get_debug_session_rest(session_id: str):
         method="debug/sessions/get",
         params={"session_id": session_id}
     )
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 class BreakpointAddRequest(BaseModel):
@@ -923,7 +1040,7 @@ async def add_breakpoint_rest(request: BreakpointAddRequest):
         method="debug/breakpoints/add",
         params=request.dict()
     )
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.delete("/debug/sessions/{session_id}/breakpoints/{breakpoint_id}")
@@ -933,7 +1050,7 @@ async def remove_breakpoint_rest(session_id: str, breakpoint_id: str):
         method="debug/breakpoints/remove",
         params={"session_id": session_id, "breakpoint_id": breakpoint_id}
     )
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.post("/debug/sessions/{session_id}/step")
@@ -943,7 +1060,7 @@ async def step_debug_rest(session_id: str):
         method="debug/step",
         params={"session_id": session_id}
     )
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.post("/debug/sessions/{session_id}/continue")
@@ -953,7 +1070,7 @@ async def continue_debug_rest(session_id: str):
         method="debug/continue",
         params={"session_id": session_id}
     )
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.get("/debug/workflows/{workflow_id}/trace")
@@ -963,7 +1080,7 @@ async def get_trace_rest(workflow_id: str):
         method="debug/trace",
         params={"workflow_id": workflow_id}
     )
-    return await mcp_request(request_obj)
+    return await _handle_mcp_request(request_obj)
 
 
 @router.get("/config/snapshot")
@@ -1316,5 +1433,7 @@ async def mcp_status():
     
     if config_status:
         status["config_hash"] = _config_snapshot.config_hash[:8] if hasattr(_config_snapshot, 'config_hash') else 'unknown'
-    
+
     return status
+
+

@@ -294,15 +294,11 @@ class TestCheckpoints:
 
 
 # Fixtures
-
-@pytest.fixture
-def client():
-    """Create a test client."""
-    from fastapi.testclient import TestClient
-    from src.web.app import create_app
-    
-    app = create_app()
-    return TestClient(app)
+# Import shared fixtures for proper dependency injection
+from tests.fixtures.http_fixtures import (
+    mock_executor, mock_config_snapshot, test_app, client,
+    mock_jobs_store, mock_agent_logs
+)
 
 
 @pytest.fixture
@@ -319,9 +315,30 @@ def sample_batch_manifest():
 
 
 @pytest.fixture
-def sample_batch_id():
-    """Sample batch ID for testing."""
-    return "test-batch-123"
+def sample_batch_id(mock_jobs_store):
+    """Sample batch ID for testing with pre-populated batch jobs."""
+    from datetime import datetime, timezone
+
+    batch_id = "test-batch-123"
+
+    # Create sample jobs for this batch
+    for i in range(2):
+        job_id = f"test-batch-123-job-{i}"
+        mock_jobs_store[job_id] = {
+            "job_id": job_id,
+            "workflow_id": "test_workflow",
+            "inputs": {"topic": f"test{i+1}"},
+            "batch_id": batch_id,
+            "batch_name": "test_batch",
+            "status": "completed" if i == 0 else "running",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+            "completed_at": datetime.now(timezone.utc) if i == 0 else None,
+            "result": {"content": f"Test result {i+1}"} if i == 0 else None,
+            "error": None
+        }
+
+    return batch_id
 
 
 @pytest.fixture

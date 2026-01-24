@@ -9,8 +9,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field
 from datetime import datetime
-from src.visualization.workflow_debugger import DebugBreakpoint
-from src.visualization.workflow_debugger import DebugSession
 
 
 # ============================================================================
@@ -45,9 +43,10 @@ class MCPRequest(BaseModel):
     """Base MCP request."""
     method: str = Field(..., description="MCP method name")
     params: Dict[str, Any] = Field(default_factory=dict)
-    id: Optional[str] = Field(None, description="Request ID")
-    
+    id: Optional[Union[str, int]] = Field(None, description="Request ID")
+
     class Config:
+        extra = "allow"  # Allow extra fields like "jsonrpc" for JSON-RPC 2.0 compatibility
         json_schema_extra = {
             "example": {
                 "method": "workflows/list",
@@ -61,9 +60,10 @@ class MCPResponse(BaseModel):
     """Base MCP response."""
     result: Optional[Any] = None
     error: Optional[Dict[str, Any]] = None
-    id: Optional[str] = None
-    
+    id: Optional[Union[str, int]] = None
+
     class Config:
+        extra = "allow"  # Allow extra fields for JSON-RPC 2.0 compatibility
         json_schema_extra = {
             "example": {
                 "result": {"workflows": []},
@@ -293,12 +293,148 @@ def parse_resource_uri(uri: str) -> tuple[ResourceType, str]:
     """Parse MCP resource URI."""
     if not uri.startswith("ucop://"):
         raise ValueError(f"Invalid UCOP resource URI: {uri}")
-    
+
     parts = uri[7:].split("/", 1)
     if len(parts) != 2:
         raise ValueError(f"Invalid UCOP resource URI format: {uri}")
-    
+
     resource_type = ResourceType(parts[0])
     resource_id = parts[1]
-    
+
     return resource_type, resource_id
+
+
+# ============================================================================
+# MCP Protocol Handler
+# ============================================================================
+
+class MCPProtocol:
+    """MCP Protocol handler for routing requests to appropriate handlers.
+
+    Provides a unified interface for handling MCP requests across different
+    execution contexts (CLI, Web, etc.)
+    """
+
+    # Standard MCP error codes
+    PARSE_ERROR = -32700
+    INVALID_REQUEST = -32600
+    METHOD_NOT_FOUND = -32601
+    INVALID_PARAMS = -32602
+    INTERNAL_ERROR = -32603
+
+    def __init__(
+        self,
+        executor=None,
+        job_engine=None,
+        agent_registry=None
+    ):
+        """Initialize MCP Protocol handler.
+
+        Args:
+            executor: Execution engine for running jobs/agents
+            job_engine: Job management engine
+            agent_registry: Registry of available agents
+        """
+        self.executor = executor
+        self.job_engine = job_engine
+        self.agent_registry = agent_registry
+
+        # Method routing table
+        self._methods = {
+            "workflow.list": self._handle_workflow_list,
+            "workflow.execute": self._handle_workflow_execute,
+            "workflow.status": self._handle_workflow_status,
+            "agent.list": self._handle_agent_list,
+            "agent.invoke": self._handle_agent_invoke,
+            "job.create": self._handle_job_create,
+            "job.status": self._handle_job_status,
+        }
+
+    async def handle_request(self, request: MCPRequest) -> MCPResponse:
+        """Handle an MCP request and route to appropriate handler.
+
+        Args:
+            request: MCPRequest to process
+
+        Returns:
+            MCPResponse with result or error
+        """
+        method = request.method
+
+        # Check if method exists
+        if method not in self._methods:
+            return MCPResponse(
+                id=request.id,
+                error={
+                    "code": self.METHOD_NOT_FOUND,
+                    "message": f"Method not found: {method}"
+                }
+            )
+
+        try:
+            # Call the handler
+            handler = self._methods[method]
+            result = await handler(request.params)
+
+            return MCPResponse(
+                id=request.id,
+                result=result
+            )
+        except Exception as e:
+            return MCPResponse(
+                id=request.id,
+                error={
+                    "code": self.INTERNAL_ERROR,
+                    "message": str(e)
+                }
+            )
+
+    async def _handle_workflow_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """List available workflows."""
+        workflows = []
+        if self.executor and hasattr(self.executor, 'get_workflows'):
+            workflows = self.executor.get_workflows()
+        return {"workflows": workflows}
+
+    async def _handle_workflow_execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a workflow."""
+        if not self.executor:
+            return {"error": "No executor configured"}
+        workflow_name = params.get("workflow_name", "default")
+        return {"status": "started", "workflow": workflow_name}
+
+    async def _handle_workflow_status(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Get workflow execution status."""
+        job_id = params.get("job_id")
+        if self.job_engine and hasattr(self.job_engine, 'get_job_status'):
+            return self.job_engine.get_job_status(job_id)
+        return {"status": "unknown", "job_id": job_id}
+
+    async def _handle_agent_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """List available agents."""
+        agents = []
+        if self.agent_registry and hasattr(self.agent_registry, 'list_agents'):
+            agents = self.agent_registry.list_agents()
+        elif self.executor and hasattr(self.executor, 'get_agents'):
+            agents = self.executor.get_agents()
+        return {"agents": agents}
+
+    async def _handle_agent_invoke(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Invoke a specific agent."""
+        agent_id = params.get("agent_id")
+        if not self.executor:
+            return {"error": "No executor configured"}
+        return {"status": "invoked", "agent_id": agent_id}
+
+    async def _handle_job_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new job."""
+        if not self.job_engine:
+            return {"error": "No job engine configured"}
+        return {"status": "created", "job_id": "job_placeholder"}
+
+    async def _handle_job_status(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Get job status."""
+        job_id = params.get("job_id")
+        if self.job_engine and hasattr(self.job_engine, 'get_job_status'):
+            return self.job_engine.get_job_status(job_id)
+        return {"status": "unknown", "job_id": job_id}

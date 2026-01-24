@@ -23,7 +23,7 @@ class RunSpec(BaseModel):
 class BatchJobCreate(BaseModel):
     """Request model for batch job creation."""
     workflow_id: str = Field(..., description="Workflow identifier for all jobs")
-    jobs: List[Dict[str, Any]] = Field(..., description="List of job input specifications")
+    jobs: List[Dict[str, Any]] = Field(..., min_length=1, description="List of job input specifications (at least one required)")
     batch_name: Optional[str] = Field(default=None, description="Optional batch identifier")
 
 

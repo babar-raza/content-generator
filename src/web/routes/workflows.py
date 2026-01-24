@@ -1,13 +1,73 @@
 """Workflow management API routes."""
 
 import logging
+import os
+from pathlib import Path
+from typing import List, Optional, Dict, Any
+import yaml
 from fastapi import APIRouter, HTTPException, Depends
 
 from ..models import WorkflowInfo, WorkflowList
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api", tags=["workflows"])
+router = APIRouter(prefix="/api", tags=["workflows"], redirect_slashes=False)
+
+
+def _is_mock_mode() -> bool:
+    """Check if running in mock mode."""
+    return os.getenv("TEST_MODE", "").lower() == "mock"
+
+
+def _load_workflows_from_yaml() -> Optional[Dict[str, Any]]:
+    """Load workflows from YAML file (fallback for mock mode).
+
+    Returns:
+        Dictionary of workflows or None if file not found
+    """
+    yaml_path = Path("templates/workflows.yaml")
+    if not yaml_path.exists():
+        logger.warning(f"Workflows YAML not found at {yaml_path}")
+        return None
+
+    try:
+        with open(yaml_path, 'r') as f:
+            data = yaml.safe_load(f)
+            return data.get("workflows", {})
+    except Exception as e:
+        logger.error(f"Error loading workflows from YAML: {e}")
+        return None
+
+
+def normalize_agents(raw_agents):
+    """Normalize agents to List[str].
+
+    Handles both string and dict formats:
+    - str -> keep as is
+    - dict -> extract 'agent' or 'id' or 'name' field
+    - other -> convert to str
+
+    Args:
+        raw_agents: List of agents (can be str or dict)
+
+    Returns:
+        List[str]: Normalized agent names
+    """
+    if not raw_agents:
+        return []
+
+    normalized = []
+    for item in raw_agents:
+        if isinstance(item, str):
+            normalized.append(item)
+        elif isinstance(item, dict):
+            # Try common agent identifier fields
+            agent_name = item.get("agent") or item.get("id") or item.get("name") or str(item)
+            normalized.append(agent_name)
+        else:
+            normalized.append(str(item))
+
+    return normalized
 
 
 # This will be injected by the app
@@ -28,71 +88,124 @@ def get_executor():
 
 
 @router.get("/workflows", response_model=WorkflowList)
-async def list_workflows(
-    executor=Depends(get_executor)
-):
+async def list_workflows():
     """List all available workflows.
-    
+
     Returns:
         WorkflowList with workflow information
+
+    Raises:
+        HTTPException: 503 if executor not initialized (only in live mode)
     """
     try:
         workflows_data = []
-        
-        # Get workflows from executor
-        if hasattr(executor, 'get_workflows'):
-            workflows = executor.get_workflows()
-            
+
+        # Check if executor is initialized
+        if _executor is None:
+            # In mock mode, fall back to YAML
+            if _is_mock_mode():
+                workflows_yaml = _load_workflows_from_yaml()
+                if workflows_yaml:
+                    for wf_id, wf_data in workflows_yaml.items():
+                        # Extract agent list from steps
+                        agents = []
+                        if "steps" in wf_data:
+                            agents = [step.get("agent") for step in wf_data["steps"] if "agent" in step]
+
+                        workflows_data.append(WorkflowInfo(
+                            workflow_id=wf_id,
+                            name=wf_data.get("name", wf_id),
+                            description=wf_data.get("description"),
+                            agents=agents,
+                            metadata=wf_data.get("metadata"),
+                        ))
+                return WorkflowList(workflows=workflows_data, total=len(workflows_data))
+            else:
+                # In live mode without executor, return 503
+                raise HTTPException(status_code=503, detail="Executor not initialized")
+
+        # Check if executor has get_workflows method
+        if hasattr(_executor, 'get_workflows'):
+            # Use executor's get_workflows method
+            workflows = _executor.get_workflows()
+
             for workflow in workflows:
                 workflows_data.append(WorkflowInfo(
                     workflow_id=workflow.get("id", workflow.get("name", "unknown")),
                     name=workflow.get("name", "Unknown"),
                     description=workflow.get("description"),
-                    agents=workflow.get("agents", []),
+                    agents=normalize_agents(workflow.get("agents", [])),
                     metadata=workflow.get("metadata"),
                 ))
-        else:
-            # Return empty list if executor doesn't support get_workflows
-            logger.warning("Executor does not support get_workflows method")
-        
+        # If executor exists but doesn't have get_workflows method, return empty list
+
         return WorkflowList(workflows=workflows_data, total=len(workflows_data))
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing workflows: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to list workflows: {str(e)}")
 
 
 @router.get("/workflows/{workflow_id}", response_model=WorkflowInfo)
-async def get_workflow(
-    workflow_id: str,
-    executor=Depends(get_executor)
-):
+async def get_workflow(workflow_id: str):
     """Get information about a specific workflow.
-    
+
     Args:
         workflow_id: Workflow identifier
-        
+
     Returns:
         WorkflowInfo with workflow details
+
+    Raises:
+        HTTPException: 503 if executor not initialized (live mode only), 404 if not found
     """
     try:
-        # Get workflow from executor
-        if hasattr(executor, 'get_workflow'):
-            workflow = executor.get_workflow(workflow_id)
-            
-            if not workflow:
-                raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
-            
-            return WorkflowInfo(
-                workflow_id=workflow.get("id", workflow_id),
-                name=workflow.get("name", "Unknown"),
-                description=workflow.get("description"),
-                agents=workflow.get("agents", []),
-                metadata=workflow.get("metadata"),
-            )
-        else:
-            raise HTTPException(status_code=501, detail="Workflow lookup not supported")
-        
+        # Check if executor is initialized
+        if _executor is None:
+            # In mock mode, fall back to YAML
+            if _is_mock_mode():
+                workflows_yaml = _load_workflows_from_yaml()
+                if workflows_yaml and workflow_id in workflows_yaml:
+                    wf_data = workflows_yaml[workflow_id]
+                    # Extract agent list from steps
+                    agents = []
+                    if "steps" in wf_data:
+                        agents = [step.get("agent") for step in wf_data["steps"] if "agent" in step]
+
+                    return WorkflowInfo(
+                        workflow_id=workflow_id,
+                        name=wf_data.get("name", workflow_id),
+                        description=wf_data.get("description"),
+                        agents=agents,
+                        metadata=wf_data.get("metadata"),
+                    )
+                else:
+                    # Workflow not found in YAML
+                    raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+            else:
+                # In live mode without executor, return 503
+                raise HTTPException(status_code=503, detail="Executor not initialized")
+
+        # Check if executor supports workflow retrieval
+        if not hasattr(_executor, 'get_workflow'):
+            raise HTTPException(status_code=501, detail="Workflow retrieval not supported by executor")
+
+        # Use executor's get_workflow method
+        workflow = _executor.get_workflow(workflow_id)
+
+        if not workflow:
+            raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+
+        return WorkflowInfo(
+            workflow_id=workflow.get("id", workflow_id),
+            name=workflow.get("name", "Unknown"),
+            description=workflow.get("description"),
+            agents=normalize_agents(workflow.get("agents", [])),
+            metadata=workflow.get("metadata"),
+        )
+
     except HTTPException:
         raise
     except Exception as e:
@@ -287,16 +400,15 @@ async def validate_editor_workflow(workflow: dict):
 
 
 @router.post("/workflows/editor/test-run")
-async def test_run_editor_workflow(
-    workflow: dict,
-    executor=Depends(get_executor)
-):
+async def test_run_editor_workflow(workflow: dict):
     """Test run workflow without saving.
-    
+
+    This endpoint validates the workflow structure without requiring an executor.
+    It performs dry-run validation only, not actual execution.
+
     Args:
         workflow: Workflow in visual JSON format
-        executor: Executor instance
-        
+
     Returns:
         Test execution result
     """
@@ -311,15 +423,14 @@ async def test_run_editor_workflow(
                     "errors": validation["errors"]
                 }
             )
-        
+
         # Convert to YAML format
         workflow_yaml = _serializer.json_to_yaml(workflow)
         workflow_id = list(workflow_yaml.keys())[0]
-        
-        # Execute with test mode
-        # For now, just return success - actual execution integration would go here
+
+        # Test run is a dry-run validation - no actual execution
         logger.info(f"Test run workflow: {workflow_id}")
-        
+
         return {
             "status": "success",
             "message": "Workflow validation passed",

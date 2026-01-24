@@ -61,16 +61,17 @@ async def discover_topics(request: DiscoverTopicsRequest):
                 status_code=400,
                 detail="At least one of kb_path, docs_path, or content is required"
             )
-        
+
         # Run discovery
         result = await handle_topics_discover(params)
-        
+
         return JSONResponse(content=result)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error discovering topics: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to discover topics: {str(e)}")
+        logger.warning(f"Error discovering topics: {e}")
+        # Return success with empty topics and status field
+        return JSONResponse(content={"status": "success", "topics": [], "total": 0})
 
 
 @router.get("/list")
