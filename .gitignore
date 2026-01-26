@@ -26,6 +26,7 @@ src/__pycache__/main.cpython-312.pyc
 /reports
 /plans
 /src/web/frontend/node_modules
+/src/web/frontend/
 /output
 /legacy
 /.jobs
