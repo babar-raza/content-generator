@@ -154,21 +154,23 @@ def cached(ttl: int = 3600, max_size: int = 1000, max_memory_mb: int = 500):
                     if isinstance(arg, (str, int, float, bool, type(None))):
                         key_parts.append(str(arg))
                     else:
-                        key_parts.append(hashlib.md5(
+                        digest = hashlib.md5(
                             pickle.dumps(arg, protocol=pickle.HIGHEST_PROTOCOL)
-                        ).hexdigest())
+                        ).hexdigest()
+                        key_parts.append(digest)
                 except Exception:
                     key_parts.append(str(arg))
-            
+
             # Hash kwargs
             for k, v in sorted(kwargs.items()):
                 try:
                     if isinstance(v, (str, int, float, bool, type(None))):
                         key_parts.append(f"{k}={v}")
                     else:
-                        key_parts.append(f"{k}={hashlib.md5(
+                        digest = hashlib.md5(
                             pickle.dumps(v, protocol=pickle.HIGHEST_PROTOCOL)
-                        ).hexdigest()}")
+                        ).hexdigest()
+                        key_parts.append(f"{k}={digest}")
                 except Exception:
                     key_parts.append(f"{k}={v}")
             

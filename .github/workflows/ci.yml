@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags:
+      - "wave*"
+      - "v*"
 
 jobs:
   required-gates:
@@ -40,7 +43,8 @@ jobs:
         env:
           PYTHONHASHSEED: 0
         run: |
-          python tools/run_capabilities.py \
+          mkdir -p reports/_ci/mock
+          python -m tools.run_capabilities \
             --mode mock \
             --outdir reports/_ci/mock \
             --timeout_seconds 180
@@ -91,7 +95,8 @@ jobs:
           PYTHONHASHSEED: 0
         run: |
           pytest -m live tests/live/ -v --tb=short || true
-          python tools/run_capabilities.py \
+          mkdir -p reports/_ci/live
+          python -m tools.run_capabilities \
             --mode live \
             --outdir reports/_ci/live \
             --timeout_seconds 180 || true
