@@ -62,6 +62,7 @@ def mock_websocket():
     return MockWebSocket()
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_websocket_connection(live_handler, mock_websocket):
     """Test WebSocket connection establishment"""
@@ -90,6 +91,7 @@ async def test_websocket_connection(live_handler, mock_websocket):
     assert initial_msg["job_id"] == job_id
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_agent_started_event(live_handler, mock_websocket, event_bus):
     """Test agent_started event is broadcast via WebSocket"""
@@ -129,6 +131,7 @@ async def test_agent_started_event(live_handler, mock_websocket, event_bus):
     assert msg["correlation_id"] == job_id
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_agent_completed_event(live_handler, mock_websocket, event_bus):
     """Test agent_completed event is broadcast via WebSocket"""
@@ -173,6 +176,7 @@ async def test_agent_completed_event(live_handler, mock_websocket, event_bus):
     assert msg["output"] == {"result": "success"}
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_agent_failed_event(live_handler, mock_websocket, event_bus):
     """Test agent_failed event is broadcast via WebSocket"""
@@ -213,6 +217,7 @@ async def test_agent_failed_event(live_handler, mock_websocket, event_bus):
     assert msg["error"] == error_msg
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_data_flow_event(live_handler, mock_websocket, event_bus):
     """Test data_flow event is broadcast via WebSocket"""
@@ -256,6 +261,7 @@ async def test_data_flow_event(live_handler, mock_websocket, event_bus):
     assert "data_size" in msg
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_multiple_connections(live_handler, event_bus):
     """Test multiple WebSocket connections for same job"""
@@ -298,6 +304,7 @@ async def test_multiple_connections(live_handler, event_bus):
     assert len([m for m in ws2.messages if m.get("type") == "agent_started"]) > 0
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_connection_cleanup(live_handler, mock_websocket):
     """Test connection cleanup on disconnect"""
@@ -326,6 +333,7 @@ async def test_connection_cleanup(live_handler, mock_websocket):
     assert live_handler.get_connection_count(job_id) == 0
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_event_filtering_by_job(live_handler, event_bus):
     """Test events are only sent to correct job connections"""
@@ -369,23 +377,26 @@ async def test_event_filtering_by_job(live_handler, event_bus):
     assert len(ws2_agent_msgs) == 0
 
 
+@pytest.mark.live
 def test_global_handler_singleton():
     """Test global handler singleton pattern"""
     handler1 = get_live_flow_handler()
     handler2 = get_live_flow_handler()
-    
+
     assert handler1 is handler2
 
 
+@pytest.mark.live
 def test_set_global_handler():
     """Test setting global handler"""
     custom_handler = LiveFlowHandler()
     set_live_flow_handler(custom_handler)
-    
+
     retrieved = get_live_flow_handler()
     assert retrieved is custom_handler
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_progress_update_event(live_handler, mock_websocket, event_bus):
     """Test progress_update event is broadcast via WebSocket"""

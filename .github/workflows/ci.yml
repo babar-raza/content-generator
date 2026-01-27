@@ -36,14 +36,18 @@ jobs:
           TEST_MODE: mock
           ALLOW_NETWORK: 0
         run: |
-          pytest tests/integration/ -v --tb=short -m "not live and not network" -n auto --timeout=180 --timeout-method=thread
+          if [[ "${{ matrix.python-version }}" == "3.11" ]]; then
+            pytest tests/integration/ -v --tb=short -m "not (live or network)" -n 0 --timeout=180 --timeout-method=signal
+          else
+            pytest tests/integration/ -v --tb=short -m "not (live or network)" -n auto --timeout=180 --timeout-method=signal
+          fi
 
       - name: Run E2E mock tests
         env:
           TEST_MODE: mock
           ALLOW_NETWORK: 0
         run: |
-          pytest tests/e2e_mock/ -v --tb=short -m "not live and not network"
+          pytest tests/e2e_mock/ -v --tb=short -m "not (live or network)"
 
       - name: Run capability mock tests
         env:

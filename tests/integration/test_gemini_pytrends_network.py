@@ -328,10 +328,12 @@ class TestPyTrendsIntegration:
         config = Mock()
         return TrendsService(config)
 
+    @pytest.mark.network
     def test_trends_service_initialization(self, trends_service):
         """Test TrendsService initializes correctly."""
         assert trends_service.pytrends is not None
 
+    @pytest.mark.network
     def test_trends_service_requires_pytrends(self):
         """Test TrendsService fails gracefully without pytrends."""
         from src.services.services import TrendsService
