@@ -44,7 +44,7 @@ jobs:
           PYTHONHASHSEED: 0
         run: |
           mkdir -p reports/_ci/mock
-          python -m tools.run_capabilities \
+          python tools/run_capabilities.py \
             --mode mock \
             --outdir reports/_ci/mock \
             --timeout_seconds 180
@@ -96,7 +96,7 @@ jobs:
         run: |
           pytest -m live tests/live/ -v --tb=short || true
           mkdir -p reports/_ci/live
-          python -m tools.run_capabilities \
+          python tools/run_capabilities.py \
             --mode live \
             --outdir reports/_ci/live \
             --timeout_seconds 180 || true
