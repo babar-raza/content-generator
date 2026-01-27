@@ -23,6 +23,11 @@ from pathlib import Path
 from typing import Dict, List, Any
 from datetime import datetime
 
+# Add tools directory to sys.path for _env imports
+_tools_dir = str(Path(__file__).parent.resolve())
+if _tools_dir not in sys.path:
+    sys.path.insert(0, _tools_dir)
+
 # Import helpers from _env module
 from _env import get_repo_root, ensure_sys_path, venv_python, get_pytest_command, file_to_module_path
 

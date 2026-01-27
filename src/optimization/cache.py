@@ -189,5 +189,23 @@ def cached(ttl: int = 3600, max_size: int = 1000, max_memory_mb: int = 500):
         # Attach cache for inspection
         wrapper.cache = cache
         return wrapper
-    
+
     return decorator
+
+
+def cache_result(max_size: int = 1000, ttl_seconds: int = 3600, max_memory_mb: int = 500):
+    """
+    Decorator to cache function results with memory limits.
+
+    This is a wrapper around 'cached' that uses ttl_seconds parameter name
+    for backward compatibility with tests.
+
+    Args:
+        max_size: Maximum cache entries (default: 1000)
+        ttl_seconds: Time-to-live in seconds (default: 1 hour)
+        max_memory_mb: Maximum memory in MB (default: 500MB)
+
+    Returns:
+        Decorated function with caching
+    """
+    return cached(ttl=ttl_seconds, max_size=max_size, max_memory_mb=max_memory_mb)
