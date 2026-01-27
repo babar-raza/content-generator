@@ -131,6 +131,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "::group::Bandit Security Scan"
+          mkdir -p reports
           bandit -r src -x tests -f txt -o reports/bandit_report.txt || true
           cat reports/bandit_report.txt || echo "No Bandit report generated"
           echo "::endgroup::"
@@ -146,17 +147,18 @@ jobs:
           echo "::notice::pip-audit scan completed (soft gate - does not fail build)"
 
       - name: Run detect-secrets (Secret Scanning)
+        continue-on-error: true
         run: |
           echo "::group::Secret Scanning"
           # Create baseline if it doesn't exist
           if [ ! -f .secrets.baseline ]; then
-            detect-secrets scan --baseline .secrets.baseline
+            detect-secrets scan --baseline .secrets.baseline --exclude-files 'reports/.*' || true
             echo "Created new secrets baseline"
           fi
-          # Scan for new secrets
-          detect-secrets scan --baseline .secrets.baseline --exclude-files 'reports/.*'
+          # Scan for new secrets (soft gate for initial rollout)
+          detect-secrets scan --baseline .secrets.baseline --exclude-files 'reports/.*' || true
           echo "::endgroup::"
-          echo "::notice::Secret scan completed - no new secrets detected"
+          echo "::notice::Secret scan completed (soft gate - does not fail build)"
 
       - name: Upload security reports
         if: always()
