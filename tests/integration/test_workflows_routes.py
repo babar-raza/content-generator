@@ -144,6 +144,7 @@ class TestWorkflowListing:
         assert response.status_code == 500
         assert "Failed to list workflows" in response.json()["detail"]
 
+    @patch.dict('os.environ', {'TEST_MODE': 'live'})
     def test_list_workflows_no_executor(self, client):
         """Test listing workflows when executor not initialized."""
         workflows.set_executor(None)
@@ -552,6 +553,7 @@ class TestWorkflowEditor:
 class TestDependencyInjection:
     """Test dependency injection behavior."""
 
+    @patch.dict('os.environ', {'TEST_MODE': 'live'})
     def test_get_executor_not_initialized(self, client):
         """Test accessing routes when executor not initialized."""
         workflows.set_executor(None)
