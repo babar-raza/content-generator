@@ -32,15 +32,23 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run integration tests
+        env:
+          TEST_MODE: mock
+          ALLOW_NETWORK: 0
         run: |
-          pytest tests/integration/ -v --tb=short -n auto --timeout=180 --timeout-method=thread
+          pytest tests/integration/ -v --tb=short -m "not live and not network" -n auto --timeout=180 --timeout-method=thread
 
       - name: Run E2E mock tests
+        env:
+          TEST_MODE: mock
+          ALLOW_NETWORK: 0
         run: |
-          pytest tests/e2e_mock/ -v --tb=short
+          pytest tests/e2e_mock/ -v --tb=short -m "not live and not network"
 
       - name: Run capability mock tests
         env:
+          TEST_MODE: mock
+          ALLOW_NETWORK: 0
           PYTHONHASHSEED: 0
         run: |
           mkdir -p reports/_ci/mock

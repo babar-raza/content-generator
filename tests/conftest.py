@@ -60,6 +60,42 @@ def mock_chromadb_availability():
 
 
 @pytest.fixture(autouse=True)
+def enforce_no_network_in_tests(monkeypatch):
+    """Prevent accidental network calls in mock mode tests.
+
+    Sets TEST_MODE=mock and ALLOW_NETWORK=0 unless explicitly overridden.
+    Patches TrendReq to raise error if called in mock mode (leak detection).
+    """
+    # Only enforce in mock mode (not live tests)
+    test_mode = os.getenv('TEST_MODE', 'mock').lower()
+
+    if test_mode != 'live':
+        # Set mock mode environment
+        monkeypatch.setenv('TEST_MODE', 'mock')
+        monkeypatch.delenv('ALLOW_NETWORK', raising=False)
+
+        # Patch TrendReq to detect leaks
+        from unittest.mock import MagicMock
+
+        def _leak_detector(*args, **kwargs):
+            raise RuntimeError(
+                "TrendReq called in mock mode! This is a network leak. "
+                "Either use TEST_MODE=live or fix the code to check TEST_MODE."
+            )
+
+        # Patch at import location (only if PYTRENDS_AVAILABLE)
+        try:
+            monkeypatch.setattr(
+                'src.services.services.TrendReq',
+                _leak_detector,
+                raising=False
+            )
+        except AttributeError:
+            # TrendReq might be None if pytrends not installed
+            pass
+
+
+@pytest.fixture(autouse=True)
 def _isolation_reset(monkeypatch):
     """Reset all global state for test isolation.
 

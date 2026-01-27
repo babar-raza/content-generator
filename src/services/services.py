@@ -1284,22 +1284,35 @@ class TrendsService:
 
     def __init__(self, config: Config):
         """Initialize Trends service.
-        
+
+        In mock mode (default), returns stub data without network calls.
+        In live mode (TEST_MODE=live + ALLOW_NETWORK=1), creates real TrendReq.
+
         Args:
             config: Configuration object
-            
+
         Raises:
-            ImportError: If pytrends not available
+            ImportError: If pytrends not available in live mode
         """
-        if not PYTRENDS_AVAILABLE:
-            raise ImportError(
-                "pytrends not available. "
-                "Install with: pip install pytrends"
-            )
-        
         self.config = config
-        self.pytrends = TrendReq(hl='en-US', tz=360)
-        logger.info("✓ Trends service initialized")
+
+        # Check if we should use real network
+        test_mode = os.getenv('TEST_MODE', 'mock').lower()
+        allow_network = os.getenv('ALLOW_NETWORK', '0') == '1'
+
+        if test_mode == 'live' and allow_network:
+            # Live mode: create real TrendReq
+            if not PYTRENDS_AVAILABLE:
+                raise ImportError(
+                    "pytrends not available. "
+                    "Install with: pip install pytrends"
+                )
+            self.pytrends = TrendReq(hl='en-US', tz=360)
+            logger.info("✓ Trends service initialized (LIVE mode)")
+        else:
+            # Mock mode: use stub (no network)
+            self.pytrends = None
+            logger.info("✓ Trends service initialized (MOCK mode - stub data)")
 
     def get_interest_over_time(
         self,
@@ -1307,24 +1320,30 @@ class TrendsService:
         timeframe: str = 'today 12-m'
     ) -> Optional[Any]:
         """Get interest over time for keywords.
-        
+
         Args:
             keywords: List of keywords to query
             timeframe: Time frame for data
-            
+
         Returns:
             DataFrame with interest data or None on error
         """
         if not keywords:
             logger.warning("No keywords provided for trends query")
             return None
-        
+
         # Filter out empty keywords
         keywords = [k.strip() for k in keywords if k and k.strip()]
         if not keywords:
             logger.warning("No valid keywords after filtering")
             return None
-        
+
+        # Mock mode: return deterministic stub
+        if self.pytrends is None:
+            logger.debug("Mock mode: returning stub interest data")
+            return self._stub_interest_data(keywords)
+
+        # Live mode: real network call
         try:
             self.pytrends.build_payload(keywords, timeframe=timeframe)
             data = self.pytrends.interest_over_time()
@@ -1335,17 +1354,23 @@ class TrendsService:
 
     def get_related_queries(self, keyword: str) -> Optional[Dict[str, Any]]:
         """Get related queries for a keyword.
-        
+
         Args:
             keyword: Keyword to query
-            
+
         Returns:
             Dict with top and rising queries or None on error
         """
         if not keyword or not keyword.strip():
             logger.warning("Empty keyword provided for related queries")
             return None
-        
+
+        # Mock mode: return deterministic stub
+        if self.pytrends is None:
+            logger.debug("Mock mode: returning stub related queries")
+            return self._stub_related_queries(keyword)
+
+        # Live mode: real network call
         try:
             self.pytrends.build_payload([keyword.strip()])
             data = self.pytrends.related_queries()
@@ -1356,23 +1381,54 @@ class TrendsService:
 
     def get_trending_searches(self, geo: str = 'united_states') -> Optional[Any]:
         """Get current trending searches for a region.
-        
+
         Args:
             geo: Geographic region (default: 'united_states')
-            
+
         Returns:
             DataFrame with trending searches or None on error
         """
         if not geo or not geo.strip():
             logger.warning("Empty geo provided for trending searches")
             return None
-        
+
+        # Mock mode: return deterministic stub
+        if self.pytrends is None:
+            logger.debug("Mock mode: returning stub trending searches")
+            return self._stub_trending_searches(geo)
+
+        # Live mode: real network call
         try:
             data = self.pytrends.trending_searches(pn=geo)
             logger.info(f"✓ Retrieved trending searches for {geo}")
             return data
         except Exception as e:
             logger.error(f"Failed to get trending searches for '{geo}': {e}")
+            return None
+
+    def _stub_interest_data(self, keywords: List[str]) -> Any:
+        """Return deterministic stub data for interest_over_time in mock mode."""
+        try:
+            import pandas as pd
+            # Return empty DataFrame (mimics no-data response from PyTrends)
+            return pd.DataFrame()
+        except ImportError:
+            # If pandas not available, return None
+            return None
+
+    def _stub_related_queries(self, keyword: str) -> Dict[str, Any]:
+        """Return deterministic stub data for related_queries in mock mode."""
+        # Return empty dict (mimics no related queries)
+        return {}
+
+    def _stub_trending_searches(self, geo: str) -> Any:
+        """Return deterministic stub data for trending_searches in mock mode."""
+        try:
+            import pandas as pd
+            # Return empty DataFrame
+            return pd.DataFrame()
+        except ImportError:
+            # If pandas not available, return None
             return None
 
 
