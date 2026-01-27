@@ -33,7 +33,7 @@ jobs:
 
       - name: Run integration tests
         run: |
-          pytest tests/integration/ -v --tb=short
+          pytest tests/integration/ -v --tb=short -n auto --timeout=180 --timeout-method=thread
 
       - name: Run E2E mock tests
         run: |
@@ -141,6 +141,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "::group::pip-audit Dependency Scan"
+          mkdir -p reports
           pip-audit -r requirements.txt --desc -o reports/pip_audit_report.txt || true
           cat reports/pip_audit_report.txt || echo "No pip-audit report generated"
           echo "::endgroup::"
