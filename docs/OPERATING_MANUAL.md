@@ -73,6 +73,9 @@ The **Unified Content Operations Platform (UCOP)** is a production-ready, autono
 - Engine factory auto-switches: `UnifiedEngine` (mock) vs `ProductionExecutionEngine` (live)
 - Marker: `@pytest.mark.live` for live-only tests
 
+**Live E2E Testing:**
+For comprehensive end-to-end testing with real Ollama and ChromaDB, see [Live E2E Testing Guide](live_e2e/README.md).
+
 ---
 
 ## Quickstart (Local)
@@ -771,6 +774,7 @@ pytest tests/integration tests/e2e_mock -m "not live and not network" --collect-
 - **CLI Reference**: [docs/cli-reference.md](cli-reference.md)
 - **Web API Reference**: [docs/web-api-reference.md](web-api-reference.md)
 - **Testing Guide**: [docs/testing.md](testing.md)
+- **Live E2E Testing**: [docs/live_e2e/README.md](live_e2e/README.md)
 - **Troubleshooting**: [docs/troubleshooting.md](troubleshooting.md)
 - **Release Runbook**: [docs/release/RELEASE_RUNBOOK.md](release/RELEASE_RUNBOOK.md)
 - **Staging Runbook**: [docs/release/STAGING_RUNBOOK.md](release/STAGING_RUNBOOK.md)
