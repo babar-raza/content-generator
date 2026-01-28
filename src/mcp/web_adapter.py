@@ -178,6 +178,9 @@ async def _handle_mcp_request(request: MCPRequest):
         method = request.method
         params = request.params
 
+        # Import workflow execute handler
+        from src.mcp.handlers import handle_workflow_execute
+
         # Route to appropriate handler
         if method == "jobs/create":
             result = await handle_job_create(params)
@@ -191,6 +194,8 @@ async def _handle_mcp_request(request: MCPRequest):
             result = await handle_job_resume(params)
         elif method == "jobs/cancel":
             result = await handle_job_cancel(params)
+        elif method in ["workflow.execute", "workflows/execute"]:
+            result = await handle_workflow_execute(params)
         elif method == "workflows/list":
             result = await handle_workflows_list(params)
         elif method == "workflows/visual":

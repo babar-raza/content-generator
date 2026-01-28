@@ -1,0 +1,44 @@
+# Live E2E Test Data Sources
+# Public, stable URLs for testing ingestion and content generation
+# Total target size: ~1MB extracted text (5-15 documents)
+
+kb_sources:
+  # General programming/technical content for knowledge base
+  - url: "https://docs.python.org/3/tutorial/introduction.html"
+    slug: "python_intro"
+    description: "Python language introduction"
+
+  - url: "https://docs.python.org/3/tutorial/datastructures.html"
+    slug: "python_data_structures"
+    description: "Python data structures tutorial"
+
+  - url: "https://docs.python.org/3/library/functions.html"
+    slug: "python_builtin_functions"
+    description: "Python built-in functions"
+
+  - url: "https://docs.python.org/3/library/typing.html"
+    slug: "python_typing"
+    description: "Python type hints"
+
+  - url: "https://fastapi.tiangolo.com/tutorial/"
+    slug: "fastapi_tutorial"
+    description: "FastAPI tutorial basics"
+
+reference_sources:
+  # API reference and structured documentation
+  - url: "https://docs.python.org/3/library/asyncio.html"
+    slug: "python_asyncio_ref"
+    description: "Python asyncio library reference"
+
+  - url: "https://docs.python.org/3/library/pathlib.html"
+    slug: "python_pathlib_ref"
+    description: "Python pathlib reference"
+
+  - url: "https://fastapi.tiangolo.com/reference/"
+    slug: "fastapi_reference"
+    description: "FastAPI API reference"
+
+# Constraints
+max_html_size_bytes: 512000  # 500KB per HTML file
+max_text_size_bytes: 204800  # 200KB per extracted text file
+total_target_size_bytes: 1048576  # 1MB total

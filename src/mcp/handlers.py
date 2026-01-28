@@ -88,44 +88,112 @@ def get_agent_registry():
 
 async def handle_workflow_execute(params: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a workflow.
-    
+
+    Supports both async and sync execution modes:
+    - Sync mode: Triggered when topic and output_dir are provided
+    - Async mode: Legacy behavior using job engine
+
     Args:
         params: {
             "workflow_id": str,
             "inputs": dict,
-            "checkpoint_enabled": bool (optional)
+            "checkpoint_enabled": bool (optional),
+
+            # Live E2E sync mode fields:
+            "topic": str (optional),
+            "output_dir": str (optional),
+            "blog_collection": str (optional),
+            "ref_collection": str (optional)
         }
-    
+
     Returns:
-        Job resource with execution details
-        
+        Job resource with execution details (includes output_path for sync mode)
+
     Example:
+        >>> # Sync mode (live E2E)
+        >>> params = {
+        ...     "workflow_id": "default_blog",
+        ...     "topic": "AI trends",
+        ...     "output_dir": "./output",
+        ...     "blog_collection": "blog_test_20260128",
+        ...     "ref_collection": "ref_test_20260128"
+        ... }
+        >>> result = await handle_workflow_execute(params)
+
+        >>> # Async mode (legacy)
         >>> params = {
         ...     "workflow_id": "fast-draft",
-        ...     "inputs": {"topic": "AI trends", "output_dir": "./output"}
+        ...     "inputs": {"topic": "AI trends"}
         ... }
         >>> result = await handle_workflow_execute(params)
     """
     logger.info(f"MCP: workflow.execute called with params: {params}")
-    
+
     workflow_id = params.get("workflow_id")
-    inputs = params.get("inputs", {})
-    checkpoint_enabled = params.get("checkpoint_enabled", True)
-    
     if not workflow_id:
         raise ValueError("workflow_id is required")
-    
+
+    # Check if sync mode is requested (topic + output_dir present)
+    topic = params.get("topic")
+    output_dir = params.get("output_dir")
+
+    if topic and output_dir:
+        # Sync mode: Execute workflow synchronously for live E2E
+        logger.info(f"MCP: Sync execution mode for workflow {workflow_id}")
+
+        import os
+        from pathlib import Path as PathlibPath
+
+        # Import the sync execution helper from REST jobs module
+        import sys
+        project_root = PathlibPath(__file__).parent.parent.parent
+        sys.path.insert(0, str(project_root))
+
+        from src.web.routes.jobs import execute_workflow_sync
+
+        # Generate job ID
+        job_id = str(uuid.uuid4())
+
+        try:
+            # Execute synchronously
+            output_path = execute_workflow_sync(
+                job_id=job_id,
+                workflow_id=workflow_id,
+                topic=topic,
+                output_dir=output_dir,
+                blog_collection=params.get("blog_collection"),
+                ref_collection=params.get("ref_collection")
+            )
+
+            # Return job resource with output_path
+            return {
+                "job_id": job_id,
+                "workflow_id": workflow_id,
+                "status": "completed",
+                "output_path": output_path,
+                "started_at": datetime.now().isoformat(),
+                "uri": create_resource_uri(ResourceType.JOB, job_id)
+            }
+
+        except Exception as e:
+            logger.error(f"Sync execution failed for workflow {workflow_id}: {e}", exc_info=True)
+            raise ValueError(f"Workflow execution failed: {str(e)}")
+
+    # Async mode: Legacy behavior
+    inputs = params.get("inputs", {})
+    checkpoint_enabled = params.get("checkpoint_enabled", True)
+
     # Get job engine
     job_engine = get_job_engine()
-    
-    # Create job
+
+    # Create job ID
     job_id = f"job_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
-    
+
     # Submit job to engine
     try:
         # Create job configuration
         from src.engine.executor import JobConfig
-        
+
         job_config = JobConfig(
             workflow=workflow_id,
             input=inputs.get("topic", ""),
@@ -134,10 +202,10 @@ async def handle_workflow_execute(params: Dict[str, Any]) -> Dict[str, Any]:
                 "checkpoint_enabled": checkpoint_enabled
             }
         )
-        
+
         # Execute the job
         result = get_executor().run_job(job_config)
-        
+
         # Return job resource
         return {
             "job_id": result.job_id,
@@ -146,7 +214,7 @@ async def handle_workflow_execute(params: Dict[str, Any]) -> Dict[str, Any]:
             "started_at": result.started_at,
             "uri": create_resource_uri(ResourceType.JOB, result.job_id)
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to execute workflow {workflow_id}: {e}", exc_info=True)
         raise

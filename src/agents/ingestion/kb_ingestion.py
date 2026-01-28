@@ -216,9 +216,9 @@ class KBIngestionAgent(SelfCorrectingAgent, Agent):
 
                 ]
 
-                # Add to database
+                # Add to database (use proper collection name)
 
-                self.database_service.add_documents("kb", chunks, metadatas)
+                self.database_service.add_documents(chunks, metadatas, collection_name="blog_knowledge")
 
                 # NEW: Mark as ingested
 

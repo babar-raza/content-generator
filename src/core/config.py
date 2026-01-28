@@ -76,6 +76,14 @@ class Config:
     cache_dir: Path = field(default_factory=lambda: Path("./cache"))
     chroma_db_path: Path = field(default_factory=lambda: Path("./chroma_db"))
     ingestion_state_file: Path = field(default_factory=lambda: Path("./ingestion_state.json"))
+
+    # Ingestion directories (for Live E2E and general ingestion)
+    kb_dir: Path = field(default_factory=lambda: Path("./blog_knowledge"))
+    api_dir: Path = field(default_factory=lambda: Path("./api_reference"))
+
+    # Chunking configuration
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
     
     # Family detection (auto-detected from paths or set manually)
     family: str = "general"

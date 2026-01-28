@@ -38,3 +38,8 @@ src/__pycache__/main.cpython-312.pyc
 *.tar.gz
 reports*.txt
 nul
+
+# Live E2E test data and runtime state
+/.live_e2e_data/
+ingestion_state.json
+*.log

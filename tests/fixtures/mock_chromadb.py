@@ -332,14 +332,17 @@ def create_mock_client(**kwargs) -> MockChromaClient:
 
 class MockSentenceTransformer:
     """Mock SentenceTransformer model for testing."""
-    
-    def __init__(self, model_name=None):
+
+    def __init__(self, model_name=None, device=None, **kwargs):
         """Initialize mock model.
-        
+
         Args:
             model_name: Model name (ignored in mock)
+            device: Device for computation (ignored in mock)
+            **kwargs: Additional arguments (ignored in mock)
         """
         self.model_name = model_name
+        self.device = device or 'cpu'
     
     def encode(self, texts, show_progress_bar=False, **kwargs):
         """Mock encode that returns consistent embeddings.

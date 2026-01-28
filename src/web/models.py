@@ -10,6 +10,12 @@ class JobCreate(BaseModel):
     workflow_id: str = Field(..., description="Workflow identifier")
     inputs: Dict[str, Any] = Field(default_factory=dict, description="Job input parameters")
 
+    # Live E2E execution fields (optional)
+    topic: Optional[str] = Field(default=None, description="Topic for content generation (live mode)")
+    output_dir: Optional[str] = Field(default=None, description="Output directory path (triggers sync execution)")
+    blog_collection: Optional[str] = Field(default=None, description="Chroma collection for blog knowledge")
+    ref_collection: Optional[str] = Field(default=None, description="Chroma collection for API reference")
+
 
 class RunSpec(BaseModel):
     """Request model for /api/generate endpoint with full run specification."""
@@ -32,6 +38,7 @@ class JobResponse(BaseModel):
     job_id: str = Field(..., description="Unique job identifier")
     status: str = Field(..., description="Initial job status")
     message: Optional[str] = Field(default=None, description="Additional information")
+    output_path: Optional[str] = Field(default=None, description="Path to generated output (sync mode only)")
 
 
 class BatchJobResponse(BaseModel):
@@ -54,6 +61,7 @@ class JobStatus(BaseModel):
     error: Optional[str] = None
     result: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
+    output_path: Optional[str] = Field(default=None, description="Path to generated output file")
 
 
 class JobList(BaseModel):

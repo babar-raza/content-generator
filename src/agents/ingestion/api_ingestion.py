@@ -139,7 +139,7 @@ class APIIngestionAgent(SelfCorrectingAgent, Agent):
 
                     ]
 
-                    self.database_service.add_documents("api", chunks, metadatas)
+                    self.database_service.add_documents(chunks, metadatas, collection_name="api_reference")
 
                     self.state_manager.mark_ingested(api_file, "api", len(chunks))
 

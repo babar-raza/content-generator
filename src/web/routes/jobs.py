@@ -1,8 +1,11 @@
 """Job management API routes."""
 
 import logging
+import json
+import os
 from typing import Optional
 from datetime import datetime, timezone
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 
@@ -53,6 +56,119 @@ def get_executor():
     return _executor
 
 
+def execute_workflow_sync(
+    job_id: str,
+    workflow_id: str,
+    topic: str,
+    output_dir: str,
+    blog_collection: Optional[str] = None,
+    ref_collection: Optional[str] = None
+) -> str:
+    """Execute workflow synchronously for live E2E tests.
+
+    Args:
+        job_id: Job identifier
+        workflow_id: Workflow to execute
+        topic: Topic for content generation
+        output_dir: Output directory path
+        blog_collection: Optional Chroma collection for blog knowledge
+        ref_collection: Optional Chroma collection for API reference
+
+    Returns:
+        str: Path to generated output file
+
+    Raises:
+        RuntimeError: If execution fails
+    """
+    logger.info(f"Executing workflow synchronously: job_id={job_id}, workflow={workflow_id}")
+
+    # Import live executor factory
+    import sys
+    from pathlib import Path
+    project_root = Path(__file__).parent.parent.parent
+    sys.path.insert(0, str(project_root))
+
+    from tools.live_e2e.executor_factory import create_live_executor
+
+    # Create executor with collection configuration
+    executor = create_live_executor(
+        blog_collection=blog_collection,
+        ref_collection=ref_collection
+    )
+
+    # Simplified workflow execution (E2E demonstration)
+    # This mimics what run_live_workflow.py does
+    llm_service = executor.llm_service
+    db_service = executor.database_service
+
+    # Query vector store for context
+    context = ""
+    try:
+        if blog_collection:
+            collection = db_service.get_or_create_collection(blog_collection)
+        else:
+            collection = db_service.get_or_create_collection("blog_knowledge")
+
+        query_results = collection.query(
+            query_texts=[topic],
+            n_results=3
+        )
+
+        context_docs = query_results.get("documents", [[]])[0]
+        if context_docs:
+            context = " ".join(context_docs[:2])[:500]
+            logger.info(f"Retrieved {len(context_docs)} documents from knowledge base")
+    except Exception as e:
+        logger.warning(f"Retrieval failed: {e}")
+
+    # Generate content with LLM
+    prompt = f"""Write a brief technical blog post about: {topic}
+
+Context from knowledge base:
+{context}
+
+Requirements:
+- Include YAML frontmatter with title, date, tags
+- At least 3 headings (## H2 level)
+- Reference the context if relevant
+- 200-400 words
+
+Format as markdown."""
+
+    generated = llm_service.generate(
+        prompt,
+        model=os.getenv("OLLAMA_MODEL", "phi4-mini:latest"),
+        temperature=0.7
+    )
+
+    if not generated or len(generated) < 100:
+        raise RuntimeError(f"Generated content too short: {len(generated)} chars")
+
+    # Save output
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    output_file = output_path / f"{job_id}_generated.md"
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(generated)
+
+    logger.info(f"Content saved to {output_file} ({len(generated)} chars)")
+
+    # Save execution metadata
+    metadata_file = output_path / f"{job_id}_metadata.json"
+    with open(metadata_file, "w") as f:
+        json.dump({
+            "job_id": job_id,
+            "workflow_id": workflow_id,
+            "topic": topic,
+            "output_file": str(output_file),
+            "content_length": len(generated),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }, f, indent=2)
+
+    return str(output_file)
+
+
 @router.post("/jobs", response_model=JobResponse, status_code=201)
 async def create_job(
     job: JobCreate,
@@ -60,18 +176,22 @@ async def create_job(
     executor=Depends(get_executor)
 ):
     """Create a new job.
-    
+
+    Supports two execution modes:
+    1. Async mode (default): Submit job to queue and return immediately
+    2. Sync mode (live E2E): Execute workflow synchronously when output_dir is provided
+
     Args:
         job: Job creation request
-        
+
     Returns:
-        JobResponse with job_id and status
+        JobResponse with job_id, status, and output_path (sync mode only)
     """
     try:
         # Generate job ID
         import uuid
         job_id = str(uuid.uuid4())
-        
+
         # Create job entry
         job_data = {
             "job_id": job_id,
@@ -81,35 +201,81 @@ async def create_job(
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
         }
-        
+
         # Store job
         store[job_id] = job_data
-        
-        # Submit to executor (non-blocking, if available)
-        if executor is not None:
+
+        # Check if synchronous execution is requested (output_dir present)
+        if job.output_dir and job.topic:
+            logger.info(f"Sync execution mode detected for job {job_id}")
+            try:
+                # Mark as running
+                job_data["status"] = "running"
+                job_data["current_stage"] = "execution"
+                job_data["updated_at"] = datetime.now(timezone.utc)
+                store[job_id] = job_data
+
+                # Execute synchronously
+                output_path = execute_workflow_sync(
+                    job_id=job_id,
+                    workflow_id=job.workflow_id,
+                    topic=job.topic,
+                    output_dir=job.output_dir,
+                    blog_collection=job.blog_collection,
+                    ref_collection=job.ref_collection
+                )
+
+                # Mark as completed
+                job_data["status"] = "completed"
+                job_data["completed_at"] = datetime.now(timezone.utc)
+                job_data["updated_at"] = datetime.now(timezone.utc)
+                job_data["output_path"] = output_path
+                job_data["result"] = {"output_path": output_path}
+                store[job_id] = job_data
+
+                return JobResponse(
+                    job_id=job_id,
+                    status="completed",
+                    message="Job completed successfully (sync mode)",
+                    output_path=output_path
+                )
+
+            except Exception as e:
+                logger.error(f"Sync execution failed for job {job_id}: {e}", exc_info=True)
+                job_data["status"] = "failed"
+                job_data["error"] = str(e)
+                job_data["updated_at"] = datetime.now(timezone.utc)
+                job_data["completed_at"] = datetime.now(timezone.utc)
+                store[job_id] = job_data
+                raise HTTPException(status_code=500, detail=f"Job execution failed: {str(e)}")
+
+        # Async mode: Submit to executor (non-blocking)
+        # Note: Sync mode has already returned above
+        if executor is not None and hasattr(executor, 'submit_job'):
             try:
                 # Use executor to start the job
-                if hasattr(executor, 'submit_job'):
-                    executor.submit_job(job_id, job.workflow_id, job.inputs)
-                    job_data["status"] = "queued"
-                    store[job_id] = job_data
+                executor.submit_job(job_id, job.workflow_id, job.inputs)
+                job_data["status"] = "queued"
+                store[job_id] = job_data
             except Exception as e:
                 logger.error(f"Failed to submit job to executor: {e}")
                 job_data["status"] = "failed"
                 job_data["error"] = str(e)
                 store[job_id] = job_data
         else:
-            # No executor in mock mode - job remains in "created" status
+            # No executor in test/mock mode - job remains in "created" status
             logger.info(f"Job {job_id} created in mock mode (no executor)")
             job_data["status"] = "created"
             store[job_id] = job_data
-        
+
         return JobResponse(
             job_id=job_id,
             status=job_data["status"],
             message="Job created successfully"
         )
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error creating job: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create job: {str(e)}")
@@ -292,6 +458,7 @@ async def list_jobs(
                 error=job.get("error"),
                 result=job.get("result"),
                 metadata=job.get("metadata"),
+                output_path=job.get("output_path"),
             ))
         
         return JobList(jobs=job_statuses, total=total)
@@ -307,19 +474,19 @@ async def get_job(
     store=Depends(get_jobs_store)
 ):
     """Get status of a specific job.
-    
+
     Args:
         job_id: Job identifier
-        
+
     Returns:
         JobStatus with complete job information
     """
     try:
         if job_id not in store:
             raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-        
+
         job = store[job_id]
-        
+
         return JobStatus(
             job_id=job["job_id"],
             status=job["status"],
@@ -331,8 +498,9 @@ async def get_job(
             error=job.get("error"),
             result=job.get("result"),
             metadata=job.get("metadata"),
+            output_path=job.get("output_path"),
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:

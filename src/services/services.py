@@ -872,13 +872,30 @@ class DatabaseService:
             )
 
         self.config = config
-        db_path = getattr(config.database, 'chroma_db_path', './chroma_db')
 
-        # Initialize ChromaDB
-        self.client = chromadb.PersistentClient(
-            path=db_path,
-            settings=ChromaSettings(anonymized_telemetry=False)
-        )
+        # Check if we should use HTTP client (for live E2E testing)
+        chroma_host = os.getenv('CHROMA_HOST')
+        chroma_port = os.getenv('CHROMA_PORT')
+
+        if chroma_host and chroma_port:
+            # Use HTTP client for remote Chroma
+            self.client = chromadb.HttpClient(
+                host=chroma_host,
+                port=int(chroma_port),
+                settings=ChromaSettings(
+                    allow_reset=True,
+                    anonymized_telemetry=False
+                )
+            )
+            logger.info(f"✓ Using Chroma HTTP client: {chroma_host}:{chroma_port}")
+        else:
+            # Use persistent client for local database
+            db_path = getattr(config.database, 'chroma_db_path', './chroma_db')
+            self.client = chromadb.PersistentClient(
+                path=db_path,
+                settings=ChromaSettings(anonymized_telemetry=False)
+            )
+            logger.info(f"✓ Using Chroma Persistent client: {db_path}")
 
         # Get collection name from config
         self.collection_name = getattr(config.database, 'collection_name', 'default')
@@ -886,7 +903,7 @@ class DatabaseService:
         # Initialize VectorStore with the same client
         self.vectorstore = VectorStore(config, collection_name=self.collection_name, client=self.client)
 
-        logger.info(f"✓ Database service initialized (path: {db_path}, collection: {self.collection_name})")
+        logger.info(f"✓ Database service initialized (collection: {self.collection_name})")
 
     def get_or_create_collection(
         self,
@@ -903,11 +920,14 @@ class DatabaseService:
             ChromaDB collection object
         """
         collection_name = name or self.collection_name
-        
+
+        # Ensure metadata is not empty (required by newer Chroma versions)
+        collection_metadata = metadata if metadata else {"created_by": "content_generator"}
+
         try:
             collection = self.client.get_or_create_collection(
                 name=collection_name,
-                metadata=metadata or {}
+                metadata=collection_metadata
             )
             logger.info(f"✓ Collection ready: {collection_name}")
             return collection
@@ -937,6 +957,11 @@ class DatabaseService:
             self.vectorstore.switch_collection(collection_name)
 
         collection = self.get_or_create_collection(collection_name)
+
+        # Generate IDs if not provided (required by newer Chroma versions)
+        if ids is None:
+            import uuid
+            ids = [str(uuid.uuid4()) for _ in range(len(documents))]
 
         try:
             # If embeddings provided, use them directly
