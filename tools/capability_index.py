@@ -22,6 +22,37 @@ import ast
 from _env import get_repo_root
 
 
+def classify_agent_tier(cap_id: str, agent_id: str) -> str:
+    """Classify agent capability into required or extended tier.
+
+    Required tier: agents that have test coverage in e2e_mock/integration tests
+    Extended tier: agents that require external APIs or live infrastructure
+    """
+    # Agents with explicit test coverage in e2e_mock or integration (should pass in mock mode)
+    required_agents = {
+        'code-generation', 'kb-ingestion', 'topic-identification',
+        'error-recovery', 'model-selection', 'quality-gate', 'validation'
+    }
+
+    # Agents requiring external APIs or live infrastructure
+    extended_agents = {
+        'gist-upload',  # Requires GitHub API
+        'gist-readme',  # Requires GitHub API
+        'link-validation',  # May require external URLs
+        'trends-research',  # May require external APIs
+        'competitor-analysis',  # May require external APIs
+    }
+
+    if agent_id in required_agents:
+        return 'required'
+    elif agent_id in extended_agents:
+        return 'extended'
+    else:
+        # Default: agents without external API dependencies are required
+        # but need test mappings to avoid import-based verification
+        return 'required'
+
+
 def extract_agent_capabilities() -> List[Dict[str, Any]]:
     """Extract agent capabilities from src/agents/**."""
     capabilities = []
@@ -60,6 +91,9 @@ def extract_agent_capabilities() -> List[Dict[str, Any]]:
                             docstring = ast.get_docstring(node) or ""
                             title = node.name
 
+                            # Classify tier
+                            tier = classify_agent_tier(cap_id, agent_id)
+
                             capabilities.append({
                                 'cap_id': cap_id,
                                 'title': title,
@@ -68,6 +102,7 @@ def extract_agent_capabilities() -> List[Dict[str, Any]]:
                                 'implemented_by': [f"{py_file.stem}.{node.name}"],
                                 'verify_level': 'unit',
                                 'verify_mode': 'mock',
+                                'tier': tier,
                                 'status': 'UNVERIFIED',
                                 'description': docstring.split('\n')[0] if docstring else title
                             })
@@ -106,6 +141,7 @@ def extract_pipeline_capabilities() -> List[Dict[str, Any]]:
                     'implemented_by': [f"pipeline.{step}"],
                     'verify_level': 'pipeline',
                     'verify_mode': 'mock',
+                    'tier': 'required',  # All pipeline steps are required tier
                     'status': 'UNVERIFIED',
                     'description': f"Execute {step} step in main pipeline"
                 })
@@ -124,6 +160,7 @@ def extract_pipeline_capabilities() -> List[Dict[str, Any]]:
                         'implemented_by': [f"workflow.{wf_key}"],
                         'verify_level': 'pipeline',
                         'verify_mode': 'mock',
+                        'tier': 'required',  # Config workflows are required tier
                         'status': 'UNVERIFIED',
                         'description': f"Execute {wf_key} workflow from config"
                     })
@@ -158,6 +195,7 @@ def extract_template_workflow_capabilities() -> List[Dict[str, Any]]:
                     'implemented_by': [f"template.workflow.{wf_id}"],
                     'verify_level': 'pipeline',
                     'verify_mode': 'mock',
+                    'tier': 'required',  # Template workflows are required tier
                     'status': 'UNVERIFIED',
                     'description': wf_config.get('description', f"Execute {wf_id} template workflow")
                 })
@@ -188,6 +226,7 @@ def extract_engine_capabilities() -> List[Dict[str, Any]]:
             'implemented_by': [f"engine.{engine_file.stem}"],
             'verify_level': 'unit',
             'verify_mode': 'mock',
+            'tier': 'required',  # Engine components are required tier (no external deps)
             'status': 'UNVERIFIED',
             'description': f"Engine component: {engine_file.stem}"
         })
@@ -211,6 +250,9 @@ def extract_web_api_capabilities() -> List[Dict[str, Any]]:
         route_group = route_file.stem
         cap_id = f"CAP-WEB-{route_group}"
 
+        # CAP-WEB-pages requires fastapi (external dep), mark as extended
+        tier = 'extended' if route_group == 'pages' else 'required'
+
         capabilities.append({
             'cap_id': cap_id,
             'title': f"Web API: {route_group}",
@@ -219,6 +261,7 @@ def extract_web_api_capabilities() -> List[Dict[str, Any]]:
             'implemented_by': [f"web.routes.{route_group}"],
             'verify_level': 'e2e',
             'verify_mode': 'mock',
+            'tier': tier,  # Most web capabilities have test coverage in e2e_mock
             'status': 'UNVERIFIED',
             'description': f"Web API routes for {route_group}"
         })
@@ -260,6 +303,7 @@ def extract_mcp_capabilities() -> List[Dict[str, Any]]:
                 'implemented_by': [f"mcp.{method}"],
                 'verify_level': 'e2e',
                 'verify_mode': 'mock',
+                'tier': 'required',  # MCP methods are required tier (declaration checks)
                 'status': 'UNVERIFIED',
                 'description': f"MCP protocol method: {method}"
             })

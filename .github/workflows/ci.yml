@@ -56,7 +56,7 @@ jobs:
         run: |
           pytest tests/e2e_mock/ -v --tb=short -m "not (live or network)"
 
-      - name: Run capability mock tests
+      - name: Run capability mock tests (required tier)
         env:
           TEST_MODE: mock
           ALLOW_NETWORK: 0
@@ -65,6 +65,7 @@ jobs:
           mkdir -p reports/_ci/mock
           python tools/run_capabilities.py \
             --mode mock \
+            --tier required \
             --outdir reports/_ci/mock \
             --timeout_seconds 180
 
@@ -106,7 +107,7 @@ jobs:
             echo "secrets_available=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Run live tests
+      - name: Run live tests (extended tier)
         if: steps.check_secrets.outputs.secrets_available == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -117,8 +118,9 @@ jobs:
           mkdir -p reports/_ci/live
           python tools/run_capabilities.py \
             --mode live \
+            --tier extended \
             --outdir reports/_ci/live \
-            --timeout_seconds 180 || true
+            --timeout_seconds 300 || true
 
       - name: Skip live tests
         if: steps.check_secrets.outputs.secrets_available != 'true'

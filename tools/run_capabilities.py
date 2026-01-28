@@ -389,6 +389,7 @@ def main():
     parser.add_argument('--outdir', type=str, required=True, help='Output directory for results and logs')
     parser.add_argument('--timeout_seconds', type=int, default=180, help='Timeout for each test in seconds (default: 180)')
     parser.add_argument('--mode', type=str, choices=['mock', 'live'], default='mock', help='Test mode: mock or live (default: mock)')
+    parser.add_argument('--tier', type=str, choices=['required', 'extended', 'all'], default='all', help='Capability tier to run: required, extended, or all (default: all)')
     parser.add_argument('--capabilities', type=str, help='Path to capabilities.json (optional)')
     parser.add_argument('--mapping', type=str, help='Path to test_mapping.json (optional)')
     args = parser.parse_args()
@@ -396,9 +397,11 @@ def main():
     outdir = Path(args.outdir)
     timeout_seconds = args.timeout_seconds
     test_mode = args.mode
+    tier_filter = args.tier
 
     print("=== Capability Verification ===")
     print(f"Mode: {test_mode}")
+    print(f"Tier: {tier_filter}")
     print(f"Output Directory: {outdir}")
     print(f"Timeout: {timeout_seconds}s")
     print()
@@ -450,6 +453,7 @@ def main():
         output_data = {
             'generated_at': datetime.now().isoformat(),
             'test_mode': test_mode,
+            'tier_filter': 'all',
             'timeout_seconds': timeout_seconds,
             'total_capabilities': 0,
             'stats': {'PASS': 0, 'FAIL': 0, 'TIMEOUT': 0, 'BLOCKED': 0, 'UNVERIFIED': 0, 'SKIP': 0},
@@ -468,7 +472,14 @@ def main():
     with open(capabilities_file, 'r', encoding='utf-8') as f:
         capabilities_data = json.load(f)
 
-    capabilities = capabilities_data['capabilities']
+    all_capabilities = capabilities_data['capabilities']
+
+    # Filter capabilities by tier
+    if tier_filter != 'all':
+        capabilities = [cap for cap in all_capabilities if cap.get('tier', 'required') == tier_filter]
+        print(f"Filtered {len(all_capabilities)} capabilities to {len(capabilities)} with tier={tier_filter}")
+    else:
+        capabilities = all_capabilities
 
     # Load mapping (or use empty mapping if not found)
     if mapping_file and mapping_file.exists():
@@ -509,6 +520,7 @@ def main():
     output_data = {
         'generated_at': datetime.now().isoformat(),
         'test_mode': test_mode,
+        'tier_filter': tier_filter,
         'timeout_seconds': timeout_seconds,
         'total_capabilities': total,
         'stats': stats,
@@ -522,10 +534,11 @@ def main():
 
     # Generate markdown report
     md_lines = []
-    md_lines.append(f"# Capability Verification Results ({test_mode.upper()} mode)")
+    md_lines.append(f"# Capability Verification Results ({test_mode.upper()} mode, {tier_filter} tier)")
     md_lines.append("")
     md_lines.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     md_lines.append(f"**Test Mode:** {test_mode}")
+    md_lines.append(f"**Tier Filter:** {tier_filter}")
     md_lines.append(f"**Timeout:** {timeout_seconds}s")
     md_lines.append(f"**Total Capabilities:** {total}")
     md_lines.append("")
