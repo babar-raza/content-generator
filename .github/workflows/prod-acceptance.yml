@@ -1,0 +1,138 @@
+name: Production Acceptance Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Ollama model to use'
+        required: false
+        type: string
+        default: 'phi4-mini:latest'
+      chroma_port:
+        description: 'ChromaDB port (HTTP mode)'
+        required: false
+        type: string
+        default: '9100'
+      skip_ingestion:
+        description: 'Skip ingestion phase (use existing collections)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  prod-try-v2:
+    name: Production Try V2 (9/9 Matrix)
+    runs-on: self-hosted
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate timestamp
+        id: timestamp
+        run: |
+          # Asia/Karachi = UTC+5
+          TS=$(TZ='Asia/Karachi' date +%Y%m%d-%H%M)
+          echo "ts=$TS" >> $GITHUB_OUTPUT
+          echo "Timestamp: $TS"
+
+      - name: Preflight - Ollama
+        run: |
+          echo "Checking Ollama..."
+          curl -sf http://localhost:11434/api/tags || { echo "ERROR: Ollama not running"; exit 1; }
+
+          echo "Checking model: ${{ inputs.model }}"
+          MODELS=$(curl -s http://localhost:11434/api/tags | python -c "import sys, json; data=json.load(sys.stdin); print([m['name'] for m in data.get('models', [])])")
+          if [[ ! "$MODELS" =~ "${{ inputs.model }}" ]]; then
+            echo "ERROR: Model ${{ inputs.model }} not found"
+            echo "Available: $MODELS"
+            exit 1
+          fi
+          echo "Ollama OK"
+
+      - name: Preflight - ChromaDB
+        env:
+          CHROMA_HOST: localhost
+          CHROMA_PORT: ${{ inputs.chroma_port }}
+        run: |
+          echo "Checking ChromaDB at http://${CHROMA_HOST}:${CHROMA_PORT}..."
+          if curl -sf "http://${CHROMA_HOST}:${CHROMA_PORT}/api/v1/heartbeat" > /dev/null 2>&1; then
+            echo "ChromaDB HTTP OK"
+          else
+            echo "ChromaDB not in HTTP mode, using persistent client"
+          fi
+
+      - name: Run Production Try V2 Matrix
+        env:
+          TEST_MODE: live
+          LLM_PROVIDER: OLLAMA
+          ALLOW_NETWORK: 1
+          OLLAMA_BASE_URL: http://localhost:11434
+          OLLAMA_MODEL: ${{ inputs.model }}
+          CHROMA_HOST: localhost
+          CHROMA_PORT: ${{ inputs.chroma_port }}
+          PROD_TRY_TIMESTAMP: ${{ steps.timestamp.outputs.ts }}
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            pwsh -ExecutionPolicy Bypass -File scripts/run_prod_try_v2.ps1
+          else
+            bash scripts/run_prod_try_v2.sh
+          fi
+
+      - name: Validate 9/9 PASS
+        run: |
+          RESULTS_JSON="reports/prod_try_v2/${{ steps.timestamp.outputs.ts }}/matrix_results.json"
+          if [ -f "$RESULTS_JSON" ]; then
+            PASS_COUNT=$(python -c "import json; d=json.load(open('$RESULTS_JSON')); print(d.get('pass_count', 0))")
+            TOTAL=$(python -c "import json; d=json.load(open('$RESULTS_JSON')); print(d.get('total_runs', 0))")
+            echo "Matrix: $PASS_COUNT/$TOTAL"
+            if [ "$PASS_COUNT" -ne 9 ] || [ "$TOTAL" -ne 9 ]; then
+              echo "::error::STOP-THE-LINE: Matrix is $PASS_COUNT/$TOTAL (expected 9/9)"
+              exit 1
+            fi
+            echo "::notice::Production Try V2: 9/9 PASS"
+          else
+            echo "::error::Results file not found"
+            exit 1
+          fi
+
+      - name: Upload Evidence Tarball
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-try-v2-evidence-${{ steps.timestamp.outputs.ts }}
+          path: |
+            reports/prod_try_v2/${{ steps.timestamp.outputs.ts }}/
+          retention-days: 90
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Production Acceptance Gate Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp:** ${{ steps.timestamp.outputs.ts }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Model:** ${{ inputs.model }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **ChromaDB Port:** ${{ inputs.chroma_port }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          RESULTS_JSON="reports/prod_try_v2/${{ steps.timestamp.outputs.ts }}/matrix_results.json"
+          if [ -f "$RESULTS_JSON" ]; then
+            PASS=$(python -c "import json; d=json.load(open('$RESULTS_JSON')); print(d.get('pass_count', 0))")
+            TOTAL=$(python -c "import json; d=json.load(open('$RESULTS_JSON')); print(d.get('total_runs', 0))")
+            echo "### Matrix Results: $PASS/$TOTAL" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Add results table
+            cat reports/prod_try_v2/${{ steps.timestamp.outputs.ts }}/matrix_results.md >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+          fi
