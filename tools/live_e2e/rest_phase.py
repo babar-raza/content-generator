@@ -9,10 +9,10 @@ import logging
 from pathlib import Path
 
 os.environ["TEST_MODE"] = "live"
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from fastapi.testclient import TestClient
-from tools.live_executor_factory import create_live_executor
+from tools.live_e2e.executor_factory import create_live_executor
 from src.web.app import create_app
 
 logging.basicConfig(level=logging.INFO)

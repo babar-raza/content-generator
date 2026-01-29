@@ -23,7 +23,7 @@ os.environ["LLM_PROVIDER"] = "OLLAMA"
 os.environ["ALLOW_NETWORK"] = "1"
 os.environ["OLLAMA_BASE_URL"] = "http://localhost:11434"
 
-from tools.live_executor_factory import create_live_executor
+from tools.live_e2e.executor_factory import create_live_executor
 
 logging.basicConfig(
     level=logging.INFO,

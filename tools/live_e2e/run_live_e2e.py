@@ -26,6 +26,17 @@ logger = logging.getLogger(__name__)
 
 MIN_OUTPUT_SIZE = 1536  # 1.5KB minimum (realistic for technical blog posts)
 
+def get_chroma_client():
+    """Get ChromaDB client based on environment variables."""
+    import chromadb
+    chroma_host = os.getenv('CHROMA_HOST')
+    chroma_port = os.getenv('CHROMA_PORT')
+
+    if chroma_host and chroma_port:
+        return chromadb.HttpClient(host=chroma_host, port=int(chroma_port))
+    else:
+        return chromadb.PersistentClient(path="./chroma_db")
+
 def get_timestamp_karachi():
     """Get timestamp in Asia/Karachi timezone (UTC+5)."""
     utc_now = datetime.utcnow()
@@ -87,14 +98,14 @@ def run_phase_0(report_dir):
         logger.error(f"BLOCKER: Ollama check failed: {e}")
         return results
 
-    # Check ChromaDB (persistent mode)
+    # Check ChromaDB
     try:
-        import chromadb
-        client = chromadb.PersistentClient(path="./chroma_db")
+        client = get_chroma_client()
         collections = client.list_collections()
+        mode = "HTTP" if os.getenv('CHROMA_HOST') else "persistent"
         results["checks"]["chroma"] = {
             "ok": True,
-            "message": f"ChromaDB persistent mode OK ({len(collections)} existing collections)"
+            "message": f"ChromaDB {mode} mode OK ({len(collections)} existing collections)"
         }
     except Exception as e:
         results["checks"]["chroma"] = {"ok": False, "message": str(e)}
@@ -114,8 +125,7 @@ def run_phase_1(report_dir, ts, blog_collection, ref_collection):
     results = {"status": "UNKNOWN"}
 
     # Verify counts before (must be 0)
-    import chromadb
-    client = chromadb.PersistentClient(path='./chroma_db')
+    client = get_chroma_client()
     collections = {c.name: c.count() for c in client.list_collections()}
     blog_count_before = collections.get(blog_collection, 0)
     ref_count_before = collections.get(ref_collection, 0)
@@ -263,7 +273,7 @@ def run_phase_3(report_dir, ts, blog_collection, ref_collection):
     results_file = report_dir / "rest_api_results.json"
 
     cmd = [
-        sys.executable, "tools/test_rest_api_phase.py",
+        sys.executable, "tools/live_e2e/rest_phase.py",
         "--ts", ts,
         "--blog-collection", blog_collection,
         "--ref-collection", ref_collection,
@@ -309,7 +319,7 @@ def run_phase_4(report_dir, ts, blog_collection, ref_collection):
     results_file = report_dir / "mcp_results.json"
 
     cmd = [
-        sys.executable, "tools/test_mcp_phase.py",
+        sys.executable, "tools/live_e2e/mcp_phase.py",
         "--ts", ts,
         "--blog-collection", blog_collection,
         "--ref-collection", ref_collection,
