@@ -11,6 +11,8 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
 
+from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter
+
 logger = logging.getLogger(__name__)
 
 
@@ -716,20 +718,38 @@ class UnifiedEngine:
             if result.error:
                 errors_section = self._generate_errors_section(result)
                 content = f"{content}\n\n{errors_section}"
-            
+
+            # Normalize frontmatter - critical for prod acceptance
+            content = normalize_frontmatter(content, fallback_metadata={
+                'title': title,
+                'tags': ['auto-generated'],
+                'date': 'auto'
+            })
+
+            # Strict validation - log warning if still invalid
+            if not has_valid_frontmatter(content):
+                logger.warning("Content does not have valid YAML frontmatter after normalization")
+
             # Write artifact
             with open(output_path, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(content)
-            
+
             result.artifact_content = content
             
         except Exception as e:
             # Even template rendering failed - write minimal artifact
             minimal_content = self._generate_minimal_artifact(result, str(e))
 
+            # Normalize frontmatter even for minimal artifacts
+            minimal_content = normalize_frontmatter(minimal_content, fallback_metadata={
+                'title': f"Job {result.job_id} - Failed",
+                'tags': ['failed', 'auto-generated'],
+                'date': 'auto'
+            })
+
             with open(output_path, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(minimal_content)
-            
+
             result.artifact_content = minimal_content
     
     def _write_manifest(self, result: JobResult) -> None:

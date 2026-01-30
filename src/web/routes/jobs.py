@@ -19,6 +19,7 @@ from ..models import (
     JobList,
     JobControl,
 )
+from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,18 @@ Format as markdown."""
 
     if not generated or len(generated) < 100:
         raise RuntimeError(f"Generated content too short: {len(generated)} chars")
+
+    # Normalize frontmatter - critical for prod acceptance
+    generated = normalize_frontmatter(generated, fallback_metadata={
+        'title': topic,
+        'tags': ['auto-generated'],
+        'date': 'auto'
+    })
+
+    # Strict validation - fail if still invalid
+    if not has_valid_frontmatter(generated):
+        logger.error("Frontmatter normalization failed, content does not have valid frontmatter")
+        raise RuntimeError("Generated content lacks valid YAML frontmatter after normalization")
 
     # Save output
     output_path = Path(output_dir)
