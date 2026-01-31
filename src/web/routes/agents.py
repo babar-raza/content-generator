@@ -110,14 +110,10 @@ async def list_agents():
         AgentList with agent information
     """
     try:
-        # Check if executor is initialized
-        if _executor is None:
-            raise HTTPException(status_code=503, detail="Executor not initialized")
-
         agents_data = []
 
-        # Try to get agents from executor if it supports the method
-        if hasattr(_executor, 'get_agents'):
+        # Try to get agents from executor if it's initialized and supports the method
+        if _executor is not None and hasattr(_executor, 'get_agents'):
             agents = _executor.get_agents()
 
             for agent in agents:
@@ -130,7 +126,27 @@ async def list_agents():
                     capabilities=agent.get("capabilities", []),
                     metadata=agent.get("metadata"),
                 ))
-        # If executor doesn't have get_agents method, return empty list (not filesystem scan)
+        else:
+            # Fallback: discover agents from filesystem
+            import os
+            from pathlib import Path
+
+            agents_dir = Path("src/agents")
+            if agents_dir.exists():
+                for agent_file in agents_dir.glob("*agent*.py"):
+                    if agent_file.name.startswith("__"):
+                        continue
+
+                    agent_id = agent_file.stem
+                    agents_data.append(AgentInfo(
+                        agent_id=agent_id,
+                        name=agent_id.replace("_", " ").title(),
+                        type="filesystem",
+                        description=f"Agent discovered from {agent_file.name}",
+                        status="available",
+                        capabilities=["discovered"],
+                        metadata={"source": "filesystem", "path": str(agent_file)},
+                    ))
 
         return AgentList(agents=agents_data, total=len(agents_data))
 

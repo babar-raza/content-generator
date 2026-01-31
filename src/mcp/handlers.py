@@ -211,7 +211,7 @@ async def handle_workflow_execute(params: Dict[str, Any]) -> Dict[str, Any]:
             "job_id": result.job_id,
             "workflow_id": workflow_id,
             "status": result.status,
-            "started_at": result.started_at,
+            "started_at": result.start_time.isoformat() if result.start_time else None,
             "uri": create_resource_uri(ResourceType.JOB, result.job_id)
         }
 
