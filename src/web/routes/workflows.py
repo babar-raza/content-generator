@@ -134,7 +134,22 @@ async def list_workflows():
                     agents=normalize_agents(workflow.get("agents", [])),
                     metadata=workflow.get("metadata"),
                 ))
-        # If executor exists but doesn't have get_workflows method, return empty list
+        else:
+            # If executor doesn't have get_workflows, fall back to YAML
+            workflows_yaml = _load_workflows_from_yaml()
+            if workflows_yaml:
+                for wf_id, wf_data in workflows_yaml.items():
+                    agents = []
+                    if "steps" in wf_data:
+                        agents = [step.get("agent") for step in wf_data["steps"] if "agent" in step]
+
+                    workflows_data.append(WorkflowInfo(
+                        workflow_id=wf_id,
+                        name=wf_data.get("name", wf_id),
+                        description=wf_data.get("description"),
+                        agents=agents,
+                        metadata=wf_data.get("metadata"),
+                    ))
 
         return WorkflowList(workflows=workflows_data, total=len(workflows_data))
 
