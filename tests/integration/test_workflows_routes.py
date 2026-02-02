@@ -128,17 +128,26 @@ class TestWorkflowListing:
         """Test listing workflows when executor doesn't support get_workflows.
 
         After commit 93ab3e2, the API falls back to YAML discovery when executor
-        doesn't have get_workflows method, so workflows are still returned.
+        doesn't have get_workflows method. If YAML file exists, workflows are returned.
         """
         delattr(mock_executor, 'get_workflows')
 
-        response = client.get("/api/workflows")
+        # Mock YAML loading to return predictable test data
+        mock_workflows_yaml = {
+            "workflow1": {"name": "Workflow 1", "description": "Test 1", "steps": []},
+            "workflow2": {"name": "Workflow 2", "description": "Test 2", "steps": []},
+            "workflow3": {"name": "Workflow 3", "description": "Test 3", "steps": []},
+            "workflow4": {"name": "Workflow 4", "description": "Test 4", "steps": []},
+        }
 
-        assert response.status_code == 200
-        data = response.json()
-        # Should return workflows from YAML fallback (4 workflows in test fixtures)
-        assert data["total"] == 4
-        assert len(data["workflows"]) == 4
+        with patch('src.web.routes.workflows._load_workflows_from_yaml', return_value=mock_workflows_yaml):
+            response = client.get("/api/workflows")
+
+            assert response.status_code == 200
+            data = response.json()
+            # Should return workflows from YAML fallback (4 workflows from mock)
+            assert data["total"] == 4
+            assert len(data["workflows"]) == 4
 
     def test_list_workflows_error(self, client, mock_executor):
         """Test error handling when listing workflows fails."""
