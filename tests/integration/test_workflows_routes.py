@@ -125,15 +125,20 @@ class TestWorkflowListing:
         assert data["workflows"][1]["workflow_id"] == "workflow-2"
 
     def test_list_workflows_executor_no_method(self, client, mock_executor):
-        """Test listing workflows when executor doesn't support get_workflows."""
+        """Test listing workflows when executor doesn't support get_workflows.
+
+        After commit 93ab3e2, the API falls back to YAML discovery when executor
+        doesn't have get_workflows method, so workflows are still returned.
+        """
         delattr(mock_executor, 'get_workflows')
 
         response = client.get("/api/workflows")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["total"] == 0
-        assert data["workflows"] == []
+        # Should return workflows from YAML fallback (4 workflows in test fixtures)
+        assert data["total"] == 4
+        assert len(data["workflows"]) == 4
 
     def test_list_workflows_error(self, client, mock_executor):
         """Test error handling when listing workflows fails."""
