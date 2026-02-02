@@ -146,13 +146,17 @@ class TestWorkflowListing:
 
     @patch.dict('os.environ', {'TEST_MODE': 'live'})
     def test_list_workflows_no_executor(self, client):
-        """Test listing workflows when executor not initialized."""
+        """Test listing workflows when executor not initialized - should fall back to YAML."""
         workflows.set_executor(None)
 
         response = client.get("/api/workflows")
 
-        assert response.status_code == 503
-        assert "Executor not initialized" in response.json()["detail"]
+        # Should return 200 with workflows from YAML fallback
+        assert response.status_code == 200
+        data = response.json()
+        assert "workflows" in data
+        # May be empty if YAML not found, but should not error
+        assert isinstance(data["workflows"], list)
 
 
 class TestWorkflowRetrieval:
@@ -555,13 +559,17 @@ class TestDependencyInjection:
 
     @patch.dict('os.environ', {'TEST_MODE': 'live'})
     def test_get_executor_not_initialized(self, client):
-        """Test accessing routes when executor not initialized."""
+        """Test accessing routes when executor not initialized - should fall back to YAML."""
         workflows.set_executor(None)
 
         response = client.get("/api/workflows")
 
-        assert response.status_code == 503
-        assert "Executor not initialized" in response.json()["detail"]
+        # Should return 200 with workflows from YAML fallback
+        assert response.status_code == 200
+        data = response.json()
+        assert "workflows" in data
+        # May be empty if YAML not found, but should not error
+        assert isinstance(data["workflows"], list)
 
     def test_set_executor(self):
         """Test setting executor via set_executor."""

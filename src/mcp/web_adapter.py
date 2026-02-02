@@ -136,7 +136,8 @@ async def mcp_request(request: Request):
     else:
         # Handle single request
         mcp_req = MCPRequest(**body)
-        return await _handle_mcp_request(mcp_req)
+        mcp_resp = await _handle_mcp_request(mcp_req)
+        return mcp_resp.model_dump(exclude_none=True)
 
 
 @router.post("/")
@@ -174,7 +175,8 @@ async def mcp_request_legacy(request: Request):
     else:
         # Handle single request
         mcp_req = MCPRequest(**body)
-        return await _handle_mcp_request(mcp_req)
+        mcp_resp = await _handle_mcp_request(mcp_req)
+        return mcp_resp.model_dump(exclude_none=True)
 
 
 async def _handle_mcp_request(request: MCPRequest):

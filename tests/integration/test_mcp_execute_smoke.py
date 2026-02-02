@@ -60,7 +60,7 @@ def test_mcp_workflow_execute_smoke():
     assert "status" in result, "Result should contain status"
     assert "uri" in result, "Result should contain uri"
 
-    print(f"✓ MCP workflow.execute returned job_id={result['job_id']}, status={result['status']}, uri={result['uri']}")
+    print(f"[OK] MCP workflow.execute returned job_id={result['job_id']}, status={result['status']}, uri={result['uri']}")
 
 
 def test_mcp_batch_workflow_execute():
@@ -112,4 +112,4 @@ def test_mcp_batch_workflow_execute():
     assert isinstance(data, list), "Batch response should be a list"
     assert len(data) == 2, f"Expected 2 responses, got {len(data)}"
 
-    print(f"✓ Batch MCP request returned {len(data)} responses")
+    print(f"[OK] Batch MCP request returned {len(data)} responses")
