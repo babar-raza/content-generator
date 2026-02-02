@@ -246,3 +246,137 @@ def extract_frontmatter(text: str) -> Optional[Dict[str, Any]]:
     except yaml.YAMLError as e:
         logger.warning(f"Failed to parse frontmatter YAML: {e}")
         return None
+
+
+def enforce_frontmatter(content: str, fallback_metadata: Optional[Dict[str, Any]] = None) -> str:
+    """Enforce valid YAML frontmatter with strict validation and repair.
+
+    This function implements a "normalize → validate → repair → validate" pipeline
+    to ensure the output ALWAYS has valid, parseable YAML frontmatter.
+
+    Pipeline:
+    1. Strip any leading code fences (```markdown, etc.)
+    2. Run normalize_frontmatter
+    3. Validate YAML is parseable with yaml.safe_load
+    4. If invalid, attempt aggressive repair
+    5. Assert final result has valid frontmatter
+
+    Args:
+        content: Raw content that may have malformed frontmatter
+        fallback_metadata: Optional metadata to use if repair is needed
+
+    Returns:
+        Content with guaranteed valid YAML frontmatter
+
+    Raises:
+        ValueError: If frontmatter cannot be made valid despite all repair attempts
+    """
+    import yaml
+    from datetime import datetime
+
+    if not content or not content.strip():
+        if fallback_metadata:
+            return _create_frontmatter(fallback_metadata) + "\n"
+        # Create minimal valid frontmatter
+        minimal = {
+            'title': 'Untitled',
+            'date': datetime.now().strftime('%Y-%m-%d'),
+            'tags': [],
+            'draft': False
+        }
+        return _create_frontmatter(minimal) + "\n"
+
+    # Step 1: Strip any leading markdown code fences
+    content = content.lstrip()
+    if content.startswith('```markdown') or content.startswith('```md'):
+        # Find the closing fence
+        fence_end = content.find('```', 3)
+        if fence_end > 0:
+            content = content[fence_end + 3:].lstrip()
+            logger.info("Stripped leading markdown code fence")
+
+    # Step 2: Normalize frontmatter structure
+    normalized = normalize_frontmatter(content, fallback_metadata)
+
+    # Step 3: Validate YAML is parseable
+    if has_valid_frontmatter(normalized):
+        # Extract and try to parse the YAML
+        text = normalized.lstrip()
+        second_marker = text.find('---', 3)
+        if second_marker > 0:
+            yaml_content = text[3:second_marker].strip()
+            try:
+                # Test parse the YAML
+                parsed = yaml.safe_load(yaml_content)
+                if parsed is not None and isinstance(parsed, dict):
+                    # Valid YAML, return normalized content
+                    return normalized
+                else:
+                    logger.warning(f"YAML parsed but not a dict: {type(parsed)}")
+            except yaml.YAMLError as e:
+                logger.warning(f"YAML parsing failed after normalization: {e}")
+                # Continue to repair step
+
+    # Step 4: Aggressive repair
+    logger.info("Attempting aggressive frontmatter repair")
+
+    # Extract the body content (everything after first potential frontmatter block)
+    body = ""
+    text = normalized.lstrip()
+
+    if text.startswith('---'):
+        # Try to find the end of frontmatter block
+        lines = text.split('\n')
+        body_start = 1
+        for i in range(1, len(lines)):
+            if lines[i].strip() == '---':
+                body_start = i + 1
+                break
+        if body_start < len(lines):
+            body = '\n'.join(lines[body_start:]).strip()
+    else:
+        # No frontmatter at all, use full content as body
+        body = text
+
+    # Try to extract title from body
+    title = "Untitled"
+    if fallback_metadata and 'title' in fallback_metadata:
+        title = fallback_metadata['title']
+    else:
+        # Try to extract from first heading
+        heading_match = re.match(r'^#\s+(.+?)(?:\n|$)', body, re.MULTILINE)
+        if heading_match:
+            title = heading_match.group(1).strip()
+            # Remove emojis and special chars for YAML safety
+            title = re.sub(r'[^\w\s\-:,\.]', '', title).strip()
+            if not title:
+                title = "Untitled"
+
+    # Create minimal safe frontmatter
+    safe_metadata = {
+        'title': title,
+        'date': datetime.now().strftime('%Y-%m-%d'),
+        'tags': fallback_metadata.get('tags', []) if fallback_metadata else [],
+        'draft': False
+    }
+
+    # Rebuild content with safe frontmatter
+    repaired = _create_frontmatter(safe_metadata) + "\n\n" + body
+
+    # Step 5: Final validation
+    if not has_valid_frontmatter(repaired):
+        raise ValueError("Failed to create valid frontmatter despite repair attempts")
+
+    # Verify YAML is parseable
+    text = repaired.lstrip()
+    second_marker = text.find('---', 3)
+    yaml_content = text[3:second_marker].strip()
+    try:
+        parsed = yaml.safe_load(yaml_content)
+        if parsed is None or not isinstance(parsed, dict):
+            raise ValueError(f"YAML parsed but invalid type: {type(parsed)}")
+    except yaml.YAMLError as e:
+        raise ValueError(f"Final YAML validation failed: {e}")
+
+    logger.info("Frontmatter repair successful")
+    return repaired

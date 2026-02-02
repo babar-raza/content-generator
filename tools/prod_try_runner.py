@@ -35,7 +35,7 @@ os.environ["OLLAMA_MODEL"] = os.getenv("OLLAMA_MODEL", "phi4-mini:latest")
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter
+from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter, enforce_frontmatter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -213,13 +213,13 @@ def run_engine_scenario(
         output_file = output_dir / "generated_content.md"
         retrieval_file = run_dir / "retrieval_used.json"
 
-        # Normalize frontmatter if needed
+        # Enforce valid frontmatter if needed
         if output_file.exists():
             content = output_file.read_text(encoding='utf-8')
-            normalized = normalize_frontmatter(content)
-            if normalized != content:
-                output_file.write_text(normalized, encoding='utf-8')
-                logger.info(f"  Normalized frontmatter for {topic_slug}")
+            enforced = enforce_frontmatter(content)
+            if enforced != content:
+                output_file.write_text(enforced, encoding='utf-8')
+                logger.info(f"  Enforced valid frontmatter for {topic_slug}")
 
         # Validate output
         passed, validation = validate_output(output_file, retrieval_file)
