@@ -227,19 +227,23 @@ async def get_workflow(workflow_id: str):
 
 # Mesh orchestration endpoints
 @router.get("/mesh/agents")
-async def get_mesh_agents(executor=Depends(get_executor)):
+async def get_mesh_agents():
     """List available agents in mesh."""
     try:
-        if not hasattr(executor, 'mesh_executor') or executor.mesh_executor is None:
-            raise HTTPException(status_code=501, detail="Mesh orchestration not enabled")
-        
-        agents = executor.mesh_executor.list_agents()
-        return {"agents": agents, "total": len(agents)}
-    except HTTPException:
-        raise
+        # Check executor directly without Depends to allow graceful degradation
+        if _executor is None:
+            return {"available": False, "reason": "executor not initialized", "agents": [], "total": 0}
+
+        if not hasattr(_executor, 'mesh_executor') or _executor.mesh_executor is None:
+            # Graceful degradation - return 200 with indication mesh not available
+            return {"available": False, "reason": "mesh not configured", "agents": [], "total": 0}
+
+        agents = _executor.mesh_executor.list_agents()
+        return {"available": True, "agents": agents, "total": len(agents)}
     except Exception as e:
         logger.error(f"Error listing mesh agents: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to list mesh agents: {str(e)}")
+        # Graceful degradation - don't hard-fail with 500
+        return {"available": False, "reason": f"error: {str(e)}", "agents": [], "total": 0}
 
 
 @router.post("/mesh/execute")
@@ -296,19 +300,23 @@ async def get_mesh_trace(job_id: str, executor=Depends(get_executor)):
 
 
 @router.get("/mesh/stats")
-async def get_mesh_stats(executor=Depends(get_executor)):
+async def get_mesh_stats():
     """Get mesh orchestration statistics."""
     try:
-        if not hasattr(executor, 'mesh_executor') or executor.mesh_executor is None:
-            raise HTTPException(status_code=501, detail="Mesh orchestration not enabled")
-        
-        stats = executor.mesh_executor.get_stats()
-        return stats
-    except HTTPException:
-        raise
+        # Check executor directly without Depends to allow graceful degradation
+        if _executor is None:
+            return {"available": False, "reason": "executor not initialized", "stats": {}}
+
+        if not hasattr(_executor, 'mesh_executor') or _executor.mesh_executor is None:
+            # Graceful degradation - return 200 with indication mesh not available
+            return {"available": False, "reason": "mesh not configured", "stats": {}}
+
+        stats = _executor.mesh_executor.get_stats()
+        return {"available": True, **stats}
     except Exception as e:
         logger.error(f"Error getting mesh stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get mesh stats: {str(e)}")
+        # Graceful degradation - don't hard-fail with 500
+        return {"available": False, "reason": f"error: {str(e)}", "stats": {}}
 
 
 # Workflow Editor endpoints

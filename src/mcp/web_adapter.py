@@ -201,9 +201,9 @@ async def _handle_mcp_request(request: MCPRequest):
             result = await handle_job_resume(params)
         elif method == "jobs/cancel":
             result = await handle_job_cancel(params)
-        elif method in ["workflow.execute", "workflows/execute"]:
+        elif method in ["workflow.execute", "workflows.execute", "workflows/execute"]:
             result = await handle_workflow_execute(params)
-        elif method in ["workflow.list", "workflows/list"]:
+        elif method in ["workflow.list", "workflows.list", "workflows/list"]:
             result = await handle_workflows_list(params)
         elif method == "workflows/visual":
             result = await handle_workflow_visual(params)

@@ -24,6 +24,7 @@ os.environ["ALLOW_NETWORK"] = "1"
 os.environ["OLLAMA_BASE_URL"] = "http://localhost:11434"
 
 from tools.live_e2e.executor_factory import create_live_executor
+from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -196,6 +197,14 @@ Your content here...
     except Exception as e:
         logger.error(f"  Generation failed: {e}")
         content = f"# Error\n\nGeneration failed: {str(e)}"
+
+    # Normalize frontmatter to ensure proper --- delimiters
+    content = normalize_frontmatter(content)
+    if not has_valid_frontmatter(content):
+        logger.error("  CRITICAL: Frontmatter normalization failed - output has invalid frontmatter")
+        raise ValueError("Generated content has invalid YAML frontmatter after normalization")
+
+    logger.info(f"  Frontmatter normalized and validated")
 
     # Save output
     output_dir.mkdir(parents=True, exist_ok=True)

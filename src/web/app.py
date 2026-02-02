@@ -27,16 +27,29 @@ _start_time = time.time()
 
 def create_app(executor=None, config_snapshot=None) -> FastAPI:
     """Create and configure the FastAPI application.
-    
+
     Args:
         executor: Optional execution engine instance
         config_snapshot: Optional configuration snapshot
-        
+
     Returns:
         Configured FastAPI application
     """
     global _executor, _config_snapshot
-    
+
+    # Auto-initialize executor for live mode if not provided
+    import os
+    if executor is None and os.getenv("TEST_MODE") == "live":
+        try:
+            logger.info("TEST_MODE=live detected, auto-initializing live executor...")
+            from tools.live_e2e.executor_factory import create_live_executor
+            executor = create_live_executor()
+            logger.info("✓ Live executor auto-initialized successfully")
+        except Exception as e:
+            logger.error(f"✗ Failed to auto-initialize live executor: {e}")
+            # Continue without executor - endpoints will return appropriate errors
+            logger.warning("Continuing without executor. /api/jobs and workflow endpoints will return 503.")
+
     app = FastAPI(
         title="UCOP API",
         description="Unified Content Operations Platform - Job Management API",
@@ -45,7 +58,7 @@ def create_app(executor=None, config_snapshot=None) -> FastAPI:
         redoc_url="/redoc",
         redirect_slashes=False  # Strict URL matching - no trailing slash normalization
     )
-    
+
     # Configure CORS
     app.add_middleware(
         CORSMiddleware,
@@ -61,7 +74,7 @@ def create_app(executor=None, config_snapshot=None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
     # Set global executor and config
     _executor = executor
     _config_snapshot = config_snapshot

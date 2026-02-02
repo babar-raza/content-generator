@@ -46,6 +46,26 @@ class TestMCPProtocol:
             assert "code" in data["error"]
             assert "message" in data["error"]
 
+    def test_mcp_jsonrpc_workflows_list_alias(self, client):
+        """Test MCP JSON-RPC: workflows.list (alias for workflow.list)."""
+        payload = {
+            "jsonrpc": "2.0",
+            "id": "1b",
+            "method": "workflows.list",
+            "params": {}
+        }
+        response = client.post("/mcp/", json=payload)
+        # Should return 200 with JSON-RPC response (same as workflow.list)
+        assert response.status_code == 200
+        data = response.json()
+        assert "id" in data
+        assert data["id"] == "1b"
+        # Should have either result or error
+        assert "result" in data or "error" in data
+        if "error" in data:
+            assert "code" in data["error"]
+            assert "message" in data["error"]
+
     def test_mcp_jsonrpc_workflow_execute(self, client):
         """Test MCP JSON-RPC: workflow.execute."""
         payload = {
