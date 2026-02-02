@@ -39,7 +39,15 @@ if ! curl -sf http://localhost:11434/api/tags > /dev/null; then
 fi
 
 echo "Checking Ollama model (phi4-mini)..."
-MODELS=$(curl -s http://localhost:11434/api/tags | python -c "import sys, json; data=json.load(sys.stdin); print([m['name'] for m in data.get('models', [])])")
+# Use venv Python if available for model check
+if [ -f ".venv_stage/Scripts/python.exe" ]; then
+    CHECK_PYTHON=".venv_stage/Scripts/python.exe"
+elif [ -f ".venv_stage/bin/python" ]; then
+    CHECK_PYTHON=".venv_stage/bin/python"
+else
+    CHECK_PYTHON="python"
+fi
+MODELS=$(curl -s http://localhost:11434/api/tags | $CHECK_PYTHON -c "import sys, json; data=json.load(sys.stdin); print([m['name'] for m in data.get('models', [])])")
 if [[ ! "$MODELS" =~ "phi4-mini:latest" ]]; then
     echo "ERROR: phi4-mini:latest model not found"
     echo "Please pull model: ollama pull phi4-mini"
@@ -90,10 +98,23 @@ echo ""
 # RUN PRODUCTION TRY MATRIX
 # =============================================================================
 echo "=== RUNNING PRODUCTION TRY MATRIX V2 ==="
-echo "Running: python tools/prod_try_runner.py --ts $TIMESTAMP"
+
+# Use venv Python if available, otherwise use system Python
+if [ -f ".venv_stage/Scripts/python.exe" ]; then
+    PYTHON_CMD=".venv_stage/Scripts/python.exe"
+    echo "Using venv Python: $PYTHON_CMD"
+elif [ -f ".venv_stage/bin/python" ]; then
+    PYTHON_CMD=".venv_stage/bin/python"
+    echo "Using venv Python: $PYTHON_CMD"
+else
+    PYTHON_CMD="python"
+    echo "Using system Python: $PYTHON_CMD"
+fi
+
+echo "Running: $PYTHON_CMD tools/prod_try_runner.py --ts $TIMESTAMP"
 echo ""
 
-if python tools/prod_try_runner.py --ts "$TIMESTAMP"; then
+if $PYTHON_CMD tools/prod_try_runner.py --ts "$TIMESTAMP"; then
     EXIT_CODE=0
 else
     EXIT_CODE=$?
@@ -106,8 +127,8 @@ echo ""
 # =============================================================================
 RESULTS_JSON="$REPORT_DIR/matrix_results.json"
 if [ -f "$RESULTS_JSON" ]; then
-    PASS_COUNT=$(python -c "import json; d=json.load(open('$RESULTS_JSON')); print(d.get('pass_count', 0))")
-    TOTAL_RUNS=$(python -c "import json; d=json.load(open('$RESULTS_JSON')); print(d.get('total_runs', 0))")
+    PASS_COUNT=$($PYTHON_CMD -c "import json; d=json.load(open('$RESULTS_JSON')); print(d.get('pass_count', 0))")
+    TOTAL_RUNS=$($PYTHON_CMD -c "import json; d=json.load(open('$RESULTS_JSON')); print(d.get('total_runs', 0))")
 
     if [ "$PASS_COUNT" -ne "$TOTAL_RUNS" ] || [ "$TOTAL_RUNS" -ne 9 ]; then
         echo "STOP-THE-LINE: Matrix is $PASS_COUNT/$TOTAL_RUNS (expected 9/9)"
