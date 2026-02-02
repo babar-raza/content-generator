@@ -232,8 +232,10 @@ class TestMeshOrchestration:
 
         response = client.get("/api/mesh/agents")
 
-        assert response.status_code == 501
-        assert "not enabled" in response.json()["detail"]
+        assert response.status_code == 200
+        data = response.json()
+        assert data["available"] is False
+        assert "mesh not configured" in data["reason"]
 
     def test_get_mesh_agents_error(self, client, mock_executor):
         """Test error handling when listing mesh agents fails."""
@@ -241,8 +243,10 @@ class TestMeshOrchestration:
 
         response = client.get("/api/mesh/agents")
 
-        assert response.status_code == 500
-        assert "Failed to list mesh agents" in response.json()["detail"]
+        assert response.status_code == 200
+        data = response.json()
+        assert data["available"] is False
+        assert "error:" in data["reason"]
 
     def test_execute_mesh_workflow_success(self, client, mock_executor):
         """Test successfully executing mesh workflow."""
@@ -342,8 +346,10 @@ class TestMeshOrchestration:
 
         response = client.get("/api/mesh/stats")
 
-        assert response.status_code == 501
-        assert "not enabled" in response.json()["detail"]
+        assert response.status_code == 200
+        data = response.json()
+        assert data["available"] is False
+        assert "mesh not configured" in data["reason"]
 
     def test_get_mesh_stats_error(self, client, mock_executor):
         """Test error handling when getting mesh stats fails."""
@@ -351,8 +357,10 @@ class TestMeshOrchestration:
 
         response = client.get("/api/mesh/stats")
 
-        assert response.status_code == 500
-        assert "Failed to get mesh stats" in response.json()["detail"]
+        assert response.status_code == 200
+        data = response.json()
+        assert data["available"] is False
+        assert "error:" in data["reason"]
 
 
 class TestWorkflowEditor:
