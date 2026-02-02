@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
 
-from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter
+from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter, enforce_frontmatter
 
 logger = logging.getLogger(__name__)
 
@@ -707,30 +707,45 @@ class UnifiedEngine:
             
             # Render
             content = template.render(template_context, strict=False)
-            
-            logger.info(f"  Rendered content: {len(content)} characters")
-            
-            # Add run summary at top
-            run_summary = self._generate_run_summary(result)
-            content = f"{run_summary}\n\n{content}"
-            
-            # If partial/failed, add errors section
-            if result.error:
-                errors_section = self._generate_errors_section(result)
-                content = f"{content}\n\n{errors_section}"
 
-            # Normalize frontmatter - critical for prod acceptance
-            content = normalize_frontmatter(content, fallback_metadata={
+            logger.info(f"  Rendered content: {len(content)} characters")
+
+            # Enforce valid frontmatter FIRST - critical for prod acceptance
+            # This guarantees valid, parseable YAML frontmatter or raises exception
+            content = enforce_frontmatter(content, fallback_metadata={
                 'title': title,
                 'tags': ['auto-generated'],
                 'date': 'auto'
             })
 
-            # Strict validation - log warning if still invalid
-            if not has_valid_frontmatter(content):
-                logger.warning("Content does not have valid YAML frontmatter after normalization")
+            # Add run summary AFTER frontmatter enforcement
+            run_summary = self._generate_run_summary(result)
+            # Insert run summary after frontmatter block
+            if content.lstrip().startswith('---'):
+                lines = content.split('\n')
+                # Find the second --- to insert after frontmatter
+                second_marker_idx = None
+                for i in range(1, len(lines)):
+                    if lines[i].strip() == '---':
+                        second_marker_idx = i
+                        break
+                if second_marker_idx:
+                    # Insert run summary after frontmatter
+                    lines.insert(second_marker_idx + 1, f"\n{run_summary}\n")
+                    content = '\n'.join(lines)
+                else:
+                    # Fallback: prepend if can't find marker
+                    content = f"{run_summary}\n\n{content}"
+            else:
+                # No frontmatter, just prepend
+                content = f"{run_summary}\n\n{content}"
 
-            # Write artifact
+            # If partial/failed, add errors section
+            if result.error:
+                errors_section = self._generate_errors_section(result)
+                content = f"{content}\n\n{errors_section}"
+
+            # Write artifact (frontmatter is now guaranteed valid)
             with open(output_path, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(content)
 
@@ -740,8 +755,8 @@ class UnifiedEngine:
             # Even template rendering failed - write minimal artifact
             minimal_content = self._generate_minimal_artifact(result, str(e))
 
-            # Normalize frontmatter even for minimal artifacts
-            minimal_content = normalize_frontmatter(minimal_content, fallback_metadata={
+            # Enforce valid frontmatter even for minimal artifacts
+            minimal_content = enforce_frontmatter(minimal_content, fallback_metadata={
                 'title': f"Job {result.job_id} - Failed",
                 'tags': ['failed', 'auto-generated'],
                 'date': 'auto'
