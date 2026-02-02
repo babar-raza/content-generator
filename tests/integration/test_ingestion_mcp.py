@@ -74,10 +74,26 @@ class TestIngestionMCP:
     @pytest.fixture
     def mock_executor(self, mock_ingestion_agent):
         """Create a mock executor with ingestion agents."""
+        # Create DocsIngestionAgent mock with proper execute method
+        docs_agent = Mock()
+        docs_agent.agent_id = "DocsIngestionAgent"
+        docs_agent.execute = Mock(return_value=Mock(
+            data={
+                "docs_content": "Combined docs content",
+                "docs_meta": {
+                    "filename": "test_docs",
+                    "path": "/test/docs/path",
+                    "files_processed": 1,
+                    "files_skipped": 0,
+                    "total_size": 50
+                }
+            }
+        ))
+
         executor = Mock()
         executor.agents = [
             mock_ingestion_agent,
-            Mock(agent_id="DocsIngestionAgent"),
+            docs_agent,
             Mock(agent_id="APIIngestionAgent"),
             Mock(agent_id="BlogIngestionAgent"),
             Mock(agent_id="TutorialIngestionAgent")
@@ -91,14 +107,12 @@ class TestIngestionMCP:
         # Routes don't include /mcp prefix - app adds it via include_router()
         assert "/request" in routes
     
-    @patch('src.mcp.web_adapter._executor')
-    @patch('src.mcp.handlers._executor')
-    def test_ingest_kb_happy_path(self, mock_handlers_executor, 
-                                   mock_adapter_executor, mock_executor,
+    @patch('src.mcp.handlers.get_executor')
+    def test_ingest_kb_happy_path(self, mock_get_executor,
+                                   mock_executor,
                                    temp_kb_dir):
         """Test successful KB ingestion through MCP protocol."""
-        mock_handlers_executor.return_value = mock_executor
-        mock_adapter_executor.return_value = mock_executor
+        mock_get_executor.return_value = mock_executor
         
         from src.web.app import app
         client = TestClient(app)
@@ -139,14 +153,12 @@ class TestIngestionMCP:
         # Accept -32602 (Invalid params) or -32603 (Internal error)
         assert data["error"]["code"] in [-32602, -32603]
     
-    @patch('src.mcp.web_adapter._executor')
-    @patch('src.mcp.handlers._executor')
-    def test_ingest_docs_happy_path(self, mock_handlers_executor,
-                                     mock_adapter_executor, mock_executor,
+    @patch('src.mcp.handlers.get_executor')
+    def test_ingest_docs_happy_path(self, mock_get_executor,
+                                     mock_executor,
                                      temp_docs_dir):
         """Test successful docs ingestion."""
-        mock_handlers_executor.return_value = mock_executor
-        mock_adapter_executor.return_value = mock_executor
+        mock_get_executor.return_value = mock_executor
         
         from src.web.app import app
         client = TestClient(app)

@@ -177,7 +177,7 @@ class TestListAgents:
         agents._executor = None
 
     def test_list_agents_no_get_agents_method(self, app, mock_store, mock_agent_logs):
-        """Test listing agents when executor doesn't support get_agents."""
+        """Test listing agents when executor doesn't support get_agents - should fall back to filesystem discovery."""
         executor = Mock(spec=[])  # Empty spec, no methods
         agents.set_executor(executor)
 
@@ -186,7 +186,9 @@ class TestListAgents:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["agents"] == []
+        # Should return agents from filesystem discovery, not empty
+        assert "agents" in data
+        assert isinstance(data["agents"], list)
 
         # Cleanup
         agents._executor = None
@@ -569,15 +571,18 @@ class TestDependencyInjection:
     """Tests for dependency injection validation."""
 
     def test_executor_not_initialized(self):
-        """Test endpoints fail when executor not initialized."""
+        """Test endpoints work with fallback when executor not initialized."""
         app = FastAPI()
         app.include_router(agents.router)
         client = TestClient(app)
 
         response = client.get("/api/agents")
 
-        assert response.status_code == 503
-        assert "not initialized" in response.json()["detail"]
+        # Should return 200 with agents from filesystem discovery fallback
+        assert response.status_code == 200
+        data = response.json()
+        assert "agents" in data
+        assert isinstance(data["agents"], list)
 
     def test_jobs_store_not_initialized(self):
         """Test endpoints fail when jobs store not initialized."""

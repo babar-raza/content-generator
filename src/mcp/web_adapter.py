@@ -51,7 +51,7 @@ _agent_registry = None
 
 def set_executor(executor, config_snapshot=None):
     """Set the unified executor instance and config snapshot.
-    
+
     Args:
         executor: Unified engine executor
         config_snapshot: Optional configuration snapshot
@@ -60,6 +60,11 @@ def set_executor(executor, config_snapshot=None):
     _executor = executor
     _config_snapshot = config_snapshot
     logger.info("MCP adapter connected to executor (config=%s)", bool(config_snapshot))
+
+    # Also set dependencies in handlers module
+    from src.mcp import handlers
+    job_engine = executor.job_engine if executor and hasattr(executor, 'job_engine') else None
+    handlers.set_dependencies(executor, job_engine=job_engine)
 
 
 def get_executor():
@@ -131,7 +136,8 @@ async def mcp_request(request: Request):
     else:
         # Handle single request
         mcp_req = MCPRequest(**body)
-        return await _handle_mcp_request(mcp_req)
+        mcp_resp = await _handle_mcp_request(mcp_req)
+        return mcp_resp.model_dump(exclude_none=True)
 
 
 @router.post("/")
@@ -169,7 +175,8 @@ async def mcp_request_legacy(request: Request):
     else:
         # Handle single request
         mcp_req = MCPRequest(**body)
-        return await _handle_mcp_request(mcp_req)
+        mcp_resp = await _handle_mcp_request(mcp_req)
+        return mcp_resp.model_dump(exclude_none=True)
 
 
 async def _handle_mcp_request(request: MCPRequest):
@@ -196,7 +203,7 @@ async def _handle_mcp_request(request: MCPRequest):
             result = await handle_job_cancel(params)
         elif method in ["workflow.execute", "workflows/execute"]:
             result = await handle_workflow_execute(params)
-        elif method == "workflows/list":
+        elif method in ["workflow.list", "workflows/list"]:
             result = await handle_workflows_list(params)
         elif method == "workflows/visual":
             result = await handle_workflow_visual(params)
@@ -293,12 +300,12 @@ async def handle_job_create(params: Dict[str, Any]) -> Dict[str, Any]:
         job_id=result.job_id,
         workflow_uri=create_resource_uri(ResourceType.WORKFLOW, workflow_name),
         status=ResourceStatus(result.status) if result.status in ResourceStatus.__members__.values() else ResourceStatus.COMPLETED,
-        created_at=result.started_at if result.started_at else datetime.now(),
-        started_at=result.started_at if result.started_at else None,
-        completed_at=result.completed_at if result.completed_at else None,
+        created_at=result.start_time if result.start_time else datetime.now(),
+        started_at=result.start_time if result.start_time else None,
+        completed_at=result.end_time if result.end_time else None,
         metadata={
             "output_path": str(result.output_path) if result.output_path else None,
-            "error": result.error
+            "errors": result.errors if result.errors else []
         }
     )
     
