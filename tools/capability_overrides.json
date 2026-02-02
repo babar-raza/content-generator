@@ -1,6 +1,9 @@
 {
   "description": "Explicit capability-to-test mappings. Use test node IDs from pytest --collect-only.",
   "overrides": {
+    "CAP-AGENT-code-generation": "tests/unit/test_cap_contracts.py::test_code_generation_capability_contract",
+    "CAP-AGENT-model-selection": "tests/unit/test_cap_contracts.py::test_model_selection_capability_contract",
+    "CAP-PIPE-code_generation": "tests/unit/test_cap_contracts.py::test_code_generation_capability_contract",
     "CAP-AGENT-code-extraction": "tests/integration/test_agent_contracts.py::TestAgentScanner::test_discover_agents",
     "CAP-AGENT-code-splitting": "tests/integration/test_agent_contracts.py::TestAgentScanner::test_discover_agents",
     "CAP-AGENT-code-validation": "tests/integration/test_agent_contracts.py::TestAgentScanner::test_discover_agents",
@@ -37,6 +40,7 @@
     "CAP-WEB-flows": "tests/e2e_mock/test_web_routes_smoke.py::TestHealthAndRoot::test_api_root",
     "CAP-WEB-ingestion": "tests/e2e_mock/test_web_routes_smoke.py::TestHealthAndRoot::test_api_root",
     "CAP-WEB-jobs": "tests/e2e_mock/test_web_routes_smoke.py::TestJobsRoutes::test_list_jobs",
+    "CAP-WEB-batch": "tests/integration/test_jobs_api.py::TestBatchJobs::test_batch_create_success",
     "CAP-WEB-mcp": "tests/e2e_mock/test_mcp_http_smoke.py::TestMCPProtocol::test_mcp_root",
     "CAP-WEB-validation": "tests/e2e_mock/test_web_routes_smoke.py::TestHealthAndRoot::test_api_root",
     "CAP-WEB-workflows": "tests/e2e_mock/test_web_routes_smoke.py::TestWorkflowsRoutes::test_list_workflows"
