@@ -50,12 +50,15 @@ echo "Ollama OK (phi4-mini:latest found)"
 echo "Checking ChromaDB..."
 # Check for HTTP ChromaDB (docker-compose) or persistent mode
 if [[ -n "${CHROMA_HOST:-}" ]] && [[ -n "${CHROMA_PORT:-}" ]]; then
-    if ! curl -sf "http://${CHROMA_HOST}:${CHROMA_PORT}/api/v1/heartbeat" > /dev/null 2>&1; then
+    # Try v2 API first, then fall back to v1
+    if ! curl -sf "http://${CHROMA_HOST}:${CHROMA_PORT}/api/v2/heartbeat" > /dev/null 2>&1 && \
+       ! curl -sf "http://${CHROMA_HOST}:${CHROMA_PORT}/api/v1/heartbeat" > /dev/null 2>&1; then
         echo "WARNING: ChromaDB not reachable at http://${CHROMA_HOST}:${CHROMA_PORT}"
         echo "Attempting to start ChromaDB via docker-compose..."
         if docker-compose -f docker-compose.chromadb.yml up -d 2>/dev/null || docker compose -f docker-compose.chromadb.yml up -d 2>/dev/null; then
             sleep 5
-            if curl -sf "http://${CHROMA_HOST}:${CHROMA_PORT}/api/v1/heartbeat" > /dev/null 2>&1; then
+            if curl -sf "http://${CHROMA_HOST}:${CHROMA_PORT}/api/v2/heartbeat" > /dev/null 2>&1 || \
+               curl -sf "http://${CHROMA_HOST}:${CHROMA_PORT}/api/v1/heartbeat" > /dev/null 2>&1; then
                 echo "ChromaDB started successfully"
             else
                 echo "ERROR: ChromaDB still not reachable"
