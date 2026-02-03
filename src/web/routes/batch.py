@@ -129,10 +129,9 @@ async def submit_batch_job(
                 try:
                     if hasattr(executor, 'submit_job'):
                         executor.submit_job(
-                            job_id,
                             manifest.workflow_id,
                             job_input,
-                            manifest.config_overrides
+                            job_id
                         )
                         job_data["status"] = "queued"
                         store[job_id] = job_data

@@ -267,7 +267,7 @@ async def create_job(
         if executor is not None and hasattr(executor, 'submit_job'):
             try:
                 # Use executor to start the job
-                executor.submit_job(job_id, job.workflow_id, job.inputs)
+                executor.submit_job(job.workflow_id, job.inputs, job_id)
                 job_data["status"] = "queued"
                 store[job_id] = job_data
             except Exception as e:
@@ -342,7 +342,7 @@ async def generate_content(
         # Submit to executor
         try:
             if hasattr(executor, 'submit_job'):
-                executor.submit_job(job_id, workflow_id, inputs, spec.config_overrides)
+                executor.submit_job(workflow_id, inputs, job_id)
                 job_data["status"] = "queued"
                 store[job_id] = job_data
         except Exception as e:
@@ -404,7 +404,7 @@ async def create_batch_jobs(
             # Submit to executor
             try:
                 if hasattr(executor, 'submit_job'):
-                    executor.submit_job(job_id, batch.workflow_id, job_input)
+                    executor.submit_job(batch.workflow_id, job_input, job_id)
                     job_data["status"] = "queued"
                     store[job_id] = job_data
             except Exception as e:
@@ -884,7 +884,7 @@ async def retry_job(
                 workflow_id = job.get("workflow_id")
                 inputs = job.get("inputs", {})
                 config_overrides = job.get("config_overrides")
-                executor.submit_job(job_id, workflow_id, inputs, config_overrides)
+                executor.submit_job(workflow_id, inputs, job_id)
             
             job["status"] = "retrying"
             job["retry_count"] = retry_count + 1

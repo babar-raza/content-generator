@@ -102,8 +102,8 @@ class TestCreateJob:
         # Verify executor was called
         mock_executor.submit_job.assert_called_once()
         call_args = mock_executor.submit_job.call_args
-        assert call_args[0][0] == job_id
-        assert call_args[0][1] == "test_workflow"
+        assert call_args[0][0] == "test_workflow"  # workflow_id is first
+        assert call_args[0][2] == job_id  # job_id (correlation_id) is third
 
     def test_create_job_executor_failure(self, client, mock_executor, mock_store):
         """Test job creation when executor submission fails."""
