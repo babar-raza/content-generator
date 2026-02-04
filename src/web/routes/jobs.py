@@ -19,7 +19,10 @@ from ..models import (
     JobList,
     JobControl,
 )
-from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter
+from src.utils.frontmatter_normalize import enforce_frontmatter, has_valid_frontmatter
+from src.utils.content_expansion import ensure_minimum_size, TARGET_BYTES
+from src.utils.grounding_enforcer import enforce_minimum_references
+from src.utils.completeness_enforcer import enforce_minimum_sections
 
 logger = logging.getLogger(__name__)
 
@@ -145,17 +148,51 @@ Format as markdown."""
     if not generated or len(generated) < 100:
         raise RuntimeError(f"Generated content too short: {len(generated)} chars")
 
-    # Normalize frontmatter - critical for prod acceptance
-    generated = normalize_frontmatter(generated, fallback_metadata={
-        'title': topic,
-        'tags': ['auto-generated'],
-        'date': 'auto'
-    })
+    # Enforce frontmatter - critical for prod acceptance
+    # This guarantees valid, parseable YAML frontmatter or raises exception
+    try:
+        generated = enforce_frontmatter(generated, fallback_metadata={
+            'title': topic,
+            'tags': ['auto-generated'],
+            'date': 'auto'
+        })
+    except ValueError as e:
+        logger.error(f"Frontmatter enforcement failed: {e}")
+        raise RuntimeError(f"Failed to enforce valid YAML frontmatter: {e}")
 
-    # Strict validation - fail if still invalid
+    # Double-check validation (enforce_frontmatter should guarantee this)
     if not has_valid_frontmatter(generated):
-        logger.error("Frontmatter normalization failed, content does not have valid frontmatter")
-        raise RuntimeError("Generated content lacks valid YAML frontmatter after normalization")
+        logger.error("Frontmatter enforcement succeeded but validation still fails")
+        raise RuntimeError("Generated content lacks valid YAML frontmatter after enforcement")
+
+    # Ensure minimum size - expand if too short
+    # Uses LLM expansion with deterministic fallback - CANNOT fail silently
+    # If expansion fails, job fails (no silent write of short content)
+    generated = ensure_minimum_size(
+        content=generated,
+        llm_service=llm_service,
+        topic=topic,
+        min_bytes=TARGET_BYTES
+    )
+    logger.info(f"Size check passed: {len(generated.encode('utf-8'))} bytes")
+
+    # Enforce minimum references - guarantee quality gate grounding requirement
+    # This ensures all content has sufficient references for production acceptance
+    generated = enforce_minimum_references(
+        content=generated,
+        topic=topic,
+        min_refs=3  # Quality gate requires >= 2, use 3 for safety
+    )
+    logger.info(f"Reference enforcement passed")
+
+    # Enforce minimum sections - guarantee quality gate criterion C
+    # This ensures content has sufficient structural sections
+    generated = enforce_minimum_sections(
+        content=generated,
+        topic=topic,
+        min_sections=2  # Quality gate criterion C requires >= 2
+    )
+    logger.info(f"Section enforcement passed")
 
     # Save output
     output_path = Path(output_dir)

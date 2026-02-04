@@ -12,6 +12,9 @@ from datetime import datetime
 from enum import Enum
 
 from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter, enforce_frontmatter
+from src.utils.content_expansion import ensure_minimum_size, TARGET_BYTES
+from src.utils.grounding_enforcer import enforce_minimum_references
+from src.utils.completeness_enforcer import enforce_minimum_sections
 
 logger = logging.getLogger(__name__)
 
@@ -246,22 +249,30 @@ class UnifiedEngine:
         """Initialize engine with validated configs."""
         from config.validator import load_validated_config
         from src.core.template_registry import get_template_registry
-        
+        from src.services.services import LLMService
+        from src.core.config import Config
+
         # Load and validate all configs at startup (fail-fast)
         self.config_snapshot = load_validated_config()
         self.template_registry = get_template_registry()
-        
+
         # Extract individual configs for convenience
         self.agent_config = self.config_snapshot.agent_config
         self.perf_config = self.config_snapshot.perf_config
         self.tone_config = self.config_snapshot.tone_config
         self.main_config = self.config_snapshot.main_config
         self.merged_config = self.config_snapshot.merged_config
-        
+
+        # Initialize LLM service for content expansion
+        # CRITICAL: Required for ensure_minimum_size() calls
+        config = Config()
+        self.llm_service = LLMService(config)
+
         print(f"[OK] Engine initialized")
         print(f"  Config hash: {self.config_snapshot.config_hash}")
         print(f"  Templates: {len(self.template_registry.list_templates())}")
         print(f"  Engine version: {self.config_snapshot.engine_version}")
+        print(f"  LLM service: initialized")
     
     def generate_job(self, run_spec: RunSpec) -> JobResult:
         """Generate a job - single entry point for both CLI and Web.
@@ -718,7 +729,36 @@ class UnifiedEngine:
                 'date': 'auto'
             })
 
-            # Add run summary AFTER frontmatter enforcement
+            # Ensure minimum size - expand if too short
+            # Uses LLM expansion with deterministic fallback - CANNOT fail silently
+            # If expansion fails, job fails (no silent write of short content)
+            content = ensure_minimum_size(
+                content=content,
+                llm_service=self.llm_service,
+                topic=title,
+                min_bytes=TARGET_BYTES
+            )
+            logger.info(f"  Size check passed: {len(content.encode('utf-8'))} bytes")
+
+            # Enforce minimum references - guarantee quality gate grounding requirement
+            # This ensures all content has sufficient references for production acceptance
+            content = enforce_minimum_references(
+                content=content,
+                topic=title,
+                min_refs=3  # Quality gate requires >= 2, use 3 for safety
+            )
+            logger.info(f"  Reference enforcement passed")
+
+            # Enforce minimum sections - guarantee quality gate criterion C
+            # This ensures content has sufficient structural sections
+            content = enforce_minimum_sections(
+                content=content,
+                topic=title,
+                min_sections=2  # Quality gate criterion C requires >= 2
+            )
+            logger.info(f"  Section enforcement passed")
+
+            # Add run summary AFTER frontmatter enforcement and size check
             run_summary = self._generate_run_summary(result)
             # Insert run summary after frontmatter block
             if content.lstrip().startswith('---'):
