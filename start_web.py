@@ -39,17 +39,21 @@ def main():
     else:
         logger.warning("⚠ UI build not found - only API will be available")
     
+    # Allow port override via environment variable
+    import os
+    port = int(os.getenv("PORT", "8000"))
+
     print("=" * 60)
-    print("Starting server on http://localhost:8000")
+    print(f"Starting server on http://localhost:{port}")
     print("=" * 60)
     print("Press Ctrl+C to stop")
-    
+
     # Start server
     try:
         uvicorn.run(
             app,
             host="0.0.0.0",
-            port=8000,
+            port=port,
             log_level="info"
         )
     except KeyboardInterrupt:
