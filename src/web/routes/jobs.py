@@ -19,7 +19,8 @@ from ..models import (
     JobList,
     JobControl,
 )
-from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter
+from src.utils.frontmatter_normalize import enforce_frontmatter, has_valid_frontmatter
+from src.utils.content_expansion import ensure_minimum_size, TARGET_BYTES
 
 logger = logging.getLogger(__name__)
 
@@ -145,17 +146,35 @@ Format as markdown."""
     if not generated or len(generated) < 100:
         raise RuntimeError(f"Generated content too short: {len(generated)} chars")
 
-    # Normalize frontmatter - critical for prod acceptance
-    generated = normalize_frontmatter(generated, fallback_metadata={
-        'title': topic,
-        'tags': ['auto-generated'],
-        'date': 'auto'
-    })
+    # Enforce frontmatter - critical for prod acceptance
+    # This guarantees valid, parseable YAML frontmatter or raises exception
+    try:
+        generated = enforce_frontmatter(generated, fallback_metadata={
+            'title': topic,
+            'tags': ['auto-generated'],
+            'date': 'auto'
+        })
+    except ValueError as e:
+        logger.error(f"Frontmatter enforcement failed: {e}")
+        raise RuntimeError(f"Failed to enforce valid YAML frontmatter: {e}")
 
-    # Strict validation - fail if still invalid
+    # Double-check validation (enforce_frontmatter should guarantee this)
     if not has_valid_frontmatter(generated):
-        logger.error("Frontmatter normalization failed, content does not have valid frontmatter")
-        raise RuntimeError("Generated content lacks valid YAML frontmatter after normalization")
+        logger.error("Frontmatter enforcement succeeded but validation still fails")
+        raise RuntimeError("Generated content lacks valid YAML frontmatter after enforcement")
+
+    # Ensure minimum size - expand if too short (Phase 2 fix)
+    try:
+        generated = ensure_minimum_size(
+            content=generated,
+            llm_service=llm_service,
+            topic=topic,
+            min_bytes=TARGET_BYTES
+        )
+        logger.info(f"Size check passed: {len(generated.encode('utf-8'))} bytes")
+    except ValueError as e:
+        logger.warning(f"Content expansion failed: {e}")
+        # Continue with unexpanded content - quality gate will catch it
 
     # Save output
     output_path = Path(output_dir)

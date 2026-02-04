@@ -14,7 +14,7 @@ os.environ["ALLOW_NETWORK"] = "0"
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from tools.live_e2e.executor_factory import create_live_executor
-from src.utils.frontmatter_normalize import normalize_frontmatter
+from src.utils.frontmatter_normalize import enforce_frontmatter
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -77,13 +77,13 @@ def main():
         # Use expected file for validation
         output_file = expected_file
 
-        # Normalize frontmatter
+        # Enforce valid frontmatter
         if output_file.exists():
             content = output_file.read_text(encoding='utf-8')
-            normalized = normalize_frontmatter(content)
-            if normalized != content:
-                output_file.write_text(normalized, encoding='utf-8')
-                logger.info("Normalized frontmatter")
+            enforced = enforce_frontmatter(content)
+            if enforced != content:
+                output_file.write_text(enforced, encoding='utf-8')
+                logger.info("Enforced valid frontmatter")
 
         # Save retrieval evidence
         try:

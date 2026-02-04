@@ -12,6 +12,7 @@ from datetime import datetime
 from enum import Enum
 
 from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter, enforce_frontmatter
+from src.utils.content_expansion import ensure_minimum_size, TARGET_BYTES
 
 logger = logging.getLogger(__name__)
 
@@ -718,7 +719,21 @@ class UnifiedEngine:
                 'date': 'auto'
             })
 
-            # Add run summary AFTER frontmatter enforcement
+            # Ensure minimum size - expand if too short (Phase 2 fix)
+            # This adds meaningful sections when content is below threshold
+            try:
+                content = ensure_minimum_size(
+                    content=content,
+                    llm_service=self.llm_service,
+                    topic=title,
+                    min_bytes=TARGET_BYTES
+                )
+                logger.info(f"  Size check passed: {len(content.encode('utf-8'))} bytes")
+            except ValueError as e:
+                logger.warning(f"  Content expansion failed: {e}")
+                # Continue with unexpanded content - quality gate will catch it
+
+            # Add run summary AFTER frontmatter enforcement and size check
             run_summary = self._generate_run_summary(result)
             # Insert run summary after frontmatter block
             if content.lstrip().startswith('---'):

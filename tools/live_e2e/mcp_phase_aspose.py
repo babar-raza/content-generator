@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from fastapi.testclient import TestClient
 from tools.live_e2e.executor_factory import create_live_executor
 from src.web.app import create_app
-from src.utils.frontmatter_normalize import normalize_frontmatter
+from src.utils.frontmatter_normalize import enforce_frontmatter
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -83,10 +83,11 @@ def main():
 
                 if expected_file.exists():
                     content = expected_file.read_text(encoding='utf-8')
-                    normalized = normalize_frontmatter(content)
-                    if normalized != content:
-                        expected_file.write_text(normalized, encoding='utf-8')
-                    result["output_size"] = len(normalized)
+                    enforced = enforce_frontmatter(content)
+                    if enforced != content:
+                        expected_file.write_text(enforced, encoding='utf-8')
+                        logger.info("Enforced valid frontmatter")
+                    result["output_size"] = len(enforced)
 
                 try:
                     coll = executor.database_service.get_or_create_collection(args.collection)

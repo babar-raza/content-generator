@@ -12,6 +12,64 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_delimiter_line(line: str) -> str:
+    """Sanitize a frontmatter delimiter line to be exactly '---'.
+
+    Handles cases like:
+    - '---`' -> '---'
+    - '--- ```' -> '---'
+    - '---  \t' -> '---'
+    - '---\r' -> '---'
+
+    Args:
+        line: A line that should be a --- delimiter
+
+    Returns:
+        Sanitized line (exactly '---' if it looks like a delimiter, original otherwise)
+    """
+    stripped = line.strip()
+    # Check if line starts with --- (allowing trailing garbage)
+    if stripped.startswith('---'):
+        # Extract just the --- part (may have trailing characters)
+        # Remove anything after the --- (backticks, spaces, etc.)
+        return '---'
+    return line
+
+
+def _sanitize_frontmatter_delimiters(text: str) -> str:
+    """Sanitize frontmatter delimiter lines to remove trailing garbage.
+
+    This handles LLM-generated outputs like:
+    ---
+    title: "My Title"
+    ---`    <-- Extra backtick here breaks YAML parsing
+
+    Args:
+        text: Content with potentially malformed delimiter lines
+
+    Returns:
+        Content with cleaned delimiter lines
+    """
+    if not text or not text.startswith('---'):
+        return text
+
+    lines = text.split('\n')
+
+    # Sanitize first line (opening delimiter)
+    if lines[0].strip().startswith('---'):
+        lines[0] = _sanitize_delimiter_line(lines[0])
+
+    # Find and sanitize closing delimiter
+    for i in range(1, len(lines)):
+        stripped = lines[i].strip()
+        if stripped.startswith('---'):
+            lines[i] = _sanitize_delimiter_line(lines[i])
+            # Only sanitize the first occurrence of closing delimiter
+            break
+
+    return '\n'.join(lines)
+
+
 def normalize_frontmatter(text: str, fallback_metadata: Optional[Dict[str, Any]] = None) -> str:
     """Normalize frontmatter to use proper --- delimiters.
 
@@ -66,6 +124,9 @@ def normalize_frontmatter(text: str, fallback_metadata: Optional[Dict[str, Any]]
 
     # Case 1: Already valid frontmatter with --- delimiters
     if text.startswith('---'):
+        # FIRST: Sanitize delimiter lines to remove trailing garbage (e.g., ---`)
+        text = _sanitize_frontmatter_delimiters(text)
+
         # Handle case of double --- at start (malformed: ---\n---\ntitle:)
         lines = text.split('\n')
         if len(lines) > 1 and lines[1].strip() == '---':
@@ -198,12 +259,18 @@ def _create_frontmatter(metadata: Dict[str, Any]) -> str:
 def has_valid_frontmatter(text: str) -> bool:
     """Check if text has valid YAML frontmatter with --- delimiters.
 
+    This function performs both structural and semantic validation:
+    1. Checks for proper --- delimiters
+    2. Validates that YAML content is parseable with yaml.safe_load()
+
     Args:
         text: Content to check
 
     Returns:
         True if valid frontmatter exists, False otherwise
     """
+    import yaml
+
     if not text:
         return False
 
@@ -220,7 +287,17 @@ def has_valid_frontmatter(text: str) -> bool:
     if not yaml_content or ':' not in yaml_content:
         return False
 
-    return True
+    # CRITICAL: Parse YAML to ensure it's truly valid
+    try:
+        parsed = yaml.safe_load(yaml_content)
+        # Frontmatter should parse as a dict
+        if parsed is None or not isinstance(parsed, dict):
+            logger.debug(f"Frontmatter YAML parsed but not a dict: {type(parsed)}")
+            return False
+        return True
+    except yaml.YAMLError as e:
+        logger.debug(f"Frontmatter YAML parsing failed: {e}")
+        return False
 
 
 def extract_frontmatter(text: str) -> Optional[Dict[str, Any]]:
