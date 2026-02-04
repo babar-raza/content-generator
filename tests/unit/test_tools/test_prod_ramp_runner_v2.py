@@ -11,11 +11,11 @@ import unittest
 import sys
 from pathlib import Path
 
-# Add tools to path
-tools_path = Path(__file__).parent.parent.parent / "tools"
-sys.path.insert(0, str(tools_path))
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
-from prod_ramp_runner_v2 import deduplicate_topics
+from tools.prod_ramp_runner_v2 import deduplicate_topics
 
 
 class TestTopicDeduplication(unittest.TestCase):
@@ -29,7 +29,8 @@ class TestTopicDeduplication(unittest.TestCase):
             {"title_topic": "PDF File Format", "slug": "pdf"},
         ]
 
-        result = deduplicate_topics(topics, required_count=3, all_topics=[])
+        # When required_count matches unique count, no resampling needed
+        result = deduplicate_topics(topics, required_count=2, all_topics=[])
 
         self.assertEqual(len(result), 2)
         titles = [t["title_topic"] for t in result]
@@ -43,7 +44,8 @@ class TestTopicDeduplication(unittest.TestCase):
             {"title_topic": "PDF File Format", "slug": "pdf"},
         ]
 
-        result = deduplicate_topics(topics, required_count=3, all_topics=[])
+        # When required_count matches unique count, no resampling needed
+        result = deduplicate_topics(topics, required_count=2, all_topics=[])
 
         self.assertEqual(len(result), 2)
 
@@ -79,7 +81,8 @@ class TestTopicDeduplication(unittest.TestCase):
             {"title_topic": "C", "slug": "c"},
         ]
 
-        result = deduplicate_topics(topics, required_count=10, all_topics=[])
+        # When required_count matches unique count, no resampling needed
+        result = deduplicate_topics(topics, required_count=3, all_topics=[])
 
         self.assertEqual(len(result), 3)
         titles = [t["title_topic"] for t in result]
@@ -93,9 +96,63 @@ class TestTopicDeduplication(unittest.TestCase):
             {"title_topic": "PDF File Format", "slug": "pdf"},
         ]
 
-        result = deduplicate_topics(topics, required_count=3, all_topics=[])
+        # When required_count matches unique count, no resampling needed
+        result = deduplicate_topics(topics, required_count=2, all_topics=[])
 
         self.assertEqual(len(result), 2)
+
+    def test_raises_error_when_pool_exhausted(self):
+        """Raises ValueError when topic pool is exhausted and can't reach required count."""
+        topics = [
+            {"title_topic": "BMP File Format", "slug": "bmp"},
+        ]
+
+        all_topics = [
+            {"title_topic": "BMP File Format", "slug": "bmp"},
+            {"title_topic": "PDF File Format", "slug": "pdf"},
+        ]
+
+        # Need 10 topics but only 2 unique exist
+        with self.assertRaises(ValueError) as context:
+            deduplicate_topics(topics, required_count=10, all_topics=all_topics)
+
+        self.assertIn("Topic pool exhausted", str(context.exception))
+        self.assertIn("have 2 unique topics", str(context.exception))
+        self.assertIn("need 10", str(context.exception))
+
+    def test_raises_error_when_no_pool_provided(self):
+        """Raises ValueError when resampling needed but no pool provided."""
+        topics = [
+            {"title_topic": "BMP File Format", "slug": "bmp"},
+        ]
+
+        # Need 5 topics but only 1 unique and no pool provided
+        with self.assertRaises(ValueError) as context:
+            deduplicate_topics(topics, required_count=5, all_topics=None)
+
+        self.assertIn("Insufficient unique topics", str(context.exception))
+        self.assertIn("no topic pool provided", str(context.exception))
+
+    def test_massive_duplicates_edge_case(self):
+        """Handles edge case with massive duplicates like _INDEX File Format."""
+        # Simulate 35 duplicates + 15 unique (like the baseline failure)
+        topics = [{"title_topic": "_INDEX File Format", "slug": "index"}] * 35
+        topics.extend([
+            {"title_topic": f"Topic{i} File Format", "slug": f"topic{i}"}
+            for i in range(15)
+        ])
+
+        all_topics = topics + [
+            {"title_topic": f"Extra{i} File Format", "slug": f"extra{i}"}
+            for i in range(50)
+        ]
+
+        result = deduplicate_topics(topics, required_count=50, all_topics=all_topics)
+
+        self.assertEqual(len(result), 50)
+        # Should have 1 _INDEX + 15 unique + 34 resampled from pool
+        titles = [t["title_topic"] for t in result]
+        self.assertEqual(titles.count("_INDEX File Format"), 1)
 
 
 class TestJobIdValidation(unittest.TestCase):

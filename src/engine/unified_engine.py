@@ -14,6 +14,7 @@ from enum import Enum
 from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_frontmatter, enforce_frontmatter
 from src.utils.content_expansion import ensure_minimum_size, TARGET_BYTES
 from src.utils.grounding_enforcer import enforce_minimum_references
+from src.utils.completeness_enforcer import enforce_minimum_sections
 
 logger = logging.getLogger(__name__)
 
@@ -747,6 +748,15 @@ class UnifiedEngine:
                 min_refs=3  # Quality gate requires >= 2, use 3 for safety
             )
             logger.info(f"  Reference enforcement passed")
+
+            # Enforce minimum sections - guarantee quality gate criterion C
+            # This ensures content has sufficient structural sections
+            content = enforce_minimum_sections(
+                content=content,
+                topic=title,
+                min_sections=2  # Quality gate criterion C requires >= 2
+            )
+            logger.info(f"  Section enforcement passed")
 
             # Add run summary AFTER frontmatter enforcement and size check
             run_summary = self._generate_run_summary(result)

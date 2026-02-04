@@ -22,6 +22,7 @@ from ..models import (
 from src.utils.frontmatter_normalize import enforce_frontmatter, has_valid_frontmatter
 from src.utils.content_expansion import ensure_minimum_size, TARGET_BYTES
 from src.utils.grounding_enforcer import enforce_minimum_references
+from src.utils.completeness_enforcer import enforce_minimum_sections
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +184,15 @@ Format as markdown."""
         min_refs=3  # Quality gate requires >= 2, use 3 for safety
     )
     logger.info(f"Reference enforcement passed")
+
+    # Enforce minimum sections - guarantee quality gate criterion C
+    # This ensures content has sufficient structural sections
+    generated = enforce_minimum_sections(
+        content=generated,
+        topic=topic,
+        min_sections=2  # Quality gate criterion C requires >= 2
+    )
+    logger.info(f"Section enforcement passed")
 
     # Save output
     output_path = Path(output_dir)

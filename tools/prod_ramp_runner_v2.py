@@ -81,8 +81,15 @@ def deduplicate_topics(topics: List[Dict], required_count: int, all_topics: List
         print(f"🔍 Deduplication: Removed {removed_count} duplicate topics")
 
     # Resample if we don't have enough unique topics
-    if len(unique_topics) < required_count and all_topics:
+    if len(unique_topics) < required_count:
+        if not all_topics:
+            raise ValueError(
+                f"Insufficient unique topics: have {len(unique_topics)}, "
+                f"need {required_count}, but no topic pool provided for resampling."
+            )
+
         print(f"📊 Resampling to reach {required_count} unique topics...")
+        initial_count = len(unique_topics)
 
         # Add more topics from pool that aren't already in our set
         for topic in all_topics:
@@ -93,6 +100,17 @@ def deduplicate_topics(topics: List[Dict], required_count: int, all_topics: List
 
                 if len(unique_topics) >= required_count:
                     break
+
+        added_count = len(unique_topics) - initial_count
+        print(f"📊 Resampling added {added_count} topics ({initial_count} → {len(unique_topics)})")
+
+        # Check if we reached the target after resampling
+        if len(unique_topics) < required_count:
+            raise ValueError(
+                f"Topic pool exhausted: have {len(unique_topics)} unique topics, "
+                f"need {required_count}. Pool size: {len(all_topics)}. "
+                f"Cannot proceed - need to curate more diverse topics."
+            )
 
     print(f"✅ Final topic count: {len(unique_topics)} unique topics")
     return unique_topics[:required_count]
