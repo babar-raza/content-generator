@@ -163,18 +163,16 @@ Format as markdown."""
         logger.error("Frontmatter enforcement succeeded but validation still fails")
         raise RuntimeError("Generated content lacks valid YAML frontmatter after enforcement")
 
-    # Ensure minimum size - expand if too short (Phase 2 fix)
-    try:
-        generated = ensure_minimum_size(
-            content=generated,
-            llm_service=llm_service,
-            topic=topic,
-            min_bytes=TARGET_BYTES
-        )
-        logger.info(f"Size check passed: {len(generated.encode('utf-8'))} bytes")
-    except ValueError as e:
-        logger.warning(f"Content expansion failed: {e}")
-        # Continue with unexpanded content - quality gate will catch it
+    # Ensure minimum size - expand if too short
+    # Uses LLM expansion with deterministic fallback - CANNOT fail silently
+    # If expansion fails, job fails (no silent write of short content)
+    generated = ensure_minimum_size(
+        content=generated,
+        llm_service=llm_service,
+        topic=topic,
+        min_bytes=TARGET_BYTES
+    )
+    logger.info(f"Size check passed: {len(generated.encode('utf-8'))} bytes")
 
     # Save output
     output_path = Path(output_dir)

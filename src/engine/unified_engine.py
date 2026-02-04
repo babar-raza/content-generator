@@ -719,19 +719,16 @@ class UnifiedEngine:
                 'date': 'auto'
             })
 
-            # Ensure minimum size - expand if too short (Phase 2 fix)
-            # This adds meaningful sections when content is below threshold
-            try:
-                content = ensure_minimum_size(
-                    content=content,
-                    llm_service=self.llm_service,
-                    topic=title,
-                    min_bytes=TARGET_BYTES
-                )
-                logger.info(f"  Size check passed: {len(content.encode('utf-8'))} bytes")
-            except ValueError as e:
-                logger.warning(f"  Content expansion failed: {e}")
-                # Continue with unexpanded content - quality gate will catch it
+            # Ensure minimum size - expand if too short
+            # Uses LLM expansion with deterministic fallback - CANNOT fail silently
+            # If expansion fails, job fails (no silent write of short content)
+            content = ensure_minimum_size(
+                content=content,
+                llm_service=self.llm_service,
+                topic=title,
+                min_bytes=TARGET_BYTES
+            )
+            logger.info(f"  Size check passed: {len(content.encode('utf-8'))} bytes")
 
             # Add run summary AFTER frontmatter enforcement and size check
             run_summary = self._generate_run_summary(result)
