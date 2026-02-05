@@ -23,7 +23,8 @@ import sys
 import io
 
 # Configure stdout for UTF-8 on Windows (fixes Unicode encoding errors)
-if sys.platform == 'win32':
+# Guard with __main__ check so importing for tests doesn't break pytest capture
+if sys.platform == 'win32' and __name__ == '__main__':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
@@ -165,13 +166,14 @@ def resolve_output_path(output_path_from_api):
     return candidates[0]  # Return first candidate even if not exists
 
 
-def http_post_json(url, data, retries=3):
+def http_post_json(url, data, retries=5, timeout=120):
     """POST JSON data to URL with retry logic.
 
     Args:
         url: Target URL
         data: Dictionary to send as JSON
         retries: Number of retry attempts for transient failures
+        timeout: HTTP request timeout in seconds
 
     Returns:
         (status_code, response_dict, diagnostics)
@@ -188,7 +190,7 @@ def http_post_json(url, data, retries=3):
 
     for attempt in range(retries):
         try:
-            with urllib.request.urlopen(req, timeout=30) as response:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
                 body = response.read().decode('utf-8')
                 return response.status, json.loads(body), {}
 
@@ -205,9 +207,15 @@ def http_post_json(url, data, retries=3):
                 "attempt": attempt + 1
             }
 
-            # Retry on transient errors
+            # Retry on transient errors with appropriate backoff
             if status in [429, 502, 503, 504] and attempt < retries - 1:
-                backoff = (2 ** attempt) + (time.time() % 1)  # Exponential + jitter
+                if status == 429:
+                    # Rate limit: use longer backoff (15-60s range for Gemini 15 RPM)
+                    backoff = min(15 * (2 ** attempt), 120) + (time.time() % 3)
+                else:
+                    # Server errors: standard exponential backoff
+                    backoff = (2 ** attempt) + (time.time() % 1)
+                print(f"  ⏳ HTTP {status} on attempt {attempt+1}/{retries}, backoff {backoff:.1f}s")
                 time.sleep(backoff)
                 last_error_diag = diag
                 continue
@@ -228,6 +236,7 @@ def http_post_json(url, data, retries=3):
             # Retry on connection errors
             if attempt < retries - 1 and isinstance(e, (urllib.error.URLError, ConnectionError, TimeoutError)):
                 backoff = (2 ** attempt) + (time.time() % 1)
+                print(f"  ⏳ {type(e).__name__} on attempt {attempt+1}/{retries}, backoff {backoff:.1f}s")
                 time.sleep(backoff)
                 last_error_diag = diag
                 continue
@@ -236,6 +245,34 @@ def http_post_json(url, data, retries=3):
 
     # All retries exhausted
     return None, {"error": "All retries exhausted"}, last_error_diag
+
+
+def verify_job_submitted(topic, timeout=30):
+    """Check if a job for the given topic was actually created server-side.
+
+    When an HTTP submission times out, the server may have received and
+    processed the request. This function polls the jobs list to find it.
+
+    Args:
+        topic: The topic string that was submitted
+        timeout: How long to keep polling (seconds)
+
+    Returns:
+        (job_id, status_data) if found, (None, None) otherwise
+    """
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            status_code, jobs_data = http_get_json(f"{BASE_URL}/api/jobs")
+            if status_code == 200:
+                jobs = jobs_data.get('jobs', [])
+                for job in jobs:
+                    if job.get('topic', '') == topic:
+                        return job.get('job_id'), job
+        except Exception:
+            pass
+        time.sleep(POLL_INTERVAL)
+    return None, None
 
 
 def http_get_json(url):
@@ -299,8 +336,7 @@ def execute_single_job(job_spec: Dict) -> Dict:
     # Check submission
     if status_code not in [200, 201]:
         error_msg = str(response_data.get('error', 'Unknown error'))
-        print(f"[Job {job_index}] ❌ Submission failed")
-        print(f"  Status: {status_code}")
+        print(f"[Job {job_index}] ⚠️  Submission returned {status_code}")
         print(f"  URL: {BASE_URL}/api/jobs")
         print(f"  Payload: workflow={workflow_id}, topic={topic[:50]}")
         print(f"  Error: {error_msg[:200]}")
@@ -308,18 +344,28 @@ def execute_single_job(job_spec: Dict) -> Dict:
         if diagnostics:
             if "exception_type" in diagnostics:
                 print(f"  Exception: {diagnostics['exception_type']}: {diagnostics['exception_message']}")
-                print(f"  Traceback:\n{diagnostics['traceback']}")
-            elif "response_body" in diagnostics:
-                print(f"  Response body (first 500 chars): {diagnostics['response_body']}")
 
-        result["status"] = "submission_failed"
-        result["error"] = error_msg
-        result["end_ts"] = datetime.now().isoformat()
-        result["duration_s"] = time.time() - start_time
-        return result
+        # Before declaring failure, check if the job was actually created server-side
+        # (submission may have succeeded but the HTTP response timed out)
+        print(f"[Job {job_index}] 🔍 Verifying server-side job creation...")
+        verified_job_id, verified_data = verify_job_submitted(topic, timeout=30)
 
-    job_id = response_data.get('job_id')
-    result["job_id"] = job_id
+        if verified_job_id:
+            print(f"[Job {job_index}] ✅ Job found server-side as {verified_job_id} (timeout was client-side only)")
+            job_id = verified_job_id
+            result["job_id"] = job_id
+            # Fall through to the polling loop below
+        else:
+            print(f"[Job {job_index}] ❌ Submission confirmed failed (not found server-side)")
+            result["status"] = "submission_failed"
+            result["error"] = error_msg
+            result["end_ts"] = datetime.now().isoformat()
+            result["duration_s"] = time.time() - start_time
+            return result
+    else:
+        job_id = response_data.get('job_id')
+        result["job_id"] = job_id
+
     print(f"[Job {job_index}] Submitted as {job_id}")
 
     # Poll for completion
