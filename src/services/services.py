@@ -44,6 +44,7 @@ from src.core.config import Config
 from src.optimization.cache import cached
 from src.optimization.connection_pool import ConnectionPool
 from src.services.vectorstore import VectorStore
+from src.utils.llm_response_validator import validate_llm_response, ValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -400,8 +401,53 @@ class LLMService:
                         temperature=temp,
                         **kwargs
                     )
-                    
-                    # Success - save to cache and return
+
+                    # Validate LLM response before returning
+                    validation = validate_llm_response(
+                        content=result,
+                        content_type=kwargs.get('content_type', 'unknown'),
+                        allow_partial=kwargs.get('allow_partial', False)
+                    )
+
+                    if not validation.is_valid:
+                        logger.warning(
+                            f"LLM response validation failed (attempt {attempt+1}/{max_retries}): {', '.join(validation.errors[:3])}",
+                            extra={
+                                "layer": "llm_validation",
+                                "provider": provider,
+                                "attempt": attempt + 1,
+                                "errors_count": len(validation.errors),
+                                "will_retry": attempt < max_retries - 1
+                            }
+                        )
+
+                        if attempt < max_retries - 1:
+                            # Enhance prompt for retry
+                            prompt = self._enhance_prompt_for_retry(prompt, validation.errors)
+                            logger.info(f"Retrying with enhanced prompt (attempt {attempt+2}/{max_retries})")
+                            continue  # Retry with enhanced prompt
+                        else:
+                            # Max retries reached - log but allow to proceed
+                            # (Layer 2 markdown validator will attempt auto-fix)
+                            logger.error(
+                                f"LLM validation failed after {max_retries} attempts",
+                                extra={
+                                    "layer": "llm_validation",
+                                    "provider": provider,
+                                    "max_retries": max_retries,
+                                    "errors": validation.errors
+                                }
+                            )
+                    else:
+                        logger.info(
+                            f"LLM response validation passed (attempt {attempt+1})",
+                            extra={
+                                "layer": "llm_validation",
+                                "validation_duration_ms": validation.validation_duration_ms
+                            }
+                        )
+
+                    # Validation passed or max retries reached - proceed
                     logger.info(f"✓ Success with {provider} (attempt {attempt + 1})")
                     self._save_to_cache(cache_key, result)
                     return result
@@ -420,6 +466,51 @@ class LLMService:
         raise RuntimeError(
             f"All LLM providers failed after {max_retries} retries each:\n{error_summary}"
         )
+
+    def _enhance_prompt_for_retry(self, prompt: str, errors: List[str]) -> str:
+        """Enhance prompt with formatting instructions based on validation errors.
+
+        Args:
+            prompt: Original prompt
+            errors: List of validation error messages
+
+        Returns:
+            Enhanced prompt with additional instructions
+        """
+        enhancements = []
+
+        if any('code block' in e.lower() or 'fence' in e.lower() for e in errors):
+            enhancements.append(
+                "IMPORTANT: Do NOT wrap your entire response in a code block. "
+                "Use code blocks (```) only for code examples, not for the whole document."
+            )
+
+        if any('frontmatter' in e.lower() for e in errors):
+            enhancements.append(
+                "IMPORTANT: Do NOT include YAML frontmatter (---). "
+                "It will be added automatically by the system."
+            )
+
+        if any('truncated' in e.lower() or 'incomplete' in e.lower() or 'too short' in e.lower() for e in errors):
+            enhancements.append(
+                "IMPORTANT: Complete your response fully. "
+                "End with a proper conclusion, not mid-sentence."
+            )
+
+        if any('prose' in e.lower() or 'heading' in e.lower() for e in errors):
+            enhancements.append(
+                "IMPORTANT: Generate proper markdown with headings (##) and well-structured paragraphs."
+            )
+
+        if not enhancements:
+            # Generic enhancement for unknown errors
+            enhancements.append(
+                "IMPORTANT: Ensure your response is well-formatted markdown "
+                "with balanced code blocks and complete sentences."
+            )
+
+        enhancement_text = "\n".join(enhancements)
+        return f"{enhancement_text}\n\n{prompt}"
 
     def _call_provider(
         self,

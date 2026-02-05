@@ -8,11 +8,12 @@ Replaces brittle byte-only threshold with comprehensive rubric:
 - D) Grounding (≥2 references)
 - E) Size (soft: 1800 hard min, 2200+ target)
 - F) Safety (no fenced frontmatter)
+- G) Markdown syntax (REQUIRED: no unclosed code blocks, orphaned markers)
 """
 
 import re
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 
 def check_frontmatter(content: str) -> tuple[bool, bool]:
@@ -97,6 +98,85 @@ def count_references(content: str) -> int:
     reference_count += min(len(substantial_entities), 3)  # Cap contribution
 
     return reference_count
+
+
+def validate_markdown_syntax(content: str) -> Tuple[bool, List[str]]:
+    """Validate markdown syntax for common errors.
+
+    Detects:
+    - Unclosed code blocks
+    - Orphaned backtick markers
+    - Mismatched code fence pairs
+    - Orphaned language specifiers (missing opening fence)
+
+    Args:
+        content: Markdown content to validate
+
+    Returns:
+        (is_valid, list_of_errors)
+    """
+    errors = []
+
+    # Track code fence state
+    in_code_block = False
+    code_fence_stack = []
+
+    lines = content.split('\n')
+
+    # Common language specifiers that shouldn't appear standalone
+    lang_specifiers = {
+        'python', 'javascript', 'java', 'bash', 'sh', 'yaml', 'json',
+        'xml', 'sql', 'typescript', 'cpp', 'c', 'ruby', 'go', 'rust',
+        'html', 'css', 'php', 'perl', 'swift', 'kotlin', 'scala'
+    }
+
+    for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+
+        # Detect code fence markers (``` or ~~~)
+        if stripped.startswith('```') or stripped.startswith('~~~'):
+            fence_marker = stripped[:3]
+            # Check if this is an opening fence (has language specifier) or closing fence (bare)
+            has_language = len(stripped) > 3 and stripped[3:].strip()
+
+            if not in_code_block:
+                # We're outside a code block, so this must be an opening fence
+                in_code_block = True
+                code_fence_stack.append((i, fence_marker, stripped))
+            else:
+                # We're inside a code block
+                # If this fence has a language specifier, it's likely a nested/orphaned opening
+                if has_language:
+                    # This is a fence with language specifier inside a code block - error!
+                    errors.append(f"Nested code block at line {i}: found {stripped} inside block opened at line {code_fence_stack[-1][0] if code_fence_stack else '?'}")
+                else:
+                    # This is a bare fence - should be closing
+                    if code_fence_stack:
+                        open_line, open_marker, _ = code_fence_stack.pop()
+                        if fence_marker != open_marker:
+                            errors.append(f"Mismatched code fence: {open_marker} at line {open_line}, {fence_marker} at line {i}")
+                    else:
+                        # Closing fence without opening - shouldn't happen if logic is correct
+                        errors.append(f"Orphaned closing fence at line {i} without matching opening")
+                    in_code_block = False
+
+        # Check for standalone language specifiers (orphaned)
+        elif stripped.lower() in lang_specifiers and not in_code_block:
+            # Check if previous line was a fence opening
+            if i > 1:
+                prev_line = lines[i-2].strip()  # i is 1-indexed, lines is 0-indexed
+                if not (prev_line.startswith('```') or prev_line.startswith('~~~')):
+                    errors.append(f"Orphaned language specifier '{stripped}' at line {i} without opening fence")
+            else:
+                # Language specifier at start of file without fence
+                errors.append(f"Orphaned language specifier '{stripped}' at line {i} without opening fence")
+
+    # Check for unclosed blocks
+    if in_code_block and code_fence_stack:
+        for open_line, marker, _ in code_fence_stack:
+            errors.append(f"Unclosed code block: {marker} opened at line {open_line} never closed")
+
+    return len(errors) == 0, errors
 
 
 def evaluate_output(output_path: str) -> Dict:
@@ -205,6 +285,20 @@ def evaluate_output(output_path: str) -> Dict:
     else:
         result["reasons"].append(f"criterion_e_size_ideal_{size}")
 
+    # G) Markdown syntax check (REQUIRED)
+    syntax_valid, syntax_errors = validate_markdown_syntax(content)
+    result["metrics"]["syntax_valid"] = syntax_valid
+    result["metrics"]["syntax_error_count"] = len(syntax_errors)
+
+    if syntax_valid:
+        result["reasons"].append("criterion_g_syntax_valid")
+    else:
+        error_summary = "; ".join(syntax_errors[:3])
+        if len(syntax_errors) > 3:
+            error_summary += f" (and {len(syntax_errors) - 3} more)"
+        result["failures"].append(f"criterion_g_syntax_errors_{len(syntax_errors)}")
+        result["metrics"]["syntax_errors"] = syntax_errors
+
     # Overall pass: all REQUIRED criteria met
     required_pass = (
         has_frontmatter and
@@ -212,7 +306,8 @@ def evaluate_output(output_path: str) -> Dict:
         heading_count >= 3 and
         section_count >= 2 and
         reference_count >= 2 and
-        size >= HARD_MIN
+        size >= HARD_MIN and
+        syntax_valid
     )
 
     result["pass"] = required_pass
