@@ -15,6 +15,7 @@ from src.utils.frontmatter_normalize import normalize_frontmatter, has_valid_fro
 from src.utils.content_expansion import ensure_minimum_size, TARGET_BYTES
 from src.utils.grounding_enforcer import enforce_minimum_references
 from src.utils.completeness_enforcer import enforce_minimum_sections
+from src.utils.markdown_validator import enforce_valid_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -757,6 +758,15 @@ class UnifiedEngine:
                 min_sections=2  # Quality gate criterion C requires >= 2
             )
             logger.info(f"  Section enforcement passed")
+
+            # Validate markdown syntax (Layer 2 defense)
+            logger.info("Validating markdown syntax before writing to disk")
+            try:
+                content = enforce_valid_markdown(content, strict=False, auto_fix=True)
+                logger.info("✓ Markdown syntax validation passed")
+            except ValueError as e:
+                logger.error(f"Markdown syntax validation failed: {e}")
+                raise
 
             # Add run summary AFTER frontmatter enforcement and size check
             run_summary = self._generate_run_summary(result)
