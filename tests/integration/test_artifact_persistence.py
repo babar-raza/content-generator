@@ -8,6 +8,8 @@ from pathlib import Path
 
 from src.engine.unified_engine import get_engine, RunSpec, JobStatus
 
+pytestmark = pytest.mark.live  # All tests require a live LLM provider
+
 
 class TestArtifactPersistence:
     """Test artifact writing in all scenarios."""

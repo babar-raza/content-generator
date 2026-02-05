@@ -146,6 +146,7 @@ def test_happy_path(tmp_path: Path) -> None:
     assert manifest_data["status"] == result.status.value
 
 
+@pytest.mark.live
 def test_error_path(tmp_path: Path) -> None:
     """Submit an invalid run spec and ensure the engine fails gracefully."""
     engine = create_engine()
@@ -211,6 +212,7 @@ def _run_job(engine: UnifiedEngine, topic: str, results: Dict[str, Any]) -> None
     results[topic] = res
 
 
+@pytest.mark.live
 def test_parallel_execution(tmp_path: Path) -> None:
     """Run two jobs concurrently and ensure they don't interfere."""
     engine = create_engine()

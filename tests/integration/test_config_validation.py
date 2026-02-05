@@ -149,6 +149,7 @@ class TestConfigValidator:
 class TestConfigIntegration:
     """Test configuration integration with other components."""
     
+    @pytest.mark.live
     def test_config_used_by_engine(self):
         """Test that engine loads and uses config."""
 
